@@ -1,0 +1,17 @@
+# Dependencies / node_modules
+# This will ignore all node_modules folders in the entire project
+node_modules/
+
+# Production
+/build
+/dist
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.vscode/
