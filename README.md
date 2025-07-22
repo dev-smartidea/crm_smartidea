@@ -27,7 +27,7 @@
 
 3.  **ติดตั้ง Dependencies ฝั่ง Frontend:**
     ```bash
-    cd ../frontend
+    cd ..frontend
     npm install
     ```
 
