@@ -1,20 +1,27 @@
+// นำเข้า React และ Hook ที่จำเป็น
 import React, { useState } from 'react';
+// นำเข้า useNavigate สำหรับเปลี่ยนหน้า
 import { useNavigate } from 'react-router-dom';
 
+// สร้างคอมโพเนนต์ LoginPage
 function LoginPage({ onLoginSuccess }) {
+  // สร้าง state สำหรับเก็บข้อมูลฟอร์มและ error
   const [form, setForm] = useState({ username: '', password: '' });
+  const [errorMsg, setErrorMsg] = useState('');
+  // สร้างตัวแปร navigate สำหรับเปลี่ยนหน้า
   const navigate = useNavigate();
 
+  // ฟังก์ชันสำหรับจัดการเมื่อกรอกข้อมูลในฟอร์ม
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const [errorMsg, setErrorMsg] = useState('');
-
+  // ฟังก์ชันสำหรับจัดการเมื่อกดปุ่มล็อกอิน
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     try {
+      // เรียก API สำหรับล็อกอิน
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -45,8 +52,10 @@ function LoginPage({ onLoginSuccess }) {
     }
   };
 
+  // ส่วนแสดงผลหน้าจอ Login
   return (
     <div className="container mt-5" style={{ maxWidth: '400px' }}>
+      {/* ส่วนหัว Login */}
       <h2 className="mb-3 text-primary">🔐 เข้าสู่ระบบ</h2>
       {errorMsg && (
         <div className="alert alert-danger" role="alert">
@@ -54,6 +63,7 @@ function LoginPage({ onLoginSuccess }) {
         </div>
       )}
       <form onSubmit={handleSubmit}>
+        {/* ฟิลด์กรอกชื่อผู้ใช้ */}
         <div className="mb-3">
           <input
             type="text"
@@ -65,6 +75,7 @@ function LoginPage({ onLoginSuccess }) {
             required
           />
         </div>
+        {/* ฟิลด์กรอกรหัสผ่าน */}
         <div className="mb-3">
           <input
             type="password"
@@ -76,8 +87,10 @@ function LoginPage({ onLoginSuccess }) {
             required
           />
         </div>
+        {/* ปุ่มล็อกอิน */}
         <button type="submit" className="btn btn-primary w-100">Login</button>
       </form>
+      {/* ลิงก์ไปยังหน้าสมัครสมาชิก */}
       <p className="mt-3 text-center">
         ยังไม่มีบัญชี? <a href="/register">สมัครสมาชิก</a>
       </p>
