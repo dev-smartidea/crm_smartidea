@@ -40,8 +40,27 @@ router.patch('/users/:id/role', requireAdmin, async (req, res) => {
 
 // DELETE /users/:id - ลบ user (admin เท่านั้น)
 router.delete('/users/:id', requireAdmin, async (req, res) => {
-  const user = await User.findByIdAndDelete(req.params.id);
+  // ค้นหา user ก่อนลบเพื่อดึงข้อมูล avatar
+  const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
+  // เตรียมลบไฟล์ avatar ถ้ามี
+  let avatarPath = null;
+  if (user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '') {
+    const match = user.avatar.match(/\/uploads\/avatars\/(.+)$/);
+    if (match) {
+      const filename = match[1];
+      avatarPath = require('path').join(__dirname, '../uploads/avatars', filename);
+    }
+  }
+  // ลบ user จาก database
+  await User.findByIdAndDelete(req.params.id);
+  // ลบไฟล์ avatar ถ้ามี
+  if (avatarPath) {
+    const fs = require('fs');
+    fs.unlink(avatarPath, err => {
+      if (err) console.error('Failed to delete avatar:', avatarPath, err);
+    });
+  }
   res.json({ message: 'ลบผู้ใช้สำเร็จ' });
 });
 
