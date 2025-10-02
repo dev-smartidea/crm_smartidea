@@ -66,29 +66,47 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 
 // ✅ Register
 router.post('/register', async (req, res) => {
-  const { username, name, email, password } = req.body;
-  if (!username || !name || !email || !password) {
-    return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
+  try {
+    console.log('Register request body:', req.body);
+    const { username, name, email, password } = req.body;
+    if (!username || !name || !email || !password) {
+      return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
+    }
+    const existUsername = await User.findOne({ username });
+    if (existUsername) return res.status(400).json({ error: 'Username นี้ถูกใช้แล้ว' });
+    const existEmail = await User.findOne({ email });
+    if (existEmail) return res.status(400).json({ error: 'Email นี้ถูกใช้แล้ว' });
+    const hash = await bcrypt.hash(password, 10);
+    const user = new User({ username, name, email, password: hash, role: 'user' });
+    await user.save();
+    res.json({ message: '✅ สมัครสำเร็จ' });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server', detail: err.message });
   }
-  const existUsername = await User.findOne({ username });
-  if (existUsername) return res.status(400).json({ error: 'Username นี้ถูกใช้แล้ว' });
-  const existEmail = await User.findOne({ email });
-  if (existEmail) return res.status(400).json({ error: 'Email นี้ถูกใช้แล้ว' });
-  const hash = await bcrypt.hash(password, 10);
-  const user = new User({ username, name, email, password: hash, role: 'user' });
-  await user.save();
-  res.json({ message: '✅ สมัครสำเร็จ' });
 });
 
 // ✅ Login
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  const user = await User.findOne({ username });
-  if (!user) return res.status(400).json({ error: 'ไม่พบผู้ใช้' });
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
-  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-  res.json({ token });
+  try {
+    console.log('Login request body:', req.body);
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    if (!user) {
+      console.log('Login failed: user not found');
+      return res.status(400).json({ error: 'ไม่พบผู้ใช้' });
+    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      console.log('Login failed: password incorrect');
+      return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
+    }
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server', detail: err.message });
+  }
 });
 
 // ✅ Profile (ดึงข้อมูลผู้ใช้ที่ล็อกอิน)
