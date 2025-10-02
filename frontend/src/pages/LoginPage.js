@@ -1,29 +1,22 @@
-// นำเข้า React และ Hook ที่จำเป็น
 import React, { useState } from 'react';
-// นำเข้า useNavigate สำหรับเปลี่ยนหน้า
 import { useNavigate, Link } from 'react-router-dom';
+import { Person, Lock, Eye, EyeSlash } from 'react-bootstrap-icons';
+import './LoginPage.css';
 
-// สร้างคอมโพเนนต์ LoginPage
 function LoginPage({ onLoginSuccess }) {
-  // สร้าง state สำหรับเก็บข้อมูลฟอร์มและ error
   const [form, setForm] = useState({ username: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
-  // เพิ่ม state สำหรับควบคุมการแสดงรหัสผ่าน
   const [showPassword, setShowPassword] = useState(false);
-  // สร้างตัวแปร navigate สำหรับเปลี่ยนหน้า
   const navigate = useNavigate();
 
-  // ฟังก์ชันสำหรับจัดการเมื่อกรอกข้อมูลในฟอร์ม
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // ฟังก์ชันสำหรับจัดการเมื่อกดปุ่มล็อกอิน
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     try {
-      // เรียก API สำหรับล็อกอิน
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,13 +26,14 @@ function LoginPage({ onLoginSuccess }) {
       const data = await res.json();
 
       if (res.ok && data.token) {
-        // decode token เพื่อดู role
         localStorage.setItem('token', data.token);
         let role = 'user';
         try {
           const payload = JSON.parse(atob(data.token.split('.')[1]));
           role = payload.role || 'user';
-        } catch (e) {}
+        } catch (e) {
+          console.error("Token parsing error:", e);
+        }
         window.alert('✅ เข้าสู่ระบบสำเร็จ');
         if (role === 'admin') {
           navigate('/dashboard/admin');
@@ -47,66 +41,69 @@ function LoginPage({ onLoginSuccess }) {
           navigate('/dashboard');
         }
       } else {
-        setErrorMsg('❌ ' + (data.error || 'เกิดข้อผิดพลาด'));
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดที่ไม่รู้จัก');
       }
     } catch (err) {
-      setErrorMsg('❌ มีข้อผิดพลาด: ' + err.message);
+      setErrorMsg('❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message);
     }
   };
 
-  // ส่วนแสดงผลหน้าจอ Login
   return (
-    <div className="container mt-5" style={{ maxWidth: '400px' }}>
-      {/* ส่วนหัว Login */}
-      <h2 className="mb-3 text-primary">🔐 เข้าสู่ระบบ</h2>
-      {errorMsg && (
-        <div className="alert alert-danger" role="alert">
-          {errorMsg}
+    <div className="login-page-container">
+      <div className="login-card">
+        <div className="login-header">
+          <h2>เข้าสู่ระบบ</h2>
+          <p>กรุณาลงชื่อเข้าใช้บัญชีของคุณ</p>
         </div>
-      )}
-      <form onSubmit={handleSubmit}>
-        {/* ฟิลด์กรอกชื่อผู้ใช้ */}
-        <div className="mb-3">
-          <input
-            type="text"
-            name="username"
-            className="form-control"
-            placeholder="Username"
-            value={form.username}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        {/* ฟิลด์กรอกรหัสผ่าน */}
-        <div className="mb-3">
+
+        {errorMsg && (
+          <div className="login-error-message">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
+            <Person className="input-icon" />
+            <input
+              type="text"
+              name="username"
+              className="form-control"
+              placeholder="ชื่อผู้ใช้"
+              value={form.username}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="input-group">
+            <Lock className="input-icon" />
             <input
               type={showPassword ? "text" : "password"}
               name="password"
               className="form-control"
-              placeholder="Password"
+              placeholder="รหัสผ่าน"
               value={form.password}
               onChange={handleChange}
               required
             />
             <button
               type="button"
-              className="btn btn-outline-secondary"
+              className="password-toggle-btn"
               onClick={() => setShowPassword((prev) => !prev)}
-              tabIndex={-1}
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
             >
-              {showPassword ? "ซ่อน" : "แสดง"}
+              {showPassword ? <EyeSlash /> : <Eye />}
             </button>
           </div>
-        </div>
-        {/* ปุ่มล็อกอิน */}
-        <button type="submit" className="btn btn-primary w-100">Login</button>
-      </form>
-      {/* ลิงก์ไปยังหน้าสมัครสมาชิก */}
-      <p className="mt-3 text-center">
-        ยังไม่มีบัญชี? <Link to="/register">สมัครสมาชิก</Link>
-      </p>
+
+          <button type="submit" className="login-btn">เข้าสู่ระบบ</button>
+        </form>
+
+        <p className="register-link">
+          ยังไม่มีบัญชี? <Link to="/register">สมัครสมาชิกที่นี่</Link>
+        </p>
+      </div>
     </div>
   );
 }

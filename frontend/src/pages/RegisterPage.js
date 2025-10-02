@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { Person, Envelope, Lock, Eye, EyeSlash, PersonVcard } from 'react-bootstrap-icons';
+import './RegisterPage.css';
 
 function RegisterPage() {
   const [form, setForm] = useState({
@@ -9,124 +11,118 @@ function RegisterPage() {
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const [errorMsg, setErrorMsg] = useState('');
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     try {
-      console.log('Register submit:', form);
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(form)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       });
-      console.log('Register response:', res);
-      let data = {};
-      let isJson = false;
-      let contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          data = await res.json();
-          isJson = true;
-        } catch (jsonErr) {
-          setErrorMsg('❌ ข้อมูลจากเซิร์ฟเวอร์ผิดรูปแบบ');
-          return;
-        }
-      } else {
-        // ถ้า response ไม่ใช่ JSON
-        setErrorMsg('❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ หรือเซิร์ฟเวอร์ไม่ตอบกลับข้อมูลที่ถูกต้อง');
-        return;
-      }
-      console.log('Register response data:', data);
-      if (res.ok && isJson) {
-        window.alert('✅ สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ');
+
+      const data = await res.json();
+
+      if (res.ok) {
+        window.alert('✅ สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ');
         navigate('/login');
       } else {
-        setErrorMsg(data.error || 'เกิดข้อผิดพลาด');
+        setErrorMsg(data.error || 'เกิดข้อผิดพลาดที่ไม่รู้จัก');
       }
     } catch (err) {
-      // network error เช่น fetch ไม่สำเร็จ
-      setErrorMsg('❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์: ' + err.message);
+      setErrorMsg('❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message);
     }
   };
 
   return (
-    <div className="container mt-5" style={{ maxWidth: '400px' }}>
-      <h2 className="mb-3 text-success">📝 สมัครสมาชิก</h2>
-      {errorMsg && (
-        <div className="alert alert-danger" role="alert">
-          {errorMsg}
+    <div className="register-page-container">
+      <div className="register-card">
+        <div className="register-header">
+          <h2>สร้างบัญชีใหม่</h2>
+          <p>เริ่มต้นใช้งานโดยการกรอกข้อมูลของคุณ</p>
         </div>
-      )}
-      <form onSubmit={handleSubmit}>
-        <div className="mb-3">
-          <input
-            type="text"
-            name="username"
-            className="form-control"
-            placeholder="Username"
-            value={form.username}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <input
-            type="text"
-            name="name"
-            className="form-control"
-            placeholder="ชื่อ-นามสกุล"
-            value={form.name}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <input
-            type="email"
-            name="email"
-            className="form-control"
-            placeholder="Email"
-            value={form.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="mb-3">
+
+        {errorMsg && (
+          <div className="register-error-message">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="register-form">
           <div className="input-group">
+            <Person className="input-icon" />
+            <input
+              type="text"
+              name="username"
+              className="form-control"
+              placeholder="ชื่อผู้ใช้"
+              value={form.username}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <PersonVcard className="input-icon" />
+            <input
+              type="text"
+              name="name"
+              className="form-control"
+              placeholder="ชื่อ-นามสกุล"
+              value={form.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <Envelope className="input-icon" />
+            <input
+              type="email"
+              name="email"
+              className="form-control"
+              placeholder="อีเมล"
+              value={form.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <Lock className="input-icon" />
             <input
               type={showPassword ? "text" : "password"}
               name="password"
               className="form-control"
-              placeholder="Password"
+              placeholder="รหัสผ่าน"
               value={form.password}
               onChange={handleChange}
               required
             />
             <button
               type="button"
-              className="btn btn-outline-secondary"
+              className="password-toggle-btn"
               onClick={() => setShowPassword((prev) => !prev)}
-              tabIndex={-1}
+              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
             >
-              {showPassword ? "ซ่อน" : "แสดง"}
+              {showPassword ? <EyeSlash /> : <Eye />}
             </button>
           </div>
-        </div>
-        <button type="submit" className="btn btn-success w-100">สมัคร</button>
-      </form>
-      <p className="mt-3 text-center">
-        มีบัญชีแล้ว? <a href="/login">เข้าสู่ระบบ</a>
-      </p>
+
+          <button type="submit" className="register-btn">สมัครสมาชิก</button>
+        </form>
+
+        <p className="login-link">
+          มีบัญชีอยู่แล้ว? <Link to="/login">เข้าสู่ระบบที่นี่</Link>
+        </p>
+      </div>
     </div>
   );
 }
