@@ -10,7 +10,7 @@ app.use(express.json());
 // เพิ่ม session middleware
 const session = require('express-session');
 app.use(session({
-  secret: 'your_secret_key',
+  secret: process.env.SESSION_SECRET || 'your_secret_key', // ใช้ Secret จาก .env
   resave: false,
   saveUninitialized: true
 }));

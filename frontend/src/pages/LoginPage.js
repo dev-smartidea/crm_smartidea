@@ -1,13 +1,15 @@
 // นำเข้า React และ Hook ที่จำเป็น
 import React, { useState } from 'react';
 // นำเข้า useNavigate สำหรับเปลี่ยนหน้า
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 // สร้างคอมโพเนนต์ LoginPage
 function LoginPage({ onLoginSuccess }) {
   // สร้าง state สำหรับเก็บข้อมูลฟอร์มและ error
   const [form, setForm] = useState({ username: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
+  // เพิ่ม state สำหรับควบคุมการแสดงรหัสผ่าน
+  const [showPassword, setShowPassword] = useState(false);
   // สร้างตัวแปร navigate สำหรับเปลี่ยนหน้า
   const navigate = useNavigate();
 
@@ -77,22 +79,33 @@ function LoginPage({ onLoginSuccess }) {
         </div>
         {/* ฟิลด์กรอกรหัสผ่าน */}
         <div className="mb-3">
-          <input
-            type="password"
-            name="password"
-            className="form-control"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            required
-          />
+          <div className="input-group">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              className="form-control"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+              required
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setShowPassword((prev) => !prev)}
+              tabIndex={-1}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? "ซ่อน" : "แสดง"}
+            </button>
+          </div>
         </div>
         {/* ปุ่มล็อกอิน */}
         <button type="submit" className="btn btn-primary w-100">Login</button>
       </form>
       {/* ลิงก์ไปยังหน้าสมัครสมาชิก */}
       <p className="mt-3 text-center">
-        ยังไม่มีบัญชี? <a href="/register">สมัครสมาชิก</a>
+        ยังไม่มีบัญชี? <Link to="/register">สมัครสมาชิก</Link>
       </p>
     </div>
   );

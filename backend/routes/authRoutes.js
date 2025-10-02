@@ -102,7 +102,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
     }
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    res.json({ token });
+    res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server', detail: err.message });
@@ -204,8 +204,7 @@ router.post('/upload-avatar', upload.single('avatar'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  // คืน url แบบ absolute
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
-  const url = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+  // ใช้ URL แบบ relative เพื่อให้ยืดหยุ่น
+  const url = `/uploads/avatars/${req.file.filename}`;
   res.json({ url });
 });

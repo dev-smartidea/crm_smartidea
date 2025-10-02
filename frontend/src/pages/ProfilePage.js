@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './ProfilePage.css';
-// ...existing code...
+import { PersonVcard, Envelope, Telephone, ShieldLock, PencilSquare } from 'react-bootstrap-icons';
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -12,7 +12,7 @@ const ProfilePage = () => {
   const [avatarFile, setAvatarFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const fileInputRef = React.useRef();
+  const fileInputRef = useRef();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -42,10 +42,6 @@ const ProfilePage = () => {
     }
   }, [user]);
 
-  if (loading) return <div className="profile-loading">กำลังโหลด...</div>;
-  if (error) return <div className="profile-error">{error}</div>;
-  if (!user) return <div className="profile-error">ไม่พบข้อมูลผู้ใช้</div>;
-
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -54,7 +50,7 @@ const ProfilePage = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setShowConfirm(true);
   };
 
@@ -64,102 +60,129 @@ const ProfilePage = () => {
     try {
       const token = localStorage.getItem('token');
       let avatarUrl = user.avatar;
+
       if (avatarFile) {
         const formData = new FormData();
         formData.append('avatar', avatarFile);
         const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/upload-avatar`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
         });
         avatarUrl = res.data.url;
       }
+
       await axios.patch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, { phone, avatar: avatarUrl }, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // รีเฟรชข้อมูล user จาก backend
+
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUser(res.data);
-      if (res.data.avatar && typeof res.data.avatar === 'string' && res.data.avatar.trim() !== '') {
-        setAvatarPreview(res.data.avatar);
-      } else {
-        setAvatarPreview(require('../img/blank-profile.png'));
-      }
       setError('');
     } catch (err) {
+      console.error("Error saving profile:", err.response ? err.response.data : err.message);
       setError('บันทึกข้อมูลไม่สำเร็จ');
     } finally {
       setSaving(false);
+      setAvatarFile(null);
     }
   };
 
+  const handleCancelConfirm = () => {
+    setShowConfirm(false);
+  };
+
+  if (loading) return <div className="profile-loading">กำลังโหลด...</div>;
+  if (error) return <div className="profile-error">{error}</div>;
+  if (!user) return <div className="profile-error">ไม่พบข้อมูลผู้ใช้</div>;
+
   return (
     <>
-      {/* Popup Confirm Modal */}
       {showConfirm && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.15)', minWidth: 320, textAlign: 'center' }}>
-            <h3 style={{ marginBottom: 18 }}>ยืนยันการบันทึกข้อมูล</h3>
-            <div style={{ marginBottom: 24, color: '#555' }}>คุณต้องการบันทึกข้อมูลโปรไฟล์ใช่หรือไม่?</div>
-            <button style={{ marginRight: 16, padding: '8px 24px', borderRadius: 6, border: 'none', background: '#888', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }} onClick={() => setShowConfirm(false)}>ยกเลิก</button>
-            <button style={{ padding: '8px 24px', borderRadius: 6, border: 'none', background: '#007bff', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }} onClick={handleConfirmSave}>ยืนยัน</button>
+        <div className="confirm-modal-backdrop">
+          <div className="confirm-modal-content">
+            <h3>ยืนยันการบันทึก</h3>
+            <p>คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลโปรไฟล์ใช่หรือไม่?</p>
+            <div className="confirm-modal-actions">
+              <button onClick={handleCancelConfirm} className="btn-cancel">ยกเลิก</button>
+              <button onClick={handleConfirmSave} className="btn-confirm">ยืนยัน</button>
+            </div>
           </div>
         </div>
       )}
-      <div className="profile-container" style={{ background: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
-        <h2 style={{ marginTop: 48, marginBottom: 24, fontWeight: 600, fontSize: '2rem', textAlign: 'center' }}>โปรไฟล์พนักงาน</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
-          <img
-            src={avatarPreview}
-            alt="avatar"
-            style={{ width: 110, height: 110, borderRadius: '50%', objectFit: 'cover', background: '#eee', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}
-            onClick={() => fileInputRef.current && fileInputRef.current.click()}
-            title="เปลี่ยนรูปโปรไฟล์"
-            onError={e => { e.target.onerror = null; e.target.src = require('../img/blank-profile.png'); }}
-          />
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleAvatarChange}
-            style={{ display: 'none' }}
-          />
-          <div style={{ fontSize: 13, color: '#888', marginTop: 10 }}>(คลิกที่รูปเพื่อเปลี่ยนรูปโปรไฟล์)</div>
-        </div>
-        <div style={{ width: '100%', maxWidth: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', fontSize: '1.08rem' }}>
-            <span style={{ color: '#888', minWidth: 90 }}>ชื่อ:</span>
-            <span style={{ fontWeight: 500 }}>{user.name}</span>
+
+      <div className="profile-page-container">
+        <div className="profile-card">
+          <div className="profile-header">
+            <h2>โปรไฟล์ของฉัน</h2>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', fontSize: '1.08rem' }}>
-            <span style={{ color: '#888', minWidth: 90 }}>Username:</span>
-            <span style={{ fontWeight: 500 }}>{user.username}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', fontSize: '1.08rem' }}>
-            <span style={{ color: '#888', minWidth: 90 }}>Email:</span>
-            <span style={{ fontWeight: 500 }}>{user.email}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', fontSize: '1.08rem' }}>
-            <span style={{ color: '#888', minWidth: 90 }}>Role:</span>
-            <span style={{ fontWeight: 500 }}>{user.role}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', fontSize: '1.08rem' }}>
-            <label htmlFor="phone" style={{ color: '#888', minWidth: 90, marginRight: 8 }}>เบอร์โทร:</label>
+
+          <div className="profile-avatar-section">
+            <div className="profile-avatar-container">
+              <img
+                src={avatarPreview}
+                alt="Avatar"
+                className="profile-avatar"
+                onError={e => { e.target.onerror = null; e.target.src = require('../img/blank-profile.png'); }}
+              />
+              <button className="edit-avatar-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
+                <PencilSquare size={16} />
+              </button>
+            </div>
             <input
-              id="phone"
-              type="text"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #ccc', width: 160, fontSize: '1rem' }}
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleAvatarChange}
+              style={{ display: 'none' }}
             />
+            <p className="avatar-note">(คลิกที่ปุ่มดินสอเพื่อเปลี่ยนรูป)</p>
           </div>
+
+          <div className="profile-details">
+            <div className="profile-detail-item">
+              <PersonVcard className="icon" />
+              <span className="label">ชื่อ:</span>
+              <span className="value">{user.name}</span>
+            </div>
+            <div className="profile-detail-item">
+              <PersonVcard className="icon" />
+              <span className="label">Username:</span>
+              <span className="value">{user.username}</span>
+            </div>
+            <div className="profile-detail-item">
+              <Envelope className="icon" />
+              <span className="label">Email:</span>
+              <span className="value">{user.email}</span>
+            </div>
+            <div className="profile-detail-item">
+              <ShieldLock className="icon" />
+              <span className="label">Role:</span>
+              <span className="value">{user.role}</span>
+            </div>
+            <div className="profile-detail-item editable">
+              <Telephone className="icon" />
+              <label htmlFor="phone" className="label">เบอร์โทร:</label>
+              <input
+                id="phone"
+                type="text"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="profile-input"
+                placeholder="xxx-xxx-xxxx"
+              />
+            </div>
+          </div>
+
+          {error && <p className="profile-error-message">{error}</p>}
+
+          <button className="profile-save-btn" onClick={handleSave} disabled={saving}>
+            {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+          </button>
         </div>
-        <button className="profile-save-btn" onClick={handleSave} disabled={saving} style={{ width: 220, margin: '32px auto 0', fontSize: '1.08rem' }}>
-          {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-        </button>
       </div>
     </>
   );

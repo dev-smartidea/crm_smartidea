@@ -8,6 +8,7 @@ function RegisterPage() {
     email: '',
     password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -101,15 +102,25 @@ function RegisterPage() {
           />
         </div>
         <div className="mb-3">
-          <input
-            type="password"
-            name="password"
-            className="form-control"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            required
-          />
+          <div className="input-group">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              className="form-control"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+              required
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setShowPassword((prev) => !prev)}
+              tabIndex={-1}
+            >
+              {showPassword ? "ซ่อน" : "แสดง"}
+            </button>
+          </div>
         </div>
         <button type="submit" className="btn btn-success w-100">สมัคร</button>
       </form>

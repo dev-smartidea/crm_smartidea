@@ -3,6 +3,7 @@ import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
+import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight } from 'react-bootstrap-icons';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -31,14 +32,16 @@ export default function DashboardLayout() {
       <ProfileNavbar user={user} />
       <div className="dashboard-layout">
         <aside className="sidebar">
-          <h4>Menu</h4>
-          <ul>
-            <li><Link to="/dashboard">Dashboard</Link></li>
-            <li><Link to="add">เพิ่มลูกค้า</Link></li>
-            <li><Link to="list">รายชื่อลูกค้า</Link></li>
-            <li><Link to="profile">โปรไฟล์</Link></li>
+          <h4 className="sidebar-header">Menu</h4>
+          <ul className="nav-menu">
+            <li><Link to="/dashboard"><HouseDoor /> Dashboard</Link></li>
+            <li><Link to="add"><PersonPlus /> เพิ่มลูกค้า</Link></li>
+            <li><Link to="list"><People /> รายชื่อลูกค้า</Link></li>
+            <li><Link to="profile"><PersonCircle /> โปรไฟล์</Link></li>
           </ul>
-          <button className="btn btn-sm btn-danger mt-3" onClick={logout}>ออกจากระบบ</button>
+          <div className="logout-section">
+            <button className="btn btn-danger" onClick={logout}><BoxArrowRight /> ออกจากระบบ</button>
+          </div>
         </aside>
 
         <main className="main-content">

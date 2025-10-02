@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import { PersonVcardFill, TelephoneFill, Line, Facebook, Globe, BoxSeam, CalendarPlus, ArrowLeftCircleFill } from 'react-bootstrap-icons';
+import './CustomerDetailPage.css';
 
 export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState(null);
@@ -10,12 +12,11 @@ export default function CustomerDetailPage() {
 
   useEffect(() => {
     const fetchCustomer = async () => {
+      setLoading(true);
       try {
         const token = localStorage.getItem('token');
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/customers/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` }
         });
         setCustomer(res.data);
       } catch (err) {
@@ -29,32 +30,67 @@ export default function CustomerDetailPage() {
     fetchCustomer();
   }, [id]);
 
+  const DetailItem = ({ icon, label, value, className = '', placeholder = '-' }) => (
+    <div className="detail-item">
+      <div className="detail-item-icon">{icon}</div>
+      <div className="detail-item-content">
+        <span className="detail-item-label">{label}</span>
+        <span className={`detail-item-value ${className} ${!value && 'placeholder'}`}>
+          {value || placeholder}
+        </span>
+      </div>
+    </div>
+  );
+
   if (loading) {
-    return <p>กำลังโหลด...</p>;
+    return (
+      <div className="customer-detail-page">
+        <div className="loading-container">กำลังโหลดข้อมูลลูกค้า...</div>
+      </div>
+    );
   }
 
   if (error) {
-    return <p className="text-danger">{error}</p>;
+    return (
+      <div className="customer-detail-page">
+        <div className="error-container">{error}</div>
+      </div>
+    );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 2px 16px rgba(0,0,0,0.10)', padding: '40px 32px', maxWidth: 520, width: '100%' }}>
+    <div className="customer-detail-page">
+      <div className="detail-container">
         {customer ? (
           <>
-            <h2 style={{ textAlign: 'center', marginBottom: 32, color: '#007bff', fontWeight: 700 }}>รายละเอียดลูกค้า</h2>
-            <div style={{ marginBottom: 22 }}><strong>ชื่อ:</strong> <span style={{ color: '#222', fontWeight: 600 }}>{customer.name}</span></div>
-            <div style={{ marginBottom: 22 }}><strong>เบอร์โทรศัพท์:</strong> <span style={{ color: '#888' }}>{customer.phone}</span></div>
-            <div style={{ marginBottom: 22 }}><strong>ไอดีไลน์:</strong> <span style={{ color: '#555' }}>{customer.lineId || '-'}</span></div>
-            <div style={{ marginBottom: 22 }}><strong>เพจ Facebook:</strong> <span style={{ color: '#555' }}>{customer.facebook || '-'}</span></div>
-            <div style={{ marginBottom: 22 }}><strong>เว็บไซต์:</strong> <span style={{ color: '#555' }}>{customer.website || '-'}</span></div>
-            <div style={{ marginBottom: 22 }}><strong>สินค้า / บริการ:</strong> <span style={{ color: '#007bff', fontWeight: 600 }}>{customer.service}</span></div>
-            <div style={{ marginBottom: 22 }}><strong>วันที่เพิ่ม:</strong> <span style={{ color: '#888' }}>{new Date(customer.createdAt).toLocaleString('th-TH')}</span></div>
+            <div className="detail-header">
+              <PersonVcardFill className="detail-header-icon" />
+              <h2 className="detail-header-title">รายละเอียดลูกค้า</h2>
+            </div>
+            <div className="detail-grid">
+              <DetailItem icon={<PersonVcardFill />} label="ชื่อ-นามสกุล" value={customer.name} />
+              <DetailItem icon={<TelephoneFill />} label="เบอร์โทรศัพท์" value={customer.phone} />
+              <DetailItem icon={<Line />} label="LINE ID" value={customer.lineId} />
+              <DetailItem icon={<Facebook />} label="Facebook" value={customer.facebook} />
+              <DetailItem icon={<Globe />} label="เว็บไซต์" value={customer.website} />
+              <DetailItem icon={<BoxSeam />} label="สินค้า / บริการที่สนใจ" value={customer.service} className="service" />
+              <DetailItem 
+                icon={<CalendarPlus />} 
+                label="วันที่เพิ่มข้อมูล" 
+                value={new Date(customer.createdAt).toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' })} 
+                className="detail-full-width"
+              />
+            </div>
           </>
         ) : (
-          <p style={{ color: 'red', textAlign: 'center', fontWeight: 500 }}>ไม่พบข้อมูลลูกค้า</p>
+          <div className="error-container">ไม่พบข้อมูลลูกค้า</div>
         )}
-        <Link to="/dashboard/list" className="btn btn-secondary mt-4" style={{ width: '100%', height: 44, fontSize: 17, fontWeight: 600, borderRadius: 8 }}>กลับไปที่รายชื่อ</Link>
+        <div className="back-button-container">
+          <Link to="/dashboard/list" className="btn btn-back">
+            <ArrowLeftCircleFill />
+            กลับไปที่หน้ารายชื่อ
+          </Link>
+        </div>
       </div>
     </div>
   );
