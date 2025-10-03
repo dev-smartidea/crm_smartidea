@@ -52,7 +52,7 @@ export default function DashboardPage() {
   return (
     <div className="dashboard-page-container">
       <div className="dashboard-header">
-        <h2>แดชบอร์ดผู้ใช้</h2>
+        <h2>Dashboard</h2>
       </div>
       
       <div className="dashboard-stats-grid">
