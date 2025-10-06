@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill } from 'react-bootstrap-icons';
@@ -22,12 +22,13 @@ export default function CustomerServicesPage() {
 
   const api = process.env.REACT_APP_API_URL;
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
       const [custRes, svcRes] = await Promise.all([
-        axios.get(`${api}/api/customers/${id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${api}/api/customers/${id}/services`, { headers: { Authorization: `Bearer ${token}` } })
+        axios.get(`${api}/api/customers/${id}`, authHeaders),
+        axios.get(`${api}/api/customers/${id}/services`, authHeaders)
       ]);
       setCustomer(custRes.data);
       setServices(svcRes.data);
@@ -37,9 +38,11 @@ export default function CustomerServicesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [api, id, token]);
 
-  useEffect(() => { fetchAll(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -186,7 +189,7 @@ export default function CustomerServicesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="5" className="text-center p-5">กำลังโหลด...</td></tr>
+                <tr><td colSpan="7" className="text-center p-5">กำลังโหลด...</td></tr>
               ) : services.length > 0 ? (
                 services.map(svc => (
                   <tr key={svc._id}>
@@ -254,7 +257,7 @@ export default function CustomerServicesPage() {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan="5" className="text-center p-5">ยังไม่มีบริการ</td></tr>
+                <tr><td colSpan="7" className="text-center p-5">ยังไม่มีบริการ</td></tr>
               )}
             </tbody>
           </table>
