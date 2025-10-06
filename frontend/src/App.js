@@ -4,7 +4,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AddCustomerPage from './pages/AddCustomerPage';
 import CustomerListPage from './pages/CustomerListPage';
-import CustomerDetailPage from './pages/CustomerDetailPage';
+import CustomerDetailPage from './pages/CustomerDetailPage'; // ยังเก็บไว้เผื่อใช้ภายหลัง
+import CustomerServicesPage from './pages/CustomerServicesPage';
 import DashboardLayout from './components/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -58,6 +59,7 @@ function App() {
           <Route path="add" element={<AddCustomerPage />} />
           <Route path="list" element={<CustomerListPage />} />
           <Route path="customer/:id" element={<CustomerDetailPage />} />
+          <Route path="customer/:id/services" element={<CustomerServicesPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 

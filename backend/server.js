@@ -22,6 +22,10 @@ app.use('/uploads/avatars', express.static(__dirname + '/uploads/avatars'));
 const customerRoutes = require('./routes/customerRoutes');
 app.use('/api/customers', customerRoutes);
 
+// ✅ Service routes (หลายบริการต่อหนึ่งลูกค้า)
+const serviceRoutes = require('./routes/serviceRoutes');
+app.use('/api', serviceRoutes); // เส้นทางจะเป็น /api/customers/:id/services, /api/services/:id
+
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);

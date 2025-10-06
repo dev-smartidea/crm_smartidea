@@ -127,8 +127,8 @@ export default function CustomerListPage() {
                     <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
                     <td>
                       <div className="action-buttons">
-                        <Link to={`/dashboard/customer/${cust._id}`} className="btn btn-sm btn-outline-primary btn-view-details">
-                          <EyeFill /> ดูรายละเอียด
+                        <Link to={`/dashboard/customer/${cust._id}/services`} className="btn btn-sm btn-outline-primary btn-view-details">
+                          <EyeFill /> บริการ
                         </Link>
                         <button className="btn btn-sm btn-outline-danger btn-delete" onClick={() => handleDeleteClick(cust._id)}>
                           <TrashFill /> ลบ

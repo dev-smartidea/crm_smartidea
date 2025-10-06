@@ -1,0 +1,33 @@
+.svc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 60px;
+  z-index: 999;
+}
+.svc-modal-card {
+  background: #fff;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 14px;
+  padding: 24px 26px 28px;
+  box-shadow: 0 8px 28px -6px rgba(0,0,0,0.25);
+  animation: svcPop .25s ease;
+}
+@keyframes svcPop { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.svc-form label { display: flex; flex-direction: column; font-size: 14px; gap: 6px; font-weight: 500; }
+.svc-form input[type=text], .svc-form input[type=date], .svc-form select, .svc-form textarea {
+  border: 1px solid #d3d8e2;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+.svc-row-2 { display: flex; gap: 14px; }
+.svc-row-2 > label { flex: 1; }
+.svc-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+.svc-actions .btn { min-width: 110px; }
