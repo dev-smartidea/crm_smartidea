@@ -109,7 +109,7 @@ export default function CustomerServicesPage() {
           <button className="btn btn-danger" type="button" onClick={confirmDelete}>ยืนยันลบ</button>
         </div>
       </div>
-    </div>
+    </div> 
   );
 
   return (
