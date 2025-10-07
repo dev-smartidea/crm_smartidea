@@ -3,7 +3,7 @@ import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight } from 'react-bootstrap-icons';
+import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell } from 'react-bootstrap-icons';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -37,6 +37,7 @@ export default function DashboardLayout() {
             <li><Link to="/dashboard"><HouseDoor /> Dashboard</Link></li>
             <li><Link to="add"><PersonPlus /> เพิ่มลูกค้า</Link></li>
             <li><Link to="list"><People /> รายชื่อลูกค้า</Link></li>
+            <li><Link to="notifications"><Bell /> การแจ้งเตือน</Link></li>
             <li><Link to="profile"><PersonCircle /> โปรไฟล์</Link></li>
           </ul>
           <div className="logout-section">

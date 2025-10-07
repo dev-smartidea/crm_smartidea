@@ -8,6 +8,7 @@ const menuItems = [
   { label: 'Customers', to: '/dashboard/customers', icon: '👥' },
   { label: 'Sales', to: '/dashboard/sales', icon: '💰' },
   { label: 'Reports', to: '/dashboard/reports', icon: '📊' },
+  { label: 'การแจ้งเตือน', to: '/dashboard/notifications', icon: '🔔' },
   // ...เพิ่มรายการเมนูตามต้องการ...
 ];
 
