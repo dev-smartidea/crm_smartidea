@@ -70,6 +70,26 @@ router.post('/customers/:customerId/services', async (req, res) => {
   }
 });
 
+// Get single service by ID with customer info populated
+router.get('/services/:id', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    
+    let service;
+    if (user.role === 'admin') {
+      service = await Service.findById(req.params.id).populate('customerId', 'name phone');
+    } else {
+      service = await Service.findOne({ _id: req.params.id, userId: user.id }).populate('customerId', 'name phone');
+    }
+    
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+    res.json(service);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
 // Update a service
 router.put('/services/:id', async (req, res) => {
   try {

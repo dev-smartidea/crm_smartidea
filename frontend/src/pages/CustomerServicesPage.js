@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
@@ -7,6 +7,7 @@ import './CustomerServicesPage.css';
 
 export default function CustomerServicesPage() {
   const { id } = useParams(); // customer id
+  const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -311,7 +312,7 @@ export default function CustomerServicesPage() {
                         <>
                           <button className="btn btn-sm btn-outline-primary" onClick={() => startEdit(svc)}><PencilSquare /> แก้ไข</button>{' '}
                           <button className="btn btn-sm btn-outline-danger" onClick={() => askDelete(svc._id)}><TrashFill /> ลบ</button>{' '}
-                          <button className="btn btn-sm btn-outline-info" onClick={() => alert('ดูประวัติการโอนเงินของบริการ: ' + svc.name)}>ประวัติการโอน</button>
+                          <button className="btn btn-sm btn-outline-info" onClick={() => navigate(`/dashboard/services/${svc._id}/transactions`)}>ประวัติการโอน</button>
                         </>
                       )}
                     </td>

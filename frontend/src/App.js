@@ -6,6 +6,7 @@ import AddCustomerPage from './pages/AddCustomerPage';
 import CustomerListPage from './pages/CustomerListPage';
 import CustomerDetailPage from './pages/CustomerDetailPage'; // ยังเก็บไว้เผื่อใช้ภายหลัง
 import CustomerServicesPage from './pages/CustomerServicesPage';
+import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import DashboardLayout from './components/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -60,6 +61,8 @@ function App() {
           <Route path="list" element={<CustomerListPage />} />
           <Route path="customer/:id" element={<CustomerDetailPage />} />
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
+          <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />
+          <Route path="services/:serviceId/transactions" element={<TransactionHistoryPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 

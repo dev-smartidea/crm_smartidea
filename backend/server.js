@@ -30,6 +30,9 @@ app.use('/api/customers', customerRoutes);
 const serviceRoutes = require('./routes/serviceRoutes');
 app.use('/api', serviceRoutes); // เส้นทางจะเป็น /api/customers/:id/services, /api/services/:id
 
+// ✅ Transaction routes (ประวัติการโอนเงิน)
+const transactionRoutes = require('./routes/transactionRoutes');
+app.use('/api', transactionRoutes); // เส้นทางจะเป็น /api/services/:id/transactions, /api/transactions/:id
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
