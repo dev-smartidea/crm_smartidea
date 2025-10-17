@@ -12,7 +12,15 @@ export default function CustomerServicesPage() {
   const [loading, setLoading] = useState(true);
   // form popup สำหรับสร้าง
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: 'Google Ads', status: 'active', notes: '', pageUrl: '', startDate: '', dueDate: '' });
+  const [form, setForm] = useState({ 
+    name: 'Google Ads', 
+    status: 'รอกำเนิด', 
+    notes: '', 
+    pageUrl: '', 
+    startDate: '', 
+    dueDate: '',
+    customerIdField: ''
+  });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', status: 'active', notes: '', startDate: '', dueDate: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -48,13 +56,22 @@ export default function CustomerServicesPage() {
     e.preventDefault();
     if (!form.name) return;
     try {
-      const payload = { ...form };
+  const payload = { ...form, status: typeof form.status === 'string' ? form.status.trim() : form.status };
       const res = await axios.post(`${api}/api/customers/${id}/services`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setServices([res.data, ...services]);
       setShowCreate(false);
-      setForm({ name: 'Google Ads', status: 'active', notes: '', pageUrl: '', startDate: '', dueDate: '' });
+      setForm({ 
+        name: 'Google Ads', 
+        status: 'รอกำเนิด', 
+        notes: '', 
+        pageUrl: '', 
+        startDate: '', 
+        dueDate: '',
+        customerIdField: ''
+      });
     } catch (err) {
-      alert('เพิ่มบริการไม่สำเร็จ');
+      const detail = err?.response?.data?.detail || err?.message || '';
+      alert(`เพิ่มบริการไม่สำเร็จ${detail ? `: ${detail}` : ''}`);
     }
   };
 
@@ -149,7 +166,7 @@ export default function CustomerServicesPage() {
                 </label>
                 <label>
                   Website / Facebook Page
-                  <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="https://..." />
+                  <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="" />
                 </label>
                 <div className="svc-row-2">
                   <label>
@@ -162,12 +179,51 @@ export default function CustomerServicesPage() {
                   </label>
                 </div>
                 <label>
-                  หมายเหตุ
+                  Customer ID
+                  <input type="text" value={form.customerIdField} onChange={e => setForm({ ...form, customerIdField: e.target.value })} placeholder="" />
+                </label>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>สถานะ</label>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input 
+                        type="radio" 
+                        name="status" 
+                        value="รอคิวทำเว็บ"
+                        checked={form.status === 'รอคิวทำเว็บ'}
+                        onChange={e => setForm({ ...form, status: e.target.value })}
+                      />
+                      <span>รอคิวทำเว็บ</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input 
+                        type="radio" 
+                        name="status" 
+                        value="รอคิวสร้างบัญชี"
+                        checked={form.status === 'รอคิวสร้างบัญชี'}
+                        onChange={e => setForm({ ...form, status: e.target.value })}
+                      />
+                      <span>รอคิวสร้างบัญชี</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input 
+                        type="radio" 
+                        name="status" 
+                        value="รอลูกค้าส่งข้อมูล"
+                        checked={form.status === 'รอลูกค้าส่งข้อมูล'}
+                        onChange={e => setForm({ ...form, status: e.target.value })}
+                      />
+                      <span>รอลูกค้าส่งข้อมูล</span>
+                    </label>
+                  </div>
+                </div>
+                <label>
+                  note
                   <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} />
                 </label>
                 <div className="svc-actions">
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setShowCreate(false)}>ยกเลิก</button>
-                  <button type="submit" className="btn btn-sm btn-primary">บันทึกข้อมูล</button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => setShowCreate(false)}>ยกเลิก</button>
+                  <button type="submit" className="btn btn-sm btn-success">บันทึก</button>
                 </div>
               </form>
             </div>
@@ -179,11 +235,12 @@ export default function CustomerServicesPage() {
             <thead>
               <tr>
                 <th>บริการ</th>
+                <th>Customer ID</th>
                 <th>สถานะ</th>
                 <th>เริ่ม</th>
                 <th>ครบกำหนด</th>
                 <th>บันทึก</th>
-                <th>วันที่เพิ่ม</th>
+                <th>Website / Facebook Page</th>
                 <th>การจัดการ</th>
               </tr>
             </thead>
@@ -198,12 +255,15 @@ export default function CustomerServicesPage() {
                         <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
                       ) : svc.name}
                     </td>
+                    <td>{svc.customerIdField || '-'}</td>
                     <td>
                       {editingId === svc._id ? (
                         <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
-                          <option value="active">กำลังทำ</option>
-                          <option value="paused">พักชั่วคราว</option>
-                          <option value="completed">เสร็จสิ้น</option>
+                          {/* ตัวเลือกตามฟอร์มเพิ่มบริการ */}
+                          <option value="รอคิวทำเว็บ">รอคิวทำเว็บ</option>
+                          <option value="รอคิวสร้างบัญชี">รอคิวสร้างบัญชี</option>
+                          <option value="รอลูกค้าส่งข้อมูล">รอลูกค้าส่งข้อมูล</option>
+                          {/* เผื่อกรณีข้อมูลเก่าที่เป็นค่าอังกฤษให้เลือก/แสดงได้ */}
                         </select>
                       ) : (
                         {
@@ -240,7 +300,7 @@ export default function CustomerServicesPage() {
                         <input value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} />
                       ) : (svc.notes || '-')}
                     </td>
-                    <td>{new Date(svc.createdAt).toLocaleDateString('th-TH')}</td>
+                    <td>{svc.pageUrl || '-'}</td>
                     <td>
                       {editingId === svc._id ? (
                         <>
@@ -250,7 +310,8 @@ export default function CustomerServicesPage() {
                       ) : (
                         <>
                           <button className="btn btn-sm btn-outline-primary" onClick={() => startEdit(svc)}><PencilSquare /> แก้ไข</button>{' '}
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => askDelete(svc._id)}><TrashFill /> ลบ</button>
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => askDelete(svc._id)}><TrashFill /> ลบ</button>{' '}
+                          <button className="btn btn-sm btn-outline-info" onClick={() => alert('ดูประวัติการโอนเงินของบริการ: ' + svc.name)}>ประวัติการโอน</button>
                         </>
                       )}
                     </td>

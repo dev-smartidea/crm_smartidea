@@ -4,7 +4,11 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+// อนุญาต CORS จากทุก origin สำหรับการใช้งานใน network
+app.use(cors({
+  origin: true, // อนุญาตทุก origin
+  credentials: true
+}));
 app.use(express.json());
 
 // เพิ่ม session middleware

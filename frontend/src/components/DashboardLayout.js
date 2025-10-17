@@ -33,7 +33,7 @@ export default function DashboardLayout() {
       <div className="dashboard-layout">
         <aside className="sidebar">
           <h4 className="sidebar-header">Menu</h4>
-          <ul className="nav-menu">
+          <ul className="nav-menu"> 
             <li><Link to="/dashboard"><HouseDoor /> Dashboard</Link></li>
             <li><Link to="add"><PersonPlus /> เพิ่มลูกค้า</Link></li>
             <li><Link to="list"><People /> รายชื่อลูกค้า</Link></li>

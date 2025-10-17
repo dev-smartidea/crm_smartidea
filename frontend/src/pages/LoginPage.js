@@ -34,7 +34,13 @@ function LoginPage({ onLoginSuccess }) {
         } catch (e) {
           console.error("Token parsing error:", e);
         }
-        window.alert('✅ เข้าสู่ระบบสำเร็จ');
+        
+        // Trigger onLoginSuccess callback if provided
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        }
+        
+        // Navigate without alert to prevent blocking
         if (role === 'admin') {
           navigate('/dashboard/admin');
         } else {
