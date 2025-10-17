@@ -34,6 +34,10 @@ app.use('/api', serviceRoutes); // เส้นทางจะเป็น /api/
 const transactionRoutes = require('./routes/transactionRoutes');
 app.use('/api', transactionRoutes); // เส้นทางจะเป็น /api/services/:id/transactions, /api/transactions/:id
 
+// ✅ Dashboard routes (สรุปข้อมูล dashboard)
+const dashboardRoutes = require('./routes/dashboardRoutes');
+app.use('/api', dashboardRoutes); // เส้นทางจะเป็น /api/dashboard/summary
+
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
