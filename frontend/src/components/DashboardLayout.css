@@ -1,6 +1,6 @@
 .dashboard-layout {
   display: flex;
-  min-height: 100vh;
+  min-height: calc(100vh - 64px);
   background-color: #f0f2f5;
 }
 
@@ -12,6 +12,12 @@
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+  position: fixed;
+  top: 64px;
+  left: 0;
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+  z-index: 100;
 }
 
 .sidebar-header {
@@ -55,6 +61,26 @@
   font-size: 1.2rem;
 }
 
+.notification-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.notification-badge {
+  position: absolute;
+  right: 15px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  min-width: 20px;
+  text-align: center;
+  line-height: 1;
+}
+
 .logout-section {
   padding: 20px;
   border-top: 1px solid #eee;
@@ -76,4 +102,6 @@
   flex-grow: 1;
   padding: 0;
   overflow-y: auto;
+  margin-left: 250px;
+  min-height: 100vh;
 }

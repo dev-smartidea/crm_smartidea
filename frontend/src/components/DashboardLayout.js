@@ -8,6 +8,8 @@ import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell } from
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -22,6 +24,24 @@ export default function DashboardLayout() {
     fetchProfile();
   }, []);
 
+  useEffect(() => {
+    const fetchNotificationCount = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const unread = res.data.filter(n => !n.isRead).length;
+        setUnreadCount(unread);
+      } catch {}
+    };
+    fetchNotificationCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const logout = () => {
     localStorage.removeItem('token');
     navigate('/login');
@@ -32,12 +52,16 @@ export default function DashboardLayout() {
       <ProfileNavbar user={user} />
       <div className="dashboard-layout">
         <aside className="sidebar">
-          <h4 className="sidebar-header">Menu</h4>
           <ul className="nav-menu"> 
             <li><Link to="/dashboard"><HouseDoor /> Dashboard</Link></li>
             <li><Link to="add"><PersonPlus /> เพิ่มลูกค้า</Link></li>
             <li><Link to="list"><People /> รายชื่อลูกค้า</Link></li>
-            <li><Link to="notifications"><Bell /> การแจ้งเตือน</Link></li>
+            <li>
+              <Link to="notifications" className="notification-link">
+                <Bell /> การแจ้งเตือน
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+              </Link>
+            </li>
             <li><Link to="profile"><PersonCircle /> โปรไฟล์</Link></li>
           </ul>
           <div className="logout-section">

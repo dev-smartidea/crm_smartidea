@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill } from 'react-bootstrap-icons';
+import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill, ThreeDotsVertical } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
 import './CustomerServicesPage.css';
 
@@ -27,6 +27,7 @@ export default function CustomerServicesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState(null);
   const [error, setError] = useState('');
+  const [openDropdown, setOpenDropdown] = useState(null); // เก็บ ID ของ dropdown ที่เปิดอยู่
   const token = localStorage.getItem('token');
 
   const api = process.env.REACT_APP_API_URL;
@@ -46,9 +47,21 @@ export default function CustomerServicesPage() {
       setLoading(false);
     }
   }, [api, id, token]);
+  
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // ปิด dropdown เมื่อคลิกข้างนอก
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.dropdown-container')) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -246,13 +259,19 @@ export default function CustomerServicesPage() {
               {loading ? (
                 <tr><td colSpan="7" className="text-center p-5">กำลังโหลด...</td></tr>
               ) : services.length > 0 ? (
-                services.map(svc => (
-                  <tr key={svc._id}>
-                    <td>
-                      {editingId === svc._id ? (
-                        <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
-                      ) : svc.name}
-                    </td>
+                services.map((svc, index) => {
+                  // ตรวจสอบว่าบริการหมดอายุหรือไม่
+                  const isExpired = svc.dueDate && new Date(svc.dueDate) < new Date();
+                  // ตรวจสอบว่าเป็น 2 แถวล่างสุดหรือไม่
+                  const isBottomRows = index >= services.length - 2;
+                  
+                  return (
+                    <tr key={svc._id} className={isExpired ? 'expired-service' : ''}>
+                      <td>
+                        {editingId === svc._id ? (
+                          <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+                        ) : svc.name}
+                      </td>
                     <td>{svc.customerIdField || '-'}</td>
                     <td>
                       {editingId === svc._id ? (
@@ -308,15 +327,34 @@ export default function CustomerServicesPage() {
                           <button className="btn btn-edit" onClick={() => setEditingId(null)}>ยกเลิก</button>
                         </>
                       ) : (
-                        <div className="action-buttons">
-                          <button className="btn btn-edit" onClick={() => startEdit(svc)}><PencilSquare /> แก้ไข</button>
-                          <button className="btn btn-delete" onClick={() => askDelete(svc._id)}><TrashFill /> ลบ</button>
-                          <button className="btn btn-history" onClick={() => navigate(`/dashboard/services/${svc._id}/transactions`)}><EyeFill /> ประวัติการโอน</button>
+                        <div className="dropdown-container">
+                          <button 
+                            className="btn-dropdown-toggle" 
+                            onClick={(e) => {
+                              setOpenDropdown(openDropdown === svc._id ? null : svc._id);
+                            }}
+                          >
+                            <ThreeDotsVertical />
+                          </button>
+                          {openDropdown === svc._id && (
+                            <div className={`dropdown-menu-custom ${isBottomRows ? 'show-above' : ''}`}>
+                              <button className="dropdown-item" onClick={() => { startEdit(svc); setOpenDropdown(null); }}>
+                                <PencilSquare /> แก้ไข
+                              </button>
+                              <button className="dropdown-item danger" onClick={() => { askDelete(svc._id); setOpenDropdown(null); }}>
+                                <TrashFill /> ลบ
+                              </button>
+                              <button className="dropdown-item" onClick={() => { navigate(`/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
+                                <EyeFill /> ประวัติการโอน
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr><td colSpan="7" className="text-center p-5">ยังไม่มีบริการ</td></tr>
               )}

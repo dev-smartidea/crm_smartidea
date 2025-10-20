@@ -38,6 +38,10 @@ app.use('/api', transactionRoutes); // เส้นทางจะเป็น /
 const dashboardRoutes = require('./routes/dashboardRoutes');
 app.use('/api', dashboardRoutes); // เส้นทางจะเป็น /api/dashboard/summary
 
+// ✅ Notification routes (การแจ้งเตือน)
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api', notificationRoutes); // เส้นทางจะเป็น /api/notifications
+
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 

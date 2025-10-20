@@ -21,7 +21,7 @@ const ProfileNavbar = ({ user }) => {
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       position: 'sticky',
       top: 0,
-      zIndex: 100
+      zIndex: 200
     }}>
       <img
         src={getAvatarUrl(user?.avatar)}

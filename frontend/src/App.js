@@ -12,6 +12,7 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import UserDetailPage from './pages/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
+import NotificationPage from './pages/NotificationPage';
 import axios from 'axios';
 
 function App() {
@@ -59,6 +60,7 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="add" element={<AddCustomerPage />} />
           <Route path="list" element={<CustomerListPage />} />
+          <Route path="notifications" element={<NotificationPage />} />
           <Route path="customer/:id" element={<CustomerDetailPage />} />
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />
