@@ -74,6 +74,6 @@
 
 .main-content {
   flex-grow: 1;
-  padding: 30px;
+  padding: 0;
   overflow-y: auto;
 }
