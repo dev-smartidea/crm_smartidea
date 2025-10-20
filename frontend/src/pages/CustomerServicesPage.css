@@ -114,10 +114,6 @@
 .badge-service.badge-other {
   background: #43a047;
 }
-.action-buttons {
-  display: flex;
-  gap: 10px;
-}
 .btn-view-details {
   background: #1976d2;
   color: #fff;
@@ -165,35 +161,6 @@
 .btn-delete:hover {
   background: #dc3545;
   color: #fff;
-}
-.btn-history {
-  background: #fff;
-  color: #43a047;
-  border: 1.5px solid #43a047;
-  padding: 7px 16px;
-  border-radius: 7px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: background 0.15s, color 0.15s;
-}
-.btn-history:hover {
-  background: #43a047;
-  color: #fff;
-}
-/* Status color styles */
-.status-web {
-  color: #1976d2;
-  font-weight: 600;
-}
-.status-account {
-  color: #ff9800;
-  font-weight: 600;
-}
-.status-waitinfo {
-  color: #43a047;
-  font-weight: 600;
 }
 .svc-modal-overlay {
   position: fixed;
@@ -340,12 +307,6 @@
   padding: 8px 0;
   display: flex;
   flex-direction: column;
-}
-
-/* แสดง dropdown ด้านบนเมื่อมี class show-above */
-.dropdown-menu-custom.show-above {
-  top: auto;
-  bottom: calc(100% + 5px);
 }
 
 .dropdown-item {

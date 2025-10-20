@@ -150,10 +150,6 @@
   box-shadow: 0 2px 12px 0 rgba(25, 118, 210, 0.07);
 }
 
-.action-buttons {
-  display: flex;
-  gap: 10px;
-}
 .btn-view-details {
   background: #1976d2;
   color: #fff;
@@ -185,20 +181,6 @@
 .btn-delete:hover {
   background: #dc3545;
   color: #fff;
-}
-
-.customer-table .action-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-view-details, .btn-delete {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  border-radius: 6px;
 }
 
 .modal-backdrop {

@@ -70,11 +70,9 @@ export default function TransactionHistoryPage() {
     if (!form.amount || !form.transactionDate) return;
     try {
       const payload = { ...form, amount: parseFloat(form.amount) };
-      console.log('Sending payload:', payload); // Debug log
       const res = await axios.post(`${api}/api/services/${serviceId}/transactions`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log('Response data:', res.data); // Debug log
       setTransactions([res.data, ...transactions]);
       setShowCreate(false);
       setForm({

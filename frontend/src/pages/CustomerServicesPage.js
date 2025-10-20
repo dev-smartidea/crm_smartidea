@@ -263,11 +263,9 @@ export default function CustomerServicesPage() {
               {loading ? (
                 <tr><td colSpan="7" className="text-center p-5">กำลังโหลด...</td></tr>
               ) : services.length > 0 ? (
-                services.map((svc, index) => {
+                services.map((svc) => {
                   // ตรวจสอบว่าบริการหมดอายุหรือไม่
                   const isExpired = svc.dueDate && new Date(svc.dueDate) < new Date();
-                  // ตรวจสอบว่าเป็น 2 แถวล่างสุดหรือไม่
-                  const isBottomRows = index >= services.length - 2;
                   
                   return (
                     <tr key={svc._id} className={isExpired ? 'expired-service' : ''}>
