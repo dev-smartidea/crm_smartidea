@@ -1,29 +1,38 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Line } from 'react-chartjs-2';
+import { Line, Doughnut } from 'react-chartjs-2';
 import 'chart.js/auto';
+import { PeopleFill, BriefcaseFill, ClockFill, CashCoin, Plus, EyeFill } from 'react-bootstrap-icons';
+import { Link } from 'react-router-dom';
 import './DashboardPage.css';
 
-// Simple icon components (can replace with SVG or icon library)
-const CustomerIcon = () => (
-  <span className="stat-card-icon customers" role="img" aria-label="ลูกค้า">👤</span>
-);
-const ServiceIcon = () => (
-  <span className="stat-card-icon services" role="img" aria-label="บริการ">🛠️</span>
-);
-const StatusIcon = () => (
-  <span className="stat-card-icon status" role="img" aria-label="สถานะ">📊</span>
-);
+// Icon components
+const CustomerIcon = () => <PeopleFill className="stat-card-icon customers" />;
+const ServiceIcon = () => <BriefcaseFill className="stat-card-icon services" />;
+const StatusIcon = () => <ClockFill className="stat-card-icon status" />;
+const RevenueIcon = () => <CashCoin className="stat-card-icon revenue" />;
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [customerCount, setCustomerCount] = useState(0);
   const [serviceCount, setServiceCount] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [recentCustomers, setRecentCustomers] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [upcomingServices, setUpcomingServices] = useState([]);
   const [serviceStatus, setServiceStatus] = useState({
     'รอคิวทำเว็บ': 0,
     'รอคิวสร้างบัญชี': 0,
     'รอลูกค้าส่งข้อมูล': 0
+  });
+  const [serviceTypeData, setServiceTypeData] = useState({
+    labels: ['Google Ads', 'Facebook Ads', 'อื่นๆ'],
+    datasets: [{
+      data: [0, 0, 0],
+      backgroundColor: ['#43a047', '#1877f2', '#ff9800'],
+      borderWidth: 0
+    }]
   });
   const [chartData, setChartData] = useState({
     labels: [],
@@ -31,8 +40,8 @@ export default function DashboardPage() {
       {
         label: 'จำนวนการเติมเงิน',
         data: [],
-        borderColor: '#007bff',
-        backgroundColor: 'rgba(0,123,255,0.1)',
+        borderColor: '#1976d2',
+        backgroundColor: 'rgba(25, 118, 210, 0.1)',
         fill: true,
         tension: 0.3
       }
@@ -51,15 +60,36 @@ export default function DashboardPage() {
         });
         setCustomerCount(res.data.customerCount);
         setServiceCount(res.data.serviceCount);
+        setTotalRevenue(res.data.totalRevenue || 0);
         setServiceStatus(res.data.serviceStatus);
+        setRecentCustomers(res.data.recentCustomers || []);
+        setRecentTransactions(res.data.recentTransactions || []);
+        setUpcomingServices(res.data.upcomingServices || []);
+        
+        // Service type chart
+        if (res.data.serviceTypeCount) {
+          setServiceTypeData({
+            labels: ['Google Ads', 'Facebook Ads', 'อื่นๆ'],
+            datasets: [{
+              data: [
+                res.data.serviceTypeCount['Google Ads'] || 0,
+                res.data.serviceTypeCount['Facebook Ads'] || 0,
+                res.data.serviceTypeCount['other'] || 0
+              ],
+              backgroundColor: ['#43a047', '#1877f2', '#ff9800'],
+              borderWidth: 0
+            }]
+          });
+        }
+        
         setChartData({
           labels: res.data.transactionChart.labels,
           datasets: [
             {
               label: 'จำนวนการเติมเงิน',
               data: res.data.transactionChart.data,
-              borderColor: '#007bff',
-              backgroundColor: 'rgba(0,123,255,0.1)',
+              borderColor: '#1976d2',
+              backgroundColor: 'rgba(25, 118, 210, 0.1)',
               fill: true,
               tension: 0.3
             }
@@ -86,13 +116,17 @@ export default function DashboardPage() {
     <div className="dashboard-page-container">
       <div className="dashboard-header">
         <h2>Dashboard</h2>
+        <p className="dashboard-subtitle">ภาพรวมข้อมูลธุรกิจของคุณ</p>
       </div>
+      
+      {/* Stats Cards */}
       <div className="dashboard-stats-grid">
         <div className="stat-card">
           <CustomerIcon />
           <div className="stat-card-info">
             <h5>จำนวนลูกค้า</h5>
             <div className="stat-number">{customerCount}</div>
+            <p className="stat-label">ลูกค้าทั้งหมด</p>
           </div>
         </div>
         <div className="stat-card">
@@ -100,6 +134,15 @@ export default function DashboardPage() {
           <div className="stat-card-info">
             <h5>จำนวนบริการ</h5>
             <div className="stat-number">{serviceCount}</div>
+            <p className="stat-label">บริการที่กำลังดำเนินการ</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <RevenueIcon />
+          <div className="stat-card-info">
+            <h5>จำนวนเงินทั้งหมด</h5>
+            <div className="stat-number">{totalRevenue.toLocaleString()}</div>
+            <p className="stat-label">บาท</p>
           </div>
         </div>
         <div className="stat-card">
@@ -108,26 +151,135 @@ export default function DashboardPage() {
             <h5>สถานะบริการ</h5>
             <div style={{ marginTop: 8 }}>
               {Object.entries(serviceStatus).map(([label, value]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, marginBottom: 4 }}>
-                  <span>{label}</span>
-                  <span>{value}</span>
+                <div key={label} className="status-row">
+                  <span className={`status-badge ${label === 'รอคิวทำเว็บ' ? 'web' : label === 'รอคิวสร้างบัญชี' ? 'account' : 'waitinfo'}`}>{label}</span>
+                  <span className="status-count">{value}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
       </div>
-      <div style={{ marginTop: 40, background: '#fff', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: 30 }}>
-        <h5 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: 18 }}>จำนวนการเติมเงิน (Transaction)</h5>
-        <Line data={chartData} options={{
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { title: { display: true, text: 'วัน' }, grid: { color: '#eee' } },
-            y: { title: { display: true, text: 'จำนวน' }, grid: { color: '#eee' } }
-          }
-        }} />
+
+      {/* Charts Row */}
+      <div className="charts-row">
+        <div className="chart-card">
+          <h5 className="chart-title">จำนวนการเติมเงิน (รายวัน)</h5>
+          <Line data={chartData} options={{
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { color: '#f0f0f0' } },
+              y: { grid: { color: '#f0f0f0' }, beginAtZero: true }
+            }
+          }} />
+        </div>
+        <div className="chart-card doughnut-card">
+          <h5 className="chart-title">สัดส่วนประเภทบริการ</h5>
+          <Doughnut data={serviceTypeData} options={{
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { position: 'bottom', labels: { padding: 15, font: { size: 13 } } }
+            }
+          }} />
+        </div>
       </div>
+
+      {/* Tables Row */}
+      <div className="tables-row">
+        {/* Recent Customers */}
+        <div className="table-card">
+          <h5 className="table-title">ลูกค้าที่เพิ่มล่าสุด</h5>
+          {recentCustomers.length > 0 ? (
+            <table className="mini-table">
+              <thead>
+                <tr>
+                  <th>ชื่อ</th>
+                  <th>เบอร์โทร</th>
+                  <th>วันที่เพิ่ม</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentCustomers.map((cust) => (
+                  <tr key={cust._id}>
+                    <td>{cust.name}</td>
+                    <td>{cust.phone}</td>
+                    <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="no-data">ยังไม่มีข้อมูล</p>
+          )}
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="table-card">
+          <h5 className="table-title">รายการโอนเงินล่าสุด</h5>
+          {recentTransactions.length > 0 ? (
+            <table className="mini-table">
+              <thead>
+                <tr>
+                  <th>จำนวน</th>
+                  <th>วันที่</th>
+                  <th>วิธีการชำระ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTransactions.map((tx) => (
+                  <tr key={tx._id}>
+                    <td>{tx.amount.toLocaleString()} บ.</td>
+                    <td>{new Date(tx.transactionDate).toLocaleDateString('th-TH')}</td>
+                    <td><span className="badge-status web">{tx.paymentMethod}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="no-data">ยังไม่มีข้อมูล</p>
+          )}
+        </div>
+      </div>
+
+      {/* Upcoming Services */}
+      {upcomingServices.length > 0 && (
+        <div className="table-card full-width">
+          <h5 className="table-title">บริการที่ใกล้ครบกำหนด</h5>
+          <table className="mini-table">
+            <thead>
+              <tr>
+                <th>ลูกค้า</th>
+                <th>บริการ</th>
+                <th>วันครบกำหนด</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcomingServices.map((svc) => (
+                <tr key={svc._id}>
+                  <td>{svc.customerName || '-'}</td>
+                  <td>{svc.name}</td>
+                  <td>{new Date(svc.dueDate).toLocaleDateString('th-TH')}</td>
+                  <td>
+                    <span className={
+                      `badge-status ` +
+                      (svc.status === 'รอคิวทำเว็บ' ? 'web' :
+                       svc.status === 'รอคิวสร้างบัญชี' ? 'account' :
+                       svc.status === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
+                       'web')
+                    }>
+                      {svc.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
