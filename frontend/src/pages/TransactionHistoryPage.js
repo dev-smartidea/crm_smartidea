@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill } from 'react-bootstrap-icons';
+import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2 } from 'react-bootstrap-icons';
 import '../pages/CustomerListPage.css'; // reuse table styles
 import '../pages/CustomerServicesPage.css';
 
@@ -57,10 +57,12 @@ export default function TransactionHistoryPage() {
     e.preventDefault();
     if (!form.amount || !form.transactionDate) return;
     try {
-  const payload = { ...form, amount: parseFloat(form.amount) };
+      const payload = { ...form, amount: parseFloat(form.amount) };
+      console.log('Sending payload:', payload); // Debug log
       const res = await axios.post(`${api}/api/services/${serviceId}/transactions`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Response data:', res.data); // Debug log
       setTransactions([res.data, ...transactions]);
       setShowCreate(false);
       setForm({
@@ -68,6 +70,7 @@ export default function TransactionHistoryPage() {
         transactionDate: '',
         notes: '',
         paymentMethod: 'โอนผ่านธนาคาร',
+        bank: 'KBANK',
         slipImage: ''
       });
     } catch (err) {
@@ -83,7 +86,7 @@ export default function TransactionHistoryPage() {
       transactionDate: tx.transactionDate ? new Date(tx.transactionDate).toISOString().slice(0, 10) : '',
       notes: tx.notes || '',
       paymentMethod: tx.paymentMethod || 'โอนผ่านธนาคาร',
-      bank: tx.bank || 'KBANK'
+      bank: tx.bank || ''
     });
   };
 
@@ -308,7 +311,7 @@ export default function TransactionHistoryPage() {
                           <option value="อื่นๆ">อื่นๆ</option>
                         </select>
                       ) : (
-                        tx.paymentMethod || '-'
+                        <span className={`badge-status ${tx.paymentMethod === 'โอนผ่านธนาคาร' ? 'web' : tx.paymentMethod === 'เงินสด' ? 'account' : tx.paymentMethod === 'บัตรเครดิต' ? 'waitinfo' : ''}`}>{tx.paymentMethod || '-'}</span>
                       )}
                     </td>
                     <td>
@@ -317,12 +320,17 @@ export default function TransactionHistoryPage() {
                           value={editForm.bank}
                           onChange={e => setEditForm({ ...editForm, bank: e.target.value })}
                         >
+                          <option value="">-- เลือกธนาคาร --</option>
                           <option value="KBANK">KBANK</option>
                           <option value="SCB">SCB</option>
                           <option value="BBL">BBL</option>
+                          <option value="KTB">KTB</option>
+                          <option value="TMB">TMB</option>
+                          <option value="GSB">GSB</option>
+                          <option value="BAY">BAY</option>
                         </select>
                       ) : (
-                        tx.bank || '-'
+                        <span className="badge-status web"><Bank2 /> {tx.bank || '-'}</span>
                       )}
                     </td>
                     <td>
@@ -346,14 +354,10 @@ export default function TransactionHistoryPage() {
                           </button>
                         </>
                       ) : (
-                        <>
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => startEdit(tx)}>
-                            <PencilSquare /> แก้ไข
-                          </button>{' '}
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => askDelete(tx._id)}>
-                            <TrashFill /> ลบ
-                          </button>
-                        </>
+                        <div className="action-buttons">
+                          <button className="btn btn-edit" onClick={() => startEdit(tx)}><PencilSquare /> แก้ไข</button>
+                          <button className="btn btn-delete" onClick={() => askDelete(tx._id)}><TrashFill /> ลบ</button>
+                        </div>
                       )}
                     </td>
                   </tr>

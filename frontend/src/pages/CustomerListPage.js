@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill } from 'react-bootstrap-icons';
+import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle } from 'react-bootstrap-icons';
 import './CustomerListPage.css';
 
 export default function CustomerListPage() {
@@ -106,7 +106,7 @@ export default function CustomerListPage() {
           <table className="customer-table">
             <thead>
               <tr>
-                <th>ชื่อ-นามสกุล</th>
+                <th>ลูกค้า</th>
                 <th>บริการที่สนใจ</th>
                 <th>เบอร์โทรศัพท์</th>
                 <th>วันที่เพิ่ม</th>
@@ -120,17 +120,30 @@ export default function CustomerListPage() {
                 </tr>
               ) : customers.length > 0 ? (
                 customers.map((cust) => (
-                  <tr key={cust._id}>
-                    <td>{cust.name}</td>
-                    <td className="service-col">{cust.service}</td>
+                  <tr key={cust._id} className="customer-row">
+                    <td>
+                      <div className="customer-info">
+                        {cust.avatarUrl ? (
+                          <img src={cust.avatarUrl} alt={cust.name} className="customer-avatar" />
+                        ) : (
+                          <div className="customer-avatar placeholder">
+                            <PersonCircle size={32} />
+                          </div>
+                        )}
+                        <span className="customer-name">{cust.name}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge badge-service ${cust.service === 'Google Ads' ? 'badge-google' : cust.service === 'Facebook Ads' ? 'badge-facebook' : 'badge-other'}`}>{cust.service}</span>
+                    </td>
                     <td>{cust.phone}</td>
                     <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
                     <td>
                       <div className="action-buttons">
-                        <Link to={`/dashboard/customer/${cust._id}/services`} className="btn btn-sm btn-outline-primary btn-view-details">
+                        <Link to={`/dashboard/customer/${cust._id}/services`} className="btn btn-view-details">
                           <EyeFill /> บริการ
                         </Link>
-                        <button className="btn btn-sm btn-outline-danger btn-delete" onClick={() => handleDeleteClick(cust._id)}>
+                        <button className="btn btn-delete" onClick={() => handleDeleteClick(cust._id)}>
                           <TrashFill /> ลบ
                         </button>
                       </div>

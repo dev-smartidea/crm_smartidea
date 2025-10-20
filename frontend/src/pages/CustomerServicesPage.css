@@ -1,3 +1,185 @@
+.badge-status {
+  display: inline-block;
+  padding: 6px 18px;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+.badge-status.web {
+  background: #1976d2;
+}
+.badge-status.account {
+  background: #ff9800;
+}
+.badge-status.waitinfo {
+  background: #43a047;
+}
+/* Modern service table styles */
+.customer-list-page {
+  padding: 40px;
+  background-color: #f9f9f9;
+  min-height: 100%;
+}
+
+.list-container {
+  width: 100%;
+  margin: 0 auto;
+  background: #fff;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.list-header-title-group {
+  display: flex;
+  align-items: center;
+}
+
+.list-header-icon {
+  font-size: 2rem;
+  color: #0d6efd;
+  margin-right: 15px;
+}
+
+.list-header-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.customer-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.customer-table thead {
+  background-color: #f8f9fa;
+}
+.customer-table th,
+.customer-table td {
+  padding: 15px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid #eee;
+}
+.customer-table th {
+  font-weight: 600;
+  color: #555;
+}
+.customer-table tbody tr:hover {
+  background-color: #f3f7fd;
+  box-shadow: 0 2px 12px 0 rgba(25, 118, 210, 0.07);
+}
+.badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #fff;
+  background: #b0b8c9;
+  letter-spacing: 0.01em;
+}
+.badge-service.badge-google {
+  background: #1976d2;
+}
+.badge-service.badge-facebook {
+  background: #1877f2;
+}
+.badge-service.badge-other {
+  background: #43a047;
+}
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+.btn-view-details {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.btn-view-details:hover {
+  background: #1251a3;
+  color: #fff;
+}
+.btn-edit {
+  background: #fff;
+  color: #1976d2;
+  border: 1.5px solid #1976d2;
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-edit:hover {
+  background: #1976d2;
+  color: #fff;
+}
+.btn-delete {
+  background: #fff;
+  color: #dc3545;
+  border: 1.5px solid #dc3545;
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-delete:hover {
+  background: #dc3545;
+  color: #fff;
+}
+.btn-history {
+  background: #fff;
+  color: #43a047;
+  border: 1.5px solid #43a047;
+  padding: 7px 16px;
+  border-radius: 7px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-history:hover {
+  background: #43a047;
+  color: #fff;
+}
+/* Status color styles */
+.status-web {
+  color: #1976d2;
+  font-weight: 600;
+}
+.status-account {
+  color: #ff9800;
+  font-weight: 600;
+}
+.status-waitinfo {
+  color: #43a047;
+  font-weight: 600;
+}
 .svc-modal-overlay {
   position: fixed;
   inset: 0;

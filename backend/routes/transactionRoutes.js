@@ -52,7 +52,7 @@ router.post('/services/:serviceId/transactions', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { amount, transactionDate, notes, slipImage, paymentMethod } = req.body;
+    const { amount, transactionDate, notes, slipImage, paymentMethod, bank } = req.body;
     if (!amount || !transactionDate) {
       return res.status(400).json({ error: 'Amount and transaction date are required' });
     }
@@ -65,7 +65,8 @@ router.post('/services/:serviceId/transactions', async (req, res) => {
       transactionDate: new Date(transactionDate),
       notes,
       slipImage,
-      paymentMethod
+      paymentMethod,
+      bank
     });
 
     await transaction.save();

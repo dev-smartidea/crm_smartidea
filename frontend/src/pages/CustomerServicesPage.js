@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill } from 'react-bootstrap-icons';
+import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
 import './CustomerServicesPage.css';
 
@@ -34,21 +34,18 @@ export default function CustomerServicesPage() {
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
-      const [custRes, svcRes] = await Promise.all([
-        axios.get(`${api}/api/customers/${id}`, authHeaders),
-        axios.get(`${api}/api/customers/${id}/services`, authHeaders)
-      ]);
-      setCustomer(custRes.data);
-      setServices(svcRes.data);
+      // ดึงข้อมูล customer
+      const customerRes = await axios.get(`${api}/api/customers/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      setCustomer(customerRes.data);
+      // ดึงบริการทั้งหมดของ customer
+      const servicesRes = await axios.get(`${api}/api/customers/${id}/services`, { headers: { Authorization: `Bearer ${token}` } });
+      setServices(servicesRes.data || []);
+      setLoading(false);
     } catch (err) {
-      console.error(err);
-      setError('ไม่สามารถโหลดข้อมูลได้');
-    } finally {
+      setError('โหลดข้อมูลไม่สำเร็จ');
       setLoading(false);
     }
   }, [api, id, token]);
-
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
@@ -260,18 +257,20 @@ export default function CustomerServicesPage() {
                     <td>
                       {editingId === svc._id ? (
                         <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
-                          {/* ตัวเลือกตามฟอร์มเพิ่มบริการ */}
                           <option value="รอคิวทำเว็บ">รอคิวทำเว็บ</option>
                           <option value="รอคิวสร้างบัญชี">รอคิวสร้างบัญชี</option>
                           <option value="รอลูกค้าส่งข้อมูล">รอลูกค้าส่งข้อมูล</option>
-                          {/* เผื่อกรณีข้อมูลเก่าที่เป็นค่าอังกฤษให้เลือก/แสดงได้ */}
                         </select>
                       ) : (
-                        {
-                          active: 'กำลังทำ',
-                          paused: 'พักชั่วคราว',
-                          completed: 'เสร็จสิ้น'
-                        }[svc.status] || svc.status
+                        <span className={
+                          `badge-status ` +
+                          (svc.status === 'รอคิวทำเว็บ' ? 'web' :
+                           svc.status === 'รอคิวสร้างบัญชี' ? 'account' :
+                           svc.status === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
+                           '')
+                        }>
+                          {svc.status}
+                        </span>
                       )}
                     </td>
                     <td>
@@ -305,15 +304,15 @@ export default function CustomerServicesPage() {
                     <td>
                       {editingId === svc._id ? (
                         <>
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => saveEdit(svc._id)}>บันทึก</button>{' '}
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditingId(null)}>ยกเลิก</button>
+                          <button className="btn btn-view-details" onClick={() => saveEdit(svc._id)}>บันทึก</button>{' '}
+                          <button className="btn btn-edit" onClick={() => setEditingId(null)}>ยกเลิก</button>
                         </>
                       ) : (
-                        <>
-                          <button className="btn btn-sm btn-outline-primary" onClick={() => startEdit(svc)}><PencilSquare /> แก้ไข</button>{' '}
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => askDelete(svc._id)}><TrashFill /> ลบ</button>{' '}
-                          <button className="btn btn-sm btn-outline-info" onClick={() => navigate(`/dashboard/services/${svc._id}/transactions`)}>ประวัติการโอน</button>
-                        </>
+                        <div className="action-buttons">
+                          <button className="btn btn-edit" onClick={() => startEdit(svc)}><PencilSquare /> แก้ไข</button>
+                          <button className="btn btn-delete" onClick={() => askDelete(svc._id)}><TrashFill /> ลบ</button>
+                          <button className="btn btn-history" onClick={() => navigate(`/dashboard/services/${svc._id}/transactions`)}><EyeFill /> ประวัติการโอน</button>
+                        </div>
                       )}
                     </td>
                   </tr>
