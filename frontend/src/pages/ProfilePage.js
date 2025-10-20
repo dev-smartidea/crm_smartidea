@@ -1,7 +1,18 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './ProfilePage.css';
 import { PersonVcard, Envelope, Telephone, ShieldLock, PencilSquare } from 'react-bootstrap-icons';
+
+const API_HOST = process.env.REACT_APP_API_URL || '';
+
+function getAvatarUrl(avatar) {
+  if (!avatar) return require('../img/blank-profile.png');
+  if (typeof avatar === 'string' && avatar.startsWith('/uploads/avatars/')) {
+    return `${API_HOST}${avatar}`;
+  }
+  return avatar;
+}
 
 const ProfilePage = () => {
   const [user, setUser] = useState(null);
@@ -34,11 +45,7 @@ const ProfilePage = () => {
   useEffect(() => {
     if (user) {
       setPhone(user.phone || '');
-      if (user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '') {
-        setAvatarPreview(user.avatar);
-      } else {
-        setAvatarPreview(require('../img/blank-profile.png'));
-      }
+      setAvatarPreview(getAvatarUrl(user.avatar));
     }
   }, [user]);
 
@@ -71,6 +78,7 @@ const ProfilePage = () => {
           },
         });
         avatarUrl = res.data.url;
+        setAvatarPreview(getAvatarUrl(avatarUrl));
       }
 
       await axios.patch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, { phone, avatar: avatarUrl }, {

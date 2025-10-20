@@ -1,4 +1,14 @@
+
 import React from 'react';
+
+const API_HOST = process.env.REACT_APP_API_URL || '';
+function getAvatarUrl(avatar) {
+  if (!avatar) return require('../img/blank-profile.png');
+  if (typeof avatar === 'string' && avatar.startsWith('/uploads/avatars/')) {
+    return `${API_HOST}${avatar}`;
+  }
+  return avatar;
+}
 
 const ProfileNavbar = ({ user }) => {
   return (
@@ -14,7 +24,7 @@ const ProfileNavbar = ({ user }) => {
       zIndex: 100
     }}>
       <img
-        src={user?.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' ? user.avatar : require('../img/blank-profile.png')}
+        src={getAvatarUrl(user?.avatar)}
         alt="avatar"
         style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', background: '#eee', marginRight: 16 }}
         onError={e => { e.target.onerror = null; e.target.src = require('../img/blank-profile.png'); }}
