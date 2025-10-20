@@ -157,7 +157,7 @@ export default function TransactionHistoryPage() {
             </h2>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <Link to={`/dashboard/customer/${service?.customerId?._id || service?.customerId}/services`} className="btn btn-sm btn-secondary">
+            <Link to={`/dashboard/customer/${service?.customerId?._id || service?.customerId}/services`} className="btn btn-sm btn-back">
               <ArrowLeftCircleFill /> กลับ
             </Link>
             <button className="btn btn-sm btn-primary" onClick={() => setShowCreate(true)}>
@@ -240,10 +240,10 @@ export default function TransactionHistoryPage() {
                   />
                 </label>
                 <div className="svc-actions">
-                  <button type="button" className="btn btn-sm btn-primary" onClick={() => setShowCreate(false)}>
+                  <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreate(false)}>
                     ยกเลิก
                   </button>
-                  <button type="submit" className="btn btn-sm btn-success">
+                  <button type="submit" className="btn-modal btn-modal-save">
                     บันทึก
                   </button>
                 </div>

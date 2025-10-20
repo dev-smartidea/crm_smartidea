@@ -153,7 +153,7 @@ export default function CustomerServicesPage() {
             <h2 className="list-header-title">{customer ? customer.name : '...'}</h2>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <Link to="/dashboard/list" className="btn btn-sm btn-secondary"><ArrowLeftCircleFill /> กลับ</Link>
+            <Link to="/dashboard/list" className="btn btn-sm btn-back"><ArrowLeftCircleFill /> กลับ</Link>
             <button className="btn btn-sm btn-primary" onClick={() => setShowCreate(true)}><Plus /> เพิ่มบริการ</button>
           </div>
         </div>
@@ -233,8 +233,12 @@ export default function CustomerServicesPage() {
                   <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} />
                 </label>
                 <div className="svc-actions">
-                  <button type="button" className="btn btn-sm btn-primary" onClick={() => setShowCreate(false)}>ยกเลิก</button>
-                  <button type="submit" className="btn btn-sm btn-success">บันทึก</button>
+                  <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreate(false)}>
+                    ยกเลิก
+                  </button>
+                  <button type="submit" className="btn-modal btn-modal-save">
+                    บันทึก
+                  </button>
                 </div>
               </form>
             </div>
