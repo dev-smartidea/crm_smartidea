@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2 } from 'react-bootstrap-icons';
+import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2, ThreeDotsVertical } from 'react-bootstrap-icons';
 import '../pages/CustomerListPage.css'; // reuse table styles
 import '../pages/CustomerServicesPage.css';
 
@@ -11,6 +11,7 @@ export default function TransactionHistoryPage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
   const [form, setForm] = useState({
     amount: '',
     transactionDate: '',
@@ -52,6 +53,17 @@ export default function TransactionHistoryPage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // ปิด dropdown เมื่อคลิกข้างนอก
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.dropdown-container')) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -354,9 +366,25 @@ export default function TransactionHistoryPage() {
                           </button>
                         </>
                       ) : (
-                        <div className="action-buttons">
-                          <button className="btn btn-edit" onClick={() => startEdit(tx)}><PencilSquare /> แก้ไข</button>
-                          <button className="btn btn-delete" onClick={() => askDelete(tx._id)}><TrashFill /> ลบ</button>
+                        <div className="dropdown-container">
+                          <button 
+                            className="btn-dropdown-toggle" 
+                            onClick={(e) => {
+                              setOpenDropdown(openDropdown === tx._id ? null : tx._id);
+                            }}
+                          >
+                            <ThreeDotsVertical />
+                          </button>
+                          {openDropdown === tx._id && (
+                            <div className="dropdown-menu-custom">
+                              <button className="dropdown-item" onClick={() => { startEdit(tx); setOpenDropdown(null); }}>
+                                <PencilSquare /> แก้ไข
+                              </button>
+                              <button className="dropdown-item danger" onClick={() => { askDelete(tx._id); setOpenDropdown(null); }}>
+                                <TrashFill /> ลบ
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>

@@ -34,6 +34,10 @@
   position: relative;
 }
 
+.table-responsive {
+  overflow: visible;
+}
+
 .list-header {
   display: flex;
   justify-content: space-between;
@@ -75,6 +79,7 @@
   vertical-align: middle;
   border-bottom: 1px solid #eee;
   position: relative;
+  overflow: visible;
 }
 .customer-table th {
   font-weight: 600;
@@ -86,6 +91,9 @@
 .customer-table tbody tr:hover {
   background-color: #f3f7fd;
   box-shadow: 0 2px 12px 0 rgba(25, 118, 210, 0.07);
+}
+.customer-table tbody td:last-child {
+  overflow: visible;
 }
 .badge {
   display: inline-block;

@@ -61,7 +61,7 @@
 }
 
 .table-responsive {
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .customer-table {
@@ -79,6 +79,7 @@
   text-align: left;
   vertical-align: middle;
   border-bottom: 1px solid #eee;
+  overflow: visible;
 }
 
 .customer-table th {
@@ -88,6 +89,10 @@
 
 .customer-table tbody tr:hover {
   background-color: #f8f9fa;
+}
+
+.customer-table tbody td:last-child {
+  overflow: visible;
 }
 
 
@@ -244,4 +249,80 @@
 .modal-footer .btn {
   padding: 10px 25px;
   font-weight: 500;
+}
+
+/* Dropdown menu styles */
+.dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.btn-dropdown-toggle {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #495057;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.btn-dropdown-toggle:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+  color: #212529;
+}
+
+.dropdown-menu-custom {
+  position: absolute;
+  left: auto;
+  right: 0;
+  top: calc(100% + 5px);
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  min-width: 180px;
+  width: max-content;
+  z-index: 9999;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: #333;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.dropdown-item:hover {
+  background: #f8f9fa;
+}
+
+.dropdown-item.danger {
+  color: #dc3545;
+}
+
+.dropdown-item.danger:hover {
+  background: #fff5f5;
+}
+
+.dropdown-item svg {
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }

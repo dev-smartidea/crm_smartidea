@@ -341,15 +341,15 @@ export default function CustomerServicesPage() {
                             <ThreeDotsVertical />
                           </button>
                           {openDropdown === svc._id && (
-                            <div className={`dropdown-menu-custom ${isBottomRows ? 'show-above' : ''}`}>
+                            <div className="dropdown-menu-custom">
                               <button className="dropdown-item" onClick={() => { startEdit(svc); setOpenDropdown(null); }}>
                                 <PencilSquare /> แก้ไข
                               </button>
-                              <button className="dropdown-item danger" onClick={() => { askDelete(svc._id); setOpenDropdown(null); }}>
-                                <TrashFill /> ลบ
-                              </button>
                               <button className="dropdown-item" onClick={() => { navigate(`/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
                                 <EyeFill /> ประวัติการโอน
+                              </button>
+                              <button className="dropdown-item danger" onClick={() => { askDelete(svc._id); setOpenDropdown(null); }}>
+                                <TrashFill /> ลบ
                               </button>
                             </div>
                           )}

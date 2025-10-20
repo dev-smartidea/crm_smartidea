@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle } from 'react-bootstrap-icons';
+import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical } from 'react-bootstrap-icons';
 import './CustomerListPage.css';
 
 export default function CustomerListPage() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
 
   const fetchCustomers = async (searchValue = '') => {
     setIsLoading(true);
@@ -35,6 +37,17 @@ export default function CustomerListPage() {
     }, 300);
     return () => clearTimeout(delayDebounce);
   }, [search]);
+
+  // ปิด dropdown เมื่อคลิกข้างนอก
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.dropdown-container')) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handleDeleteClick = (id) => {
     setCustomerToDelete(id);
@@ -139,13 +152,25 @@ export default function CustomerListPage() {
                     <td>{cust.phone}</td>
                     <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
                     <td>
-                      <div className="action-buttons">
-                        <Link to={`/dashboard/customer/${cust._id}/services`} className="btn btn-view-details">
-                          <EyeFill /> บริการ
-                        </Link>
-                        <button className="btn btn-delete" onClick={() => handleDeleteClick(cust._id)}>
-                          <TrashFill /> ลบ
+                      <div className="dropdown-container">
+                        <button 
+                          className="btn-dropdown-toggle" 
+                          onClick={(e) => {
+                            setOpenDropdown(openDropdown === cust._id ? null : cust._id);
+                          }}
+                        >
+                          <ThreeDotsVertical />
                         </button>
+                        {openDropdown === cust._id && (
+                          <div className="dropdown-menu-custom">
+                            <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}/services`); setOpenDropdown(null); }}>
+                              <EyeFill /> บริการ
+                            </button>
+                            <button className="dropdown-item danger" onClick={() => { handleDeleteClick(cust._id); setOpenDropdown(null); }}>
+                              <TrashFill /> ลบ
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
