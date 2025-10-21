@@ -76,15 +76,16 @@ router.get('/dashboard/summary', async (req, res) => {
       .populate('customerId', 'name')
       .sort({ dueDate: 1 })
       .limit(10)
-      .select('name status dueDate customerId');
+        .select('name status dueDate customerId pageUrl');
 
-    const upcomingServicesFormatted = upcomingServices.map(svc => ({
-      _id: svc._id,
-      name: svc.name,
-      status: svc.status,
-      dueDate: svc.dueDate,
-      customerName: svc.customerId?.name || '-'
-    }));
+      const upcomingServicesFormatted = upcomingServices.map(svc => ({
+        _id: svc._id,
+        name: svc.name,
+        status: svc.status,
+        dueDate: svc.dueDate,
+        customerName: svc.customerId?.name || '-',
+        pageUrl: svc.pageUrl || '-'
+      }));
 
     // ดึงข้อมูลการเติมเงิน 30 วันล่าสุด แบ่งตามวัน
     const thirtyDaysAgo = new Date();

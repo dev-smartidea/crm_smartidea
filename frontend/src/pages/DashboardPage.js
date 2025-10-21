@@ -113,7 +113,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="dashboard-page-container">
+    <div className="dashboard-page-container fade-up">
       <div className="dashboard-header">
         <h2>Dashboard</h2>
         <p className="dashboard-subtitle">ภาพรวมข้อมูลธุรกิจของคุณ</p>
@@ -253,6 +253,7 @@ export default function DashboardPage() {
               <tr>
                 <th>ลูกค้า</th>
                 <th>บริการ</th>
+                <th>Website/Facebook Page</th>
                 <th>วันครบกำหนด</th>
                 <th>สถานะ</th>
               </tr>
@@ -262,6 +263,13 @@ export default function DashboardPage() {
                 <tr key={svc._id}>
                   <td>{svc.customerName || '-'}</td>
                   <td>{svc.name}</td>
+                  <td>
+                    {svc.pageUrl
+                      ? (/^(http|https):\/\//.test(svc.pageUrl)
+                          ? <a href={svc.pageUrl} target="_blank" rel="noopener noreferrer">{svc.pageUrl}</a>
+                          : svc.pageUrl)
+                      : '-'}
+                  </td>
                   <td>{new Date(svc.dueDate).toLocaleDateString('th-TH')}</td>
                   <td>
                     <span className={

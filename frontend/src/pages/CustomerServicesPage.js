@@ -144,7 +144,7 @@ export default function CustomerServicesPage() {
   );
 
   return (
-    <div className="customer-list-page">
+    <div className="customer-list-page fade-up">
       <div className="list-container">
         {showDeleteConfirm && <DeleteConfirmModal />}
         <div className="list-header">
@@ -321,7 +321,7 @@ export default function CustomerServicesPage() {
                         <input value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} />
                       ) : (svc.notes || '-')}
                     </td>
-                    <td>{svc.pageUrl || '-'}</td>
+                    <td style={{ textAlign: 'left' }}>{svc.pageUrl || '-'}</td>
                     <td>
                       {editingId === svc._id ? (
                         <>

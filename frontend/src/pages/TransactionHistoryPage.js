@@ -156,7 +156,7 @@ export default function TransactionHistoryPage() {
   const totalAmount = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
   return (
-    <div className="customer-list-page">
+    <div className="customer-list-page fade-up">
       <div className="list-container">
         {showDeleteConfirm && <DeleteConfirmModal />}
         <div className="list-header">

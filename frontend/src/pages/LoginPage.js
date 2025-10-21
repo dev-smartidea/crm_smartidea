@@ -55,7 +55,7 @@ function LoginPage({ onLoginSuccess }) {
   };
 
   return (
-    <div className="login-page-container">
+    <div className="login-page-container fade-up">
       <div className="login-card">
         <div className="login-header">
           <h2>เข้าสู่ระบบ</h2>

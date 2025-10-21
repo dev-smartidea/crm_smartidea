@@ -59,7 +59,7 @@ export default function CustomerDetailPage() {
   }
 
   return (
-    <div className="customer-detail-page">
+    <div className="customer-detail-page fade-up">
       <div className="detail-container">
         {customer ? (
           <>

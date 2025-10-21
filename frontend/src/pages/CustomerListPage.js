@@ -95,7 +95,7 @@ export default function CustomerListPage() {
   );
 
   return (
-    <div className="customer-list-page">
+    <div className="customer-list-page fade-up">
       {showDeleteConfirm && <DeleteConfirmModal />}
       <div className="list-container">
         <div className="list-header">

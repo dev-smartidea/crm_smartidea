@@ -111,7 +111,7 @@ export default function NotificationPage() {
   }
 
   return (
-    <div className="notification-page">
+    <div className="notification-page fade-up">
       <div className="notification-container">
         {/* Header */}
         <div className="notification-header">

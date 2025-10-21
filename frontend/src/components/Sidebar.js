@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 
 // กำหนดรายการเมนู
 const menuItems = [
+  { label: 'รูปภาพ', to: '/dashboard/images', icon: '🖼️' },
   { label: 'Dashboard', to: '/dashboard', icon: '🏠' },
   { label: 'Customers', to: '/dashboard/customers', icon: '👥' },
   { label: 'Sales', to: '/dashboard/sales', icon: '💰' },

@@ -42,7 +42,7 @@ function RegisterPage() {
   };
 
   return (
-    <div className="register-page-container">
+    <div className="register-page-container fade-up">
       <div className="register-card">
         <div className="register-header">
           <h2>สร้างบัญชีใหม่</h2>

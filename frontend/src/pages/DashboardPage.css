@@ -49,9 +49,10 @@
 }
 
 .stat-card-icon {
-  font-size: 2.5rem;
-  padding: 12px;
-  border-radius: 12px;
+  /* Match Notification page icon sizing for consistency */
+  font-size: 3.2rem;
+  padding: 16px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;

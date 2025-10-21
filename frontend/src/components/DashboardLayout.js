@@ -3,7 +3,7 @@ import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell } from 'react-bootstrap-icons';
+import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell, Image } from 'react-bootstrap-icons';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -62,6 +62,7 @@ export default function DashboardLayout() {
                 {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
               </Link>
             </li>
+            <li><Link to="images"><Image /> รูปภาพ</Link></li>
             <li><Link to="profile"><PersonCircle /> โปรไฟล์</Link></li>
           </ul>
           <div className="logout-section">
