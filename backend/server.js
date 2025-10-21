@@ -21,6 +21,7 @@ app.use(session({
 
 // ให้ express ให้บริการไฟล์ static สำหรับรูปโปรไฟล์
 app.use('/uploads/avatars', express.static(__dirname + '/uploads/avatars'));
+app.use('/uploads/images', express.static(__dirname + '/uploads/images'));
 
 // ✅ โหลด customerRoutes
 const customerRoutes = require('./routes/customerRoutes');
@@ -41,6 +42,10 @@ app.use('/api', dashboardRoutes); // เส้นทางจะเป็น /ap
 // ✅ Notification routes (การแจ้งเตือน)
 const notificationRoutes = require('./routes/notificationRoutes');
 app.use('/api', notificationRoutes); // เส้นทางจะเป็น /api/notifications
+
+// ✅ Image routes (คลังรูปภาพ)
+const imageRoutes = require('./routes/imageRoutes');
+app.use('/api', imageRoutes); // เส้นทางจะเป็น /api/images
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);

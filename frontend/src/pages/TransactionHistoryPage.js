@@ -4,6 +4,7 @@ import axios from 'axios';
 import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2, ThreeDotsVertical } from 'react-bootstrap-icons';
 import '../pages/CustomerListPage.css'; // reuse table styles
 import '../pages/CustomerServicesPage.css';
+import './ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
 
 export default function TransactionHistoryPage() {
   const { serviceId } = useParams(); // service id from URL
@@ -170,7 +171,7 @@ export default function TransactionHistoryPage() {
             <Link to={`/dashboard/customer/${service?.customerId?._id || service?.customerId}/services`} className="btn btn-sm btn-back">
               <ArrowLeftCircleFill /> กลับ
             </Link>
-            <button className="btn btn-sm btn-primary" onClick={() => setShowCreate(true)}>
+            <button className="btn-header-upload" onClick={() => setShowCreate(true)}>
               <Plus /> เพิ่มรายการโอนเงิน
             </button>
           </div>

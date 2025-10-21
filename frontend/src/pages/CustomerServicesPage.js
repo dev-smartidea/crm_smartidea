@@ -4,6 +4,7 @@ import axios from 'axios';
 import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill, ThreeDotsVertical } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
 import './CustomerServicesPage.css';
+import './ImageGalleryPage.css'; // reuse btn-header-upload style for gradient blue button
 
 export default function CustomerServicesPage() {
   const { id } = useParams(); // customer id
@@ -154,7 +155,7 @@ export default function CustomerServicesPage() {
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <Link to="/dashboard/list" className="btn btn-sm btn-back"><ArrowLeftCircleFill /> กลับ</Link>
-            <button className="btn btn-sm btn-primary" onClick={() => setShowCreate(true)}><Plus /> เพิ่มบริการ</button>
+            <button className="btn-header-upload" onClick={() => setShowCreate(true)}><Plus /> เพิ่มบริการ</button>
           </div>
         </div>
         {customer && (
