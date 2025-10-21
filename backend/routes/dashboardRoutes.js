@@ -76,7 +76,7 @@ router.get('/dashboard/summary', async (req, res) => {
       .populate('customerId', 'name')
       .sort({ dueDate: 1 })
       .limit(10)
-        .select('name status dueDate customerId pageUrl');
+        .select('name status dueDate customerId pageUrl customerIdField');
 
       const upcomingServicesFormatted = upcomingServices.map(svc => ({
         _id: svc._id,
@@ -84,7 +84,8 @@ router.get('/dashboard/summary', async (req, res) => {
         status: svc.status,
         dueDate: svc.dueDate,
         customerName: svc.customerId?.name || '-',
-        pageUrl: svc.pageUrl || '-'
+        pageUrl: svc.pageUrl || '-',
+        customerIdField: svc.customerIdField || '-'
       }));
 
     // ดึงข้อมูลการเติมเงิน 30 วันล่าสุด แบ่งตามวัน

@@ -197,6 +197,7 @@ export default function DashboardPage() {
               <thead>
                 <tr>
                   <th>ชื่อ</th>
+                  <th>ID</th>
                   <th>เบอร์โทร</th>
                   <th>วันที่เพิ่ม</th>
                 </tr>
@@ -205,6 +206,7 @@ export default function DashboardPage() {
                 {recentCustomers.map((cust) => (
                   <tr key={cust._id}>
                     <td>{cust.name}</td>
+                    <td>{cust._id.slice(-6).toUpperCase()}</td>
                     <td>{cust.phone}</td>
                     <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
                   </tr>
@@ -253,6 +255,7 @@ export default function DashboardPage() {
               <tr>
                 <th>ลูกค้า</th>
                 <th>บริการ</th>
+                <th>Customer ID</th>
                 <th>Website/Facebook Page</th>
                 <th>วันครบกำหนด</th>
                 <th>สถานะ</th>
@@ -263,6 +266,7 @@ export default function DashboardPage() {
                 <tr key={svc._id}>
                   <td>{svc.customerName || '-'}</td>
                   <td>{svc.name}</td>
+                  <td>{svc.customerIdField || '-'}</td>
                   <td>
                     {svc.pageUrl
                       ? (/^(http|https):\/\//.test(svc.pageUrl)

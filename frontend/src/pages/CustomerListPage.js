@@ -120,6 +120,7 @@ export default function CustomerListPage() {
             <thead>
               <tr>
                 <th>ลูกค้า</th>
+                <th>ID</th>
                 <th>บริการที่สนใจ</th>
                 <th>เบอร์โทรศัพท์</th>
                 <th>วันที่เพิ่ม</th>
@@ -129,7 +130,7 @@ export default function CustomerListPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="5" className="text-center p-5">กำลังโหลดข้อมูล...</td>
+                  <td colSpan="6" className="text-center p-5">กำลังโหลดข้อมูล...</td>
                 </tr>
               ) : customers.length > 0 ? (
                 customers.map((cust) => (
@@ -146,6 +147,7 @@ export default function CustomerListPage() {
                         <span className="customer-name">{cust.name}</span>
                       </div>
                     </td>
+                    <td>{cust._id.slice(-6).toUpperCase()}</td>
                     <td>
                       <span className={`badge badge-service ${cust.service === 'Google Ads' ? 'badge-google' : cust.service === 'Facebook Ads' ? 'badge-facebook' : 'badge-other'}`}>{cust.service}</span>
                     </td>
@@ -177,7 +179,7 @@ export default function CustomerListPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="text-center p-5">ไม่พบข้อมูลลูกค้า</td>
+                  <td colSpan="6" className="text-center p-5">ไม่พบข้อมูลลูกค้า</td>
                 </tr>
               )}
             </tbody>
