@@ -62,7 +62,6 @@ export default function DashboardPage() {
         setCustomerCount(res.data.customerCount);
         setServiceCount(res.data.serviceCount);
         setTotalRevenue(res.data.totalRevenue || 0);
-        console.log('Service Status from API:', res.data.serviceStatus); // Debug
         
         // Merge กับ default state เพื่อให้แน่ใจว่ามีทุก key
         const mergedStatus = {
@@ -71,7 +70,6 @@ export default function DashboardPage() {
           'รอลูกค้าส่งข้อมูล': res.data.serviceStatus['รอลูกค้าส่งข้อมูล'] || 0,
           'กำลังรันโฆษณา': res.data.serviceStatus['กำลังรันโฆษณา'] || 0
         };
-        console.log('Merged Status:', mergedStatus); // Debug
         setServiceStatus(mergedStatus);
         
         setRecentCustomers(res.data.recentCustomers || []);

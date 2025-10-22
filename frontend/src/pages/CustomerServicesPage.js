@@ -553,9 +553,6 @@ export default function CustomerServicesPage() {
                               <button className="dropdown-item" onClick={() => { setSelectedService(svc); setShowDetail(true); setOpenDropdown(null); }}>
                                 <EyeFill /> ดูรายละเอียด
                               </button>
-                              <button className="dropdown-item" onClick={() => { startEdit(svc); setOpenDropdown(null); }}>
-                                <PencilSquare /> แก้ไข
-                              </button>
                               <button className="dropdown-item" onClick={() => { navigate(`/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
                                 <EyeFill style={{ opacity: 0.7 }} /> ประวัติการโอน
                               </button>
