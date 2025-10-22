@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2, ThreeDotsVertical } from 'react-bootstrap-icons';
+import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
 import '../pages/CustomerListPage.css'; // reuse table styles
 import '../pages/CustomerServicesPage.css';
 import './ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
@@ -143,7 +143,7 @@ export default function TransactionHistoryPage() {
         <div className="modal-body">คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้? การกระทำนี้ไม่สามารถย้อนกลับได้</div>
         <div className="modal-footer">
           <button className="btn btn-secondary" type="button" onClick={() => setShowDeleteConfirm(false)}>
-            ยกเลิก
+            <XCircle /> ยกเลิก
           </button>
           <button className="btn btn-danger" type="button" onClick={confirmDelete}>
             ยืนยันลบ
@@ -252,7 +252,7 @@ export default function TransactionHistoryPage() {
                 </label>
                 <div className="svc-actions">
                   <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreate(false)}>
-                    ยกเลิก
+                    <XCircle /> ยกเลิก
                   </button>
                   <button type="submit" className="btn-modal btn-modal-save">
                     บันทึก
@@ -361,7 +361,7 @@ export default function TransactionHistoryPage() {
                             บันทึก
                           </button>{' '}
                           <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditingId(null)}>
-                            ยกเลิก
+                            <XCircle /> ยกเลิก
                           </button>
                         </>
                       ) : (

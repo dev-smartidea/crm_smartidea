@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { FaUserShield, FaTrashAlt } from 'react-icons/fa';
+import { XCircle } from 'react-bootstrap-icons';
 import './AdminDashboardPage.css';
 
 const AdminDashboardPage = () => {
@@ -87,7 +88,7 @@ const AdminDashboardPage = () => {
           <div style={{ background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.15)', minWidth: 320, textAlign: 'center' }}>
             <h3 style={{ marginBottom: 18 }}>ยืนยันการลบผู้ใช้</h3>
             <div style={{ marginBottom: 24, color: '#555' }}>คุณต้องการลบผู้ใช้นี้ใช่หรือไม่?</div>
-            <button style={{ marginRight: 16, padding: '8px 24px', borderRadius: 6, border: 'none', background: '#888', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }} onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}>ยกเลิก</button>
+            <button style={{ marginRight: 16, padding: '8px 24px', borderRadius: 6, border: 'none', background: '#888', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}><XCircle /> ยกเลิก</button>
             <button style={{ padding: '8px 24px', borderRadius: 6, border: 'none', background: '#dc3545', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }} onClick={handleConfirmDelete} disabled={deleteLoading}>{deleteLoading ? 'กำลังลบ...' : 'ยืนยัน'}</button>
           </div>
         </div>

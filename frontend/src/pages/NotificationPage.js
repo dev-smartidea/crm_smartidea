@@ -7,7 +7,7 @@ import './NotificationPage.css';
 export default function NotificationPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, service, customer, transaction
+  const [filter, setFilter] = useState('all'); // all, service, customer, transaction, unread, read
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -80,6 +80,8 @@ export default function NotificationPage() {
 
   const filteredNotifications = notifications.filter(n => {
     if (filter === 'all') return true;
+    if (filter === 'unread') return !n.isRead;
+    if (filter === 'read') return n.isRead;
     if (filter === 'service') return n.type.includes('service');
     if (filter === 'customer') return n.type.includes('customer');
     if (filter === 'transaction') return n.type.includes('transaction');
@@ -87,6 +89,7 @@ export default function NotificationPage() {
   });
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const readCount = notifications.length - unreadCount;
 
   // Pagination
   const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage);
@@ -134,6 +137,18 @@ export default function NotificationPage() {
             onClick={() => handleFilterChange('all')}
           >
             ทั้งหมด {notifications.length > 0 && `(${notifications.length})`}
+          </button>
+          <button 
+            className={`filter-btn ${filter === 'unread' ? 'active' : ''}`}
+            onClick={() => handleFilterChange('unread')}
+          >
+            ยังไม่ได้อ่าน {`(${unreadCount})`}
+          </button>
+          <button 
+            className={`filter-btn ${filter === 'read' ? 'active' : ''}`}
+            onClick={() => handleFilterChange('read')}
+          >
+            อ่านแล้ว {`(${readCount})`}
           </button>
           <button 
             className={`filter-btn ${filter === 'service' ? 'active' : ''}`}

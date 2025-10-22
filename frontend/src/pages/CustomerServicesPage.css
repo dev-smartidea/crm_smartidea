@@ -124,11 +124,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s ease;
 }
 .btn-view-details:hover {
   background: #1251a3;
   color: #fff;
+  transform: translateY(-2px);
 }
 .btn-edit {
   background: #fff;
@@ -140,11 +141,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s ease;
 }
 .btn-edit:hover {
   background: #1976d2;
   color: #fff;
+  transform: translateY(-2px);
 }
 .btn-delete {
   background: #fff;
@@ -156,11 +158,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s ease;
 }
 .btn-delete:hover {
   background: #dc3545;
   color: #fff;
+  transform: translateY(-2px);
 }
 .svc-modal-overlay {
   position: fixed;
@@ -216,12 +219,12 @@
   transition: all 0.18s;
 }
 .btn-modal-cancel {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
+  background: #e0e0e0;
+  color: #333;
 }
 .btn-modal-cancel:hover:not(:disabled) {
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-  box-shadow: 0 4px 16px rgba(102,126,234,0.18);
+  background: #d0d0d0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
 .btn-modal-save {
@@ -256,6 +259,7 @@
   background: #f9fafb;
   border-color: #d1d5db;
   color: #6b7280;
+  transform: translateY(-2px);
 }
 
 /* Expired service highlight */
@@ -290,6 +294,7 @@
   background: #f8f9fa;
   border-color: #adb5bd;
   color: #212529;
+  transform: translateY(-2px);
 }
 
 .dropdown-menu-custom {

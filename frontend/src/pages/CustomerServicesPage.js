@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill, ThreeDotsVertical } from 'react-bootstrap-icons';
+import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
 import './CustomerServicesPage.css';
 import './ImageGalleryPage.css'; // reuse btn-header-upload style for gradient blue button
@@ -137,7 +137,7 @@ export default function CustomerServicesPage() {
         </div>
         <div className="modal-body">คุณแน่ใจหรือไม่ว่าต้องการลบบริการนี้? การกระทำนี้ไม่สามารถย้อนกลับได้</div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" type="button" onClick={() => setShowDeleteConfirm(false)}>ยกเลิก</button>
+          <button className="btn btn-secondary" type="button" onClick={() => setShowDeleteConfirm(false)}><XCircle /> ยกเลิก</button>
           <button className="btn btn-danger" type="button" onClick={confirmDelete}>ยืนยันลบ</button>
         </div>
       </div>
@@ -235,7 +235,7 @@ export default function CustomerServicesPage() {
                 </label>
                 <div className="svc-actions">
                   <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreate(false)}>
-                    ยกเลิก
+                    <XCircle /> ยกเลิก
                   </button>
                   <button type="submit" className="btn-modal btn-modal-save">
                     บันทึก
@@ -327,7 +327,7 @@ export default function CustomerServicesPage() {
                       {editingId === svc._id ? (
                         <>
                           <button className="btn btn-view-details" onClick={() => saveEdit(svc._id)}>บันทึก</button>{' '}
-                          <button className="btn btn-edit" onClick={() => setEditingId(null)}>ยกเลิก</button>
+                          <button className="btn btn-edit" onClick={() => setEditingId(null)}><XCircle /> ยกเลิก</button>
                         </>
                       ) : (
                         <div className="dropdown-container">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { PersonPlusFill, TelephoneFill, Line, Facebook, Globe, BriefcaseFill, CheckCircleFill, ArrowCounterclockwise } from 'react-bootstrap-icons';
 import './AddCustomerPage.css';
+import './ImageGalleryPage.css'; // reuse gradient blue button style
 
 export default function AddCustomerPage() {
 
@@ -228,7 +229,7 @@ export default function AddCustomerPage() {
             <button type="button" className="btn-secondary" onClick={handleReset} disabled={isSubmitting}>
               <ArrowCounterclockwise /> ล้างข้อมูล
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="btn-header-upload" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>กำลังบันทึก...</>
               ) : (

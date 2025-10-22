@@ -152,6 +152,7 @@
 .profile-save-btn:hover {
   opacity: 0.9;
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  transform: translateY(-2px);
 }
 
 .profile-save-btn:disabled {
@@ -232,6 +233,7 @@
 
 .confirm-modal-actions .btn-cancel:hover {
   background-color: #e0e0e0;
+  transform: translateY(-2px);
 }
 
 .confirm-modal-actions .btn-confirm {
@@ -241,4 +243,5 @@
 
 .confirm-modal-actions .btn-confirm:hover {
   background-color: #218838;
+  transform: translateY(-2px);
 }

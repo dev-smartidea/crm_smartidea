@@ -160,11 +160,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s ease;
 }
 .btn-view-details:hover {
   background: #1251a3;
   color: #fff;
+  transform: translateY(-2px);
 }
 .btn-delete {
   background: #fff;
@@ -176,11 +177,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s ease;
 }
 .btn-delete:hover {
   background: #dc3545;
   color: #fff;
+  transform: translateY(-2px);
 }
 
 .modal-backdrop {
@@ -233,6 +235,27 @@
   font-weight: 500;
 }
 
+/* Ensure cancel button keeps gray style and doesn't turn white on hover */
+.modal-footer .btn.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease;
+}
+.modal-footer .btn.btn-secondary:hover,
+.modal-footer .btn.btn-secondary:focus,
+.modal-footer .btn.btn-secondary:active {
+  background: #e0e0e0;
+  color: #333;
+  box-shadow: none;
+  outline: none;
+  transform: translateY(-2px);
+}
+
 /* Dropdown menu styles */
 .dropdown-container {
   position: relative;
@@ -257,6 +280,7 @@
   background: #f8f9fa;
   border-color: #adb5bd;
   color: #212529;
+  transform: translateY(-2px);
 }
 
 .dropdown-menu-custom {

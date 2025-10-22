@@ -29,3 +29,11 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .fade-up { animation: none !important; }
 }
+
+/* Global button hover lift for Bootstrap-like buttons */
+.btn {
+  transition: transform 0.15s ease;
+}
+.btn:hover {
+  transform: translateY(-2px);
+}

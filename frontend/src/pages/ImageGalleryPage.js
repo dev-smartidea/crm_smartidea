@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Image as ImageIcon, Search, Upload, Trash, Eye, X } from 'react-bootstrap-icons';
+import { Image as ImageIcon, Search, Upload, Trash, Eye, X, XCircle } from 'react-bootstrap-icons';
 import './ImageGalleryPage.css';
 
 export default function ImageGalleryPage() {
@@ -30,6 +30,8 @@ export default function ImageGalleryPage() {
   const [uploadCustomerServices, setUploadCustomerServices] = useState([]);
   const [uploadServiceQuery, setUploadServiceQuery] = useState('');
   const [uploadShowServiceDropdown, setUploadShowServiceDropdown] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState(null);
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -179,16 +181,25 @@ export default function ImageGalleryPage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรูปภาพนี้?')) return;
+  const handleDeleteClick = (image) => {
+    setImageToDelete(image);
+    setShowDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!imageToDelete) return;
     
     try {
-      await axios.delete(`${api}/api/images/${id}`, {
+      await axios.delete(`${api}/api/images/${imageToDelete._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      setShowDeleteModal(false);
+      setImageToDelete(null);
       fetchImages();
     } catch (err) {
       alert('ลบรูปภาพไม่สำเร็จ');
+      setShowDeleteModal(false);
+      setImageToDelete(null);
     }
   };
 
@@ -327,7 +338,7 @@ export default function ImageGalleryPage() {
                     </div>
                     <button 
                       className="btn-icon-delete" 
-                      onClick={() => handleDelete(img._id)}
+                      onClick={() => handleDeleteClick(img)}
                       title="ลบ"
                     >
                       <Trash />
@@ -398,7 +409,6 @@ export default function ImageGalleryPage() {
                                 // refresh services for upload modal
                                 fetchUploadCustomerServices(c._id);
                                 setUploadServiceQuery('');
-                                setUploadForm(f => ({ ...f, service: '' }));
                               }}
                             >
                               {label}
@@ -420,6 +430,7 @@ export default function ImageGalleryPage() {
                     disabled={!uploadSelectedCustomerId}
                     onFocus={() => { if (uploadSelectedCustomerId) setUploadShowServiceDropdown(true); }}
                     onChange={(e) => { setUploadServiceQuery(e.target.value); if (uploadSelectedCustomerId) setUploadShowServiceDropdown(true); }}
+                    required
                   />
                   {uploadShowServiceDropdown && uploadSelectedCustomerId && (
                     <div className="combo-panel" onMouseLeave={() => setUploadShowServiceDropdown(false)}>
@@ -474,7 +485,7 @@ export default function ImageGalleryPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowUploadModal(false)}>
-                  ยกเลิก
+                  <XCircle /> ยกเลิก
                 </button>
                 <button type="submit" className="btn-modal btn-modal-save">
                   <Upload /> อัปโหลด
@@ -500,6 +511,44 @@ export default function ImageGalleryPage() {
               </span>
               {selectedImage.description && <p>{selectedImage.description}</p>}
               <p className="image-view-date">{new Date(selectedImage.createdAt).toLocaleDateString('th-TH')}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && imageToDelete && (
+        <div className="modal-backdrop" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal-content delete-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>ยืนยันการลบรูปภาพ</h3>
+              <button className="btn-close" onClick={() => setShowDeleteModal(false)}>
+                <X />
+              </button>
+            </div>
+            <div className="delete-modal-body">
+              <div className="delete-preview">
+                <img src={`${api}${imageToDelete.imageUrl}`} alt={imageToDelete.customerName} />
+              </div>
+              <div className="delete-info">
+                <p className="delete-question">คุณแน่ใจหรือไม่ว่าต้องการลบรูปภาพนี้?</p>
+                <div className="delete-details">
+                  <p><strong>ลูกค้า:</strong> {imageToDelete.customerName}</p>
+                  <p><strong>บริการ:</strong> {imageToDelete.service}</p>
+                  {imageToDelete.description && (
+                    <p><strong>คำอธิบาย:</strong> {imageToDelete.description}</p>
+                  )}
+                </div>
+                <p className="delete-warning">⚠️ การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowDeleteModal(false)}>
+                <XCircle /> ยกเลิก
+              </button>
+              <button type="button" className="btn-modal btn-modal-delete" onClick={handleDelete}>
+                <Trash /> ลบรูปภาพ
+              </button>
             </div>
           </div>
         </div>

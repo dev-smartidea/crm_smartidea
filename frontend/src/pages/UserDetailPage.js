@@ -1,6 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 import './UserDetailPage.css';
+import { XCircle } from 'react-bootstrap-icons';
 
 const UserDetailPage = ({ user, onBack }) => {
   const [customers, setCustomers] = React.useState([]);
@@ -49,7 +50,7 @@ const UserDetailPage = ({ user, onBack }) => {
           <div style={{ background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.15)', minWidth: 320, textAlign: 'center' }}>
             <h3 style={{ marginBottom: 18 }}>ยืนยันการลบข้อมูลลูกค้า</h3>
             <div style={{ marginBottom: 24, color: '#555' }}>คุณต้องการลบข้อมูลลูกค้าคนนี้ใช่หรือไม่?</div>
-            <button style={{ marginRight: 16, padding: '8px 24px', borderRadius: 6, border: 'none', background: '#888', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }} onClick={() => setShowDeleteConfirm(false)}>ยกเลิก</button>
+            <button style={{ marginRight: 16, padding: '8px 24px', borderRadius: 6, border: 'none', background: '#888', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowDeleteConfirm(false)}><XCircle /> ยกเลิก</button>
             <button style={{ padding: '8px 24px', borderRadius: 6, border: 'none', background: '#dc3545', color: '#fff', fontWeight: 500, fontSize: '1rem', cursor: 'pointer' }} onClick={handleConfirmDelete}>ยืนยัน</button>
           </div>
         </div>

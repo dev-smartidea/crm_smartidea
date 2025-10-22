@@ -87,13 +87,14 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s ease, transform 0.15s ease;
   box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
 
 .login-btn:hover {
   opacity: 0.9;
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  transform: translateY(-2px);
 }
 
 .login-error-message {

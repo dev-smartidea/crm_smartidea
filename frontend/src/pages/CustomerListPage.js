@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical } from 'react-bootstrap-icons';
+import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
 import './CustomerListPage.css';
 
 export default function CustomerListPage() {
@@ -84,7 +84,7 @@ export default function CustomerListPage() {
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
-            ยกเลิก
+            <XCircle /> ยกเลิก
           </button>
           <button className="btn btn-danger" onClick={handleConfirmDelete} disabled={isDeleting}>
             {isDeleting ? 'กำลังลบ...' : 'ยืนยันการลบ'}

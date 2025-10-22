@@ -57,11 +57,12 @@
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.15s ease;
 }
 
 .btn-mark-all:hover {
   background: #1565c0;
+  transform: translateY(-2px);
 }
 
 .notification-filters {
@@ -79,12 +80,13 @@
   font-weight: 600;
   color: #666;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s, transform 0.15s ease;
 }
 
 .filter-btn:hover {
   border-color: #1976d2;
   color: #1976d2;
+  transform: translateY(-2px);
 }
 
 .filter-btn.active {
@@ -275,13 +277,14 @@
   cursor: pointer;
   color: #495057;
   font-weight: 500;
-  transition: all 0.15s;
+  transition: all 0.15s, transform 0.15s ease;
 }
 
 .pagination-btn:hover:not(:disabled) {
   background: #f8f9fa;
   border-color: #0d6efd;
   color: #0d6efd;
+  transform: translateY(-2px);
 }
 
 .pagination-btn:disabled {
@@ -309,13 +312,14 @@
   color: #495057;
   font-weight: 500;
   min-width: 40px;
-  transition: all 0.15s;
+  transition: all 0.15s, transform 0.15s ease;
 }
 
 .page-number:hover {
   background: #f8f9fa;
   border-color: #0d6efd;
   color: #0d6efd;
+  transform: translateY(-2px);
 }
 
 .page-number.active {

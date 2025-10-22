@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './ProfilePage.css';
-import { PersonVcard, Envelope, Telephone, ShieldLock, PencilSquare } from 'react-bootstrap-icons';
+import './ImageGalleryPage.css'; // reuse gradient blue button style
+import { PersonVcard, Envelope, Telephone, ShieldLock, PencilSquare, XCircle } from 'react-bootstrap-icons';
 
 const API_HOST = process.env.REACT_APP_API_URL || '';
 
@@ -115,7 +116,7 @@ const ProfilePage = () => {
             <h3>ยืนยันการบันทึก</h3>
             <p>คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลโปรไฟล์ใช่หรือไม่?</p>
             <div className="confirm-modal-actions">
-              <button onClick={handleCancelConfirm} className="btn-cancel">ยกเลิก</button>
+              <button onClick={handleCancelConfirm} className="btn-cancel"><XCircle /> ยกเลิก</button>
               <button onClick={handleConfirmSave} className="btn-confirm">ยืนยัน</button>
             </div>
           </div>
@@ -187,7 +188,7 @@ const ProfilePage = () => {
 
           {error && <p className="profile-error-message">{error}</p>}
 
-          <button className="profile-save-btn" onClick={handleSave} disabled={saving}>
+          <button className="btn-header-upload" onClick={handleSave} disabled={saving}>
             {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
           </button>
         </div>
