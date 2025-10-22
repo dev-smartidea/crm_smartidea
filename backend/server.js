@@ -1,7 +1,7 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
+const connectDB = require('./config/database');
 
 const app = express();
 // อนุญาต CORS จากทุก origin สำหรับการใช้งานใน network
@@ -55,9 +55,8 @@ app.get('/', (req, res) => {
   res.send('🎉 Backend CRM is working');
 });
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB Error:", err));
+// เชื่อมต่อ MongoDB
+connectDB();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT}`));
