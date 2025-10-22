@@ -8,4 +8,9 @@ const imageSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
+// Helpful indexes for scalability (query by owner, service, recent first, and search by name)
+imageSchema.index({ userId: 1, createdAt: -1 });
+imageSchema.index({ service: 1, createdAt: -1 });
+imageSchema.index({ customerName: 'text' });
+
 module.exports = mongoose.model('Image', imageSchema);

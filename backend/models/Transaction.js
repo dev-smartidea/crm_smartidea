@@ -13,4 +13,8 @@ const transactionSchema = new mongoose.Schema({
   bank: { type: String } // บัญชีธนาคาร (KBANK, SCB, BBL, etc.)
 }, { timestamps: true });
 
+// Indexes to speed up typical queries (by service/user and recent first)
+transactionSchema.index({ serviceId: 1, transactionDate: -1 });
+transactionSchema.index({ userId: 1, transactionDate: -1 });
+
 module.exports = mongoose.model('Transaction', transactionSchema);

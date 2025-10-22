@@ -189,6 +189,7 @@
   flex-direction: column;
   gap: 8px;
   flex: 1;
+  min-width: 0; /* allow children to shrink for ellipsis */
 }
 
 .gallery-item-details h4 {
@@ -242,14 +243,41 @@
   width: fit-content;
 }
 
+/* space stacked badges (service and website/facebook) */
+.gallery-item-details .badge + .badge { margin-top: 6px; }
+
 .badge-google {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: #e8f5e9 !important;
+  color: #2e7d32 !important;
 }
 
 .badge-facebook {
+  background: #e3f2fd !important;
+  color: #1565c0 !important;
+}
+
+/* Website / Facebook badge */
+.meta-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  word-break: break-all;
+  line-height: 1.3;
+  margin-top: 4px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.meta-badge.meta-facebook {
   background: #e3f2fd;
   color: #1565c0;
+}
+
+.meta-badge.meta-website {
+  background: #e8f5e9;
+  color: #2e7d32;
 }
 
 /* Loading & Empty States */
@@ -414,6 +442,56 @@ textarea.form-control {
   color: #999;
   margin-top: 8px;
 }
+
+/* Pagination (reused style similar to Notification page) */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 30px;
+  padding: 20px 0;
+  border-top: 1px solid #eee;
+}
+
+.pagination-btn {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #495057;
+  font-weight: 500;
+  transition: all 0.15s, transform 0.15s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #0d6efd;
+  color: #0d6efd;
+  transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info { display: flex; align-items: center; gap: 10px; }
+.page-numbers { display: flex; gap: 5px; }
+.page-number {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #495057;
+  font-weight: 500;
+  min-width: 40px;
+  transition: all 0.15s, transform 0.15s ease;
+}
+.page-number:hover { background: #f8f9fa; border-color: #0d6efd; color: #0d6efd; transform: translateY(-2px); }
+.page-number.active { background: #0d6efd; border-color: #0d6efd; color: #fff; }
 
 /* Modal Styles */
 .modal-backdrop {

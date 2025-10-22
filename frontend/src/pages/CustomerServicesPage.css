@@ -105,12 +105,12 @@
   background: #b0b8c9;
   letter-spacing: 0.01em;
 }
-.badge-service.badge-google {
-  background: #1976d2;
-}
-.badge-service.badge-facebook {
-  background: #1877f2;
-}
+  .badge-service.badge-google {
+    background: #43a047;
+  }
+  .badge-service.badge-facebook {
+    background: #1976d2;
+  }
 .badge-service.badge-other {
   background: #43a047;
 }

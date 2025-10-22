@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Image as ImageIcon, Search, Upload, Trash, Eye, X, XCircle } from 'react-bootstrap-icons';
+import { Image as ImageIcon, Search, Upload, Trash, Eye, X, XCircle, Link45deg } from 'react-bootstrap-icons';
 import './ImageGalleryPage.css';
 
 export default function ImageGalleryPage() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 24;
   const [customers, setCustomers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerServices, setCustomerServices] = useState([]);
@@ -35,6 +38,28 @@ export default function ImageGalleryPage() {
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
+
+  // Helpers for displaying website/facebook
+  const ensureHttp = (url) => {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url)) return url;
+    return `https://${url}`;
+  };
+  const extractDomain = (url) => {
+    if (!url) return '';
+    try {
+      const u = new URL(ensureHttp(url));
+      return u.hostname.replace(/^www\./i, '');
+    } catch {
+      return url;
+    }
+  };
+  const pickDisplayUrl = (img) => {
+    // Prefer pageUrl from Service; fallback to customer facebook/website by service type
+    if (img.pageUrl) return img.pageUrl;
+    if ((img.service || '').toLowerCase().includes('facebook')) return img.facebook || img.website || '';
+    return img.website || img.facebook || '';
+  };
 
   // ดึงรายชื่อลูกค้าทั้งหมด
   const fetchCustomers = async () => {
@@ -87,6 +112,7 @@ export default function ImageGalleryPage() {
       const params = new URLSearchParams();
       const effectiveCustomerId = override?.customerId ?? selectedCustomerId;
       const effectiveService = override?.serviceName ?? serviceFilter;
+      const effectivePage = override?.page ?? currentPage;
       if (effectiveCustomerId) {
         const customer = customers.find(c => c._id === effectiveCustomerId);
         if (customer) {
@@ -94,11 +120,16 @@ export default function ImageGalleryPage() {
         }
       }
       if (effectiveService) params.append('service', effectiveService);
+      params.append('page', effectivePage.toString());
+      params.append('limit', pageSize.toString());
       
       const res = await axios.get(`${api}/api/images?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setImages(res.data || []);
+      const data = res.data || { items: [], totalPages: 1, page: 1 };
+      setImages(data.items || []);
+      setTotalPages(data.totalPages || 1);
+      setCurrentPage(data.page || 1);
     } catch (err) {
       console.error('Failed to fetch images:', err);
       setImages([]);
@@ -141,7 +172,8 @@ export default function ImageGalleryPage() {
       });
       if (matchSvc) serviceName = matchSvc.name;
     }
-    fetchImages({ customerId, serviceName });
+    setCurrentPage(1);
+    fetchImages({ customerId, serviceName, page: 1 });
   };
 
   const handleCustomerChange = (customerId) => {
@@ -335,6 +367,16 @@ export default function ImageGalleryPage() {
                       <span className={`badge ${img.service === 'Google Ads' ? 'badge-google' : 'badge-facebook'}`}>
                         {img.service}
                       </span>
+                      {(() => {
+                        const url = pickDisplayUrl(img);
+                        if (!url) return null;
+                        const isFb = /facebook\.com|fb\.com/i.test(url) || (img.service || '').toLowerCase().includes('facebook');
+                        return (
+                          <span className={`badge ${isFb ? 'badge-facebook' : 'badge-google'}`}>
+                            {url}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <button 
                       className="btn-icon-delete" 
@@ -360,6 +402,42 @@ export default function ImageGalleryPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="pagination">
+            <button 
+              className="pagination-btn"
+              onClick={() => fetchImages({ page: Math.max(1, currentPage - 1) })}
+              disabled={currentPage === 1}
+            >
+              ← ก่อนหน้า
+            </button>
+            <div className="pagination-info">
+              <span className="page-numbers">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
+                  Math.max(0, currentPage - 3),
+                  Math.min(totalPages, currentPage + 2)
+                ).map(page => (
+                  <button
+                    key={page}
+                    className={`page-number ${currentPage === page ? 'active' : ''}`}
+                    onClick={() => fetchImages({ page })}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </span>
+            </div>
+            <button 
+              className="pagination-btn"
+              onClick={() => fetchImages({ page: Math.min(totalPages, currentPage + 1) })}
+              disabled={currentPage === totalPages}
+            >
+              ถัดไป →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Upload Modal */}
@@ -509,6 +587,16 @@ export default function ImageGalleryPage() {
               <span className={`badge ${selectedImage.service === 'Google Ads' ? 'badge-google' : 'badge-facebook'}`}>
                 {selectedImage.service}
               </span>
+              {(() => {
+                const url = pickDisplayUrl(selectedImage);
+                if (!url) return null;
+                const isFb = /facebook\.com|fb\.com/i.test(url) || (selectedImage.service || '').toLowerCase().includes('facebook');
+                return (
+                  <span className={`badge ${isFb ? 'badge-facebook' : 'badge-google'}`}>
+                    {url}
+                  </span>
+                );
+              })()}
               {selectedImage.description && <p>{selectedImage.description}</p>}
               <p className="image-view-date">{new Date(selectedImage.createdAt).toLocaleDateString('th-TH')}</p>
             </div>

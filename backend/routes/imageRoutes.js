@@ -5,6 +5,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Image = require('../models/Image');
+const Customer = require('../models/Customer');
+const Service = require('../models/Service');
 
 // Helper: auth + return user object (id, role)
 function getUserFromReq(req) {
@@ -57,6 +59,9 @@ router.get('/images', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const { customer, service } = req.query;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 24, 1), 100);
+    const skip = (page - 1) * limit;
     
     // Filter
     const filter = user.role === 'admin' ? {} : { userId: user.id };
@@ -67,8 +72,58 @@ router.get('/images', async (req, res) => {
       filter.service = service;
     }
 
-    const images = await Image.find(filter).sort({ createdAt: -1 });
-    res.json(images);
+    const [items, total] = await Promise.all([
+      Image.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Image.countDocuments(filter)
+    ]);
+
+    // Enrich each image item with website/facebook (from Customer) and pageUrl (from Service)
+    if (items.length > 0) {
+      const customerNames = [...new Set(items.map(i => i.customerName))];
+      // Fetch customers by name for the current user
+      const customerQuery = { name: { $in: customerNames } };
+      if (user.role !== 'admin') customerQuery.userId = user.id;
+      const customers = await Customer.find(customerQuery).select('_id name website facebook userId');
+      const customerByName = new Map(customers.map(c => [c.name, c]));
+
+      // Prepare service lookup keys
+      const svcCustomerIds = [];
+      const svcNames = new Set();
+      for (const it of items) {
+        const c = customerByName.get(it.customerName);
+        if (c) {
+          svcCustomerIds.push(c._id);
+          svcNames.add(it.service);
+        }
+      }
+
+      let serviceMap = new Map();
+      if (svcCustomerIds.length > 0) {
+        const svcQuery = {
+          customerId: { $in: svcCustomerIds },
+          name: { $in: Array.from(svcNames) }
+        };
+        if (user.role !== 'admin') svcQuery.userId = user.id;
+        const services = await Service.find(svcQuery).select('customerId name pageUrl');
+        serviceMap = new Map(services.map(s => [`${s.customerId.toString()}:${s.name}`, s.pageUrl || '' ]));
+      }
+
+      // attach fields
+      const enriched = items.map(it => {
+        const obj = it.toObject();
+        const cust = customerByName.get(it.customerName);
+        const pageUrl = cust ? (serviceMap.get(`${cust._id.toString()}:${it.service}`) || '') : '';
+        return {
+          ...obj,
+          website: cust?.website || '',
+          facebook: cust?.facebook || '',
+          pageUrl
+        };
+      });
+      return res.json({ items: enriched, total, page, totalPages: Math.ceil(total / limit) });
+    }
+
+    res.json({ items, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     console.error('Get images error:', err);
     res.status(500).json({ error: 'Server error', detail: err.message });

@@ -25,4 +25,8 @@ const serviceSchema = new mongoose.Schema({
   customerIdField: { type: String } // Customer ID ที่ผู้ใช้กรอกเอง (แยกจาก customerId ที่เป็น ObjectId)
 }, { timestamps: true });
 
+// Indexes to speed up lookups by customer/user and name
+serviceSchema.index({ customerId: 1 });
+serviceSchema.index({ userId: 1, name: 1 });
+
 module.exports = mongoose.model('Service', serviceSchema);
