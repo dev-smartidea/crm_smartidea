@@ -37,11 +37,18 @@ router.get('/dashboard/summary', async (req, res) => {
     const serviceStatusFilter = user.role === 'admin' ? {} : { userId: user.id };
     const services = await Service.find(serviceStatusFilter);
     
+    console.log('User:', user.id, 'Role:', user.role); // Debug
+    console.log('Services found:', services.length); // Debug
+    console.log('Services:', services.map(s => ({ name: s.name, status: s.status }))); // Debug
+    
     const serviceStatus = {
       'รอคิวทำเว็บ': services.filter(s => s.status === 'รอคิวทำเว็บ').length,
       'รอคิวสร้างบัญชี': services.filter(s => s.status === 'รอคิวสร้างบัญชี').length,
-      'รอลูกค้าส่งข้อมูล': services.filter(s => s.status === 'รอลูกค้าส่งข้อมูล').length
+      'รอลูกค้าส่งข้อมูล': services.filter(s => s.status === 'รอลูกค้าส่งข้อมูล').length,
+      'กำลังรันโฆษณา': services.filter(s => s.status === 'กำลังรันโฆษณา').length
     };
+    
+    console.log('Service Status:', serviceStatus); // Debug
 
     // นับประเภทบริการ
     const serviceTypeCount = {

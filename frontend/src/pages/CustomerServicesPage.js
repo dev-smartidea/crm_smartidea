@@ -24,11 +24,29 @@ export default function CustomerServicesPage() {
     customerIdField: ''
   });
   const [editingId, setEditingId] = useState(null);
+  // state สำหรับจำนวนวัน
+  const [daysDiff, setDaysDiff] = useState('');
+  // คำนวณจำนวนวันเมื่อวันที่เปลี่ยน
+  useEffect(() => {
+    if (form.startDate && form.dueDate) {
+      const start = new Date(form.startDate);
+      const end = new Date(form.dueDate);
+      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      setDaysDiff(diff >= 0 ? diff : '');
+    } else {
+      setDaysDiff('');
+    }
+  }, [form.startDate, form.dueDate]);
   const [editForm, setEditForm] = useState({ name: '', status: 'active', notes: '', startDate: '', dueDate: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState(null);
   const [error, setError] = useState('');
   const [openDropdown, setOpenDropdown] = useState(null); // เก็บ ID ของ dropdown ที่เปิดอยู่
+  const [showDetail, setShowDetail] = useState(false); // แสดง modal รายละเอียด
+  const [selectedService, setSelectedService] = useState(null); // บริการที่เลือกดู
+  const [isEditingInDetail, setIsEditingInDetail] = useState(false); // สถานะการแก้ไขใน modal รายละเอียด
+  const [detailForm, setDetailForm] = useState({}); // form สำหรับแก้ไขใน modal รายละเอียด
+  const [detailDaysDiff, setDetailDaysDiff] = useState(''); // จำนวนวันใน modal รายละเอียด
   const token = localStorage.getItem('token');
 
   const api = process.env.REACT_APP_API_URL;
@@ -63,6 +81,18 @@ export default function CustomerServicesPage() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  // คำนวณจำนวนวันใน modal แก้ไข
+  useEffect(() => {
+    if (detailForm.startDate && detailForm.dueDate) {
+      const start = new Date(detailForm.startDate);
+      const end = new Date(detailForm.dueDate);
+      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      setDetailDaysDiff(diff >= 0 ? diff : '');
+    } else {
+      setDetailDaysDiff('');
+    }
+  }, [detailForm.startDate, detailForm.dueDate]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -129,6 +159,38 @@ export default function CustomerServicesPage() {
     }
   };
 
+  const startDetailEdit = () => {
+    setDetailForm({
+      name: selectedService.name,
+      pageUrl: selectedService.pageUrl || '',
+      customerIdField: selectedService.customerIdField || '',
+      status: selectedService.status,
+      startDate: selectedService.startDate ? new Date(selectedService.startDate).toISOString().slice(0,10) : '',
+      dueDate: selectedService.dueDate ? new Date(selectedService.dueDate).toISOString().slice(0,10) : '',
+      notes: selectedService.notes || ''
+    });
+    setIsEditingInDetail(true);
+  };
+
+  const saveDetailEdit = async () => {
+    try {
+      const payload = { ...detailForm };
+      if (!payload.startDate) delete payload.startDate;
+      if (!payload.dueDate) delete payload.dueDate;
+      const res = await axios.put(`${api}/api/services/${selectedService._id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      setServices(services.map(s => s._id === selectedService._id ? res.data : s));
+      setSelectedService(res.data);
+      setIsEditingInDetail(false);
+    } catch (err) {
+      alert('บันทึกไม่สำเร็จ');
+    }
+  };
+
+  const cancelDetailEdit = () => {
+    setIsEditingInDetail(false);
+    setDetailForm({});
+  };
+
   const DeleteConfirmModal = () => (
     <div className="modal-backdrop">
       <div className="modal-content">
@@ -188,6 +250,11 @@ export default function CustomerServicesPage() {
                   <label>
                     วันที่ครบกำหนด
                     <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
+                    {form.startDate && form.dueDate && daysDiff !== '' && (
+                      <div style={{ fontSize: '0.95em', color: '#1a7f37', marginTop: 4 }}>
+                        รวม {daysDiff} วัน
+                      </div>
+                    )}
                   </label>
                 </div>
                 <label>
@@ -246,6 +313,142 @@ export default function CustomerServicesPage() {
           </div>
         )}
 
+        {/* Modal แสดงรายละเอียดบริการ */}
+        {showDetail && selectedService && (
+          <div className="svc-modal-overlay" onClick={() => { if (!isEditingInDetail) setShowDetail(false); }}>
+            <div className="svc-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 20 }}>รายละเอียดบริการ</h3>
+              
+              {!isEditingInDetail ? (
+                <>
+                  <div style={{ marginBottom: 12 }}><strong>บริการ:</strong> {selectedService.name}</div>
+                  <div style={{ marginBottom: 12 }}><strong>Website / Facebook Page:</strong> {selectedService.pageUrl || '-'}</div>
+                  <div style={{ marginBottom: 12 }}><strong>Customer ID:</strong> {selectedService.customerIdField || '-'}</div>
+                  <div style={{ marginBottom: 12 }}>
+                    <strong>สถานะ:</strong>{' '}
+                    <span className={
+                      `badge-status ` +
+                      (selectedService.status === 'รอคิวทำเว็บ' ? 'web' :
+                       selectedService.status === 'รอคิวสร้างบัญชี' ? 'account' :
+                       selectedService.status === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
+                       selectedService.status === 'กำลังรันโฆษณา' ? 'running' :
+                       '')
+                    }>
+                      {selectedService.status}
+                    </span>
+                  </div>
+                  <div style={{ marginBottom: 12 }}><strong>วันที่เริ่มต้น:</strong> {selectedService.startDate ? new Date(selectedService.startDate).toLocaleDateString('th-TH') : '-'}</div>
+                  <div style={{ marginBottom: 12 }}><strong>วันที่ครบกำหนด:</strong> {selectedService.dueDate ? new Date(selectedService.dueDate).toLocaleDateString('th-TH') : '-'}</div>
+                  <div style={{ marginBottom: 12 }}>
+                    <strong>จำนวนวัน:</strong> {selectedService.startDate && selectedService.dueDate ? (() => {
+                      const start = new Date(selectedService.startDate);
+                      const end = new Date(selectedService.dueDate);
+                      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                      return diff >= 0 ? `${diff} วัน` : '-';
+                    })() : '-'}
+                  </div>
+                  <div style={{ marginBottom: 12 }}><strong>note:</strong> {selectedService.notes || '-'}</div>
+                  <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn-modal btn-modal-save" onClick={startDetailEdit}>
+                      <PencilSquare /> แก้ไข
+                    </button>
+                    <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowDetail(false)}>
+                      ปิด
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <form className="svc-form" onSubmit={(e) => { e.preventDefault(); saveDetailEdit(); }}>
+                  <label>
+                    บริการ
+                    <input type="text" value={detailForm.name} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                  </label>
+                  <label>
+                    Website / Facebook Page
+                    <input type="text" value={detailForm.pageUrl} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                  </label>
+                  <label>
+                    Customer ID
+                    <input type="text" value={detailForm.customerIdField} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                  </label>
+                  <div className="svc-row-2">
+                    <label>
+                      วันที่เริ่มต้น
+                      <input type="date" value={detailForm.startDate} onChange={e => setDetailForm({ ...detailForm, startDate: e.target.value })} />
+                    </label>
+                    <label>
+                      วันที่ครบกำหนด
+                      <input type="date" value={detailForm.dueDate} onChange={e => setDetailForm({ ...detailForm, dueDate: e.target.value })} />
+                      {detailForm.startDate && detailForm.dueDate && detailDaysDiff !== '' && (
+                        <div style={{ fontSize: '0.95em', color: '#1a7f37', marginTop: 4 }}>
+                          รวม {detailDaysDiff} วัน
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>สถานะ</label>
+                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input 
+                          type="radio" 
+                          name="detailStatus" 
+                          value="รอคิวทำเว็บ"
+                          checked={detailForm.status === 'รอคิวทำเว็บ'}
+                          onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
+                        />
+                        <span>รอคิวทำเว็บ</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input 
+                          type="radio" 
+                          name="detailStatus" 
+                          value="รอคิวสร้างบัญชี"
+                          checked={detailForm.status === 'รอคิวสร้างบัญชี'}
+                          onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
+                        />
+                        <span>รอคิวสร้างบัญชี</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input 
+                          type="radio" 
+                          name="detailStatus" 
+                          value="รอลูกค้าส่งข้อมูล"
+                          checked={detailForm.status === 'รอลูกค้าส่งข้อมูล'}
+                          onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
+                        />
+                        <span>รอลูกค้าส่งข้อมูล</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input 
+                          type="radio" 
+                          name="detailStatus" 
+                          value="กำลังรันโฆษณา"
+                          checked={detailForm.status === 'กำลังรันโฆษณา'}
+                          onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
+                        />
+                        <span>กำลังรันโฆษณา</span>
+                      </label>
+                    </div>
+                  </div>
+                  <label>
+                    note
+                    <textarea value={detailForm.notes} onChange={e => setDetailForm({ ...detailForm, notes: e.target.value })} rows={3} />
+                  </label>
+                  <div className="svc-actions">
+                    <button type="button" className="btn-modal btn-modal-cancel" onClick={cancelDetailEdit}>
+                      <XCircle /> ยกเลิก
+                    </button>
+                    <button type="submit" className="btn-modal btn-modal-save">
+                      บันทึก
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="table-responsive">
           <table className="customer-table">
             <thead>
@@ -255,7 +458,7 @@ export default function CustomerServicesPage() {
                 <th>สถานะ</th>
                 <th>เริ่ม</th>
                 <th>ครบกำหนด</th>
-                <th>บันทึก</th>
+                <th>จำนวนวัน</th>
                 <th>Website / Facebook Page</th>
                 <th>การจัดการ</th>
               </tr>
@@ -289,6 +492,7 @@ export default function CustomerServicesPage() {
                           (svc.status === 'รอคิวทำเว็บ' ? 'web' :
                            svc.status === 'รอคิวสร้างบัญชี' ? 'account' :
                            svc.status === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
+                           svc.status === 'กำลังรันโฆษณา' ? 'running' :
                            '')
                         }>
                           {svc.status}
@@ -318,9 +522,14 @@ export default function CustomerServicesPage() {
                       )}
                     </td>
                     <td>
-                      {editingId === svc._id ? (
-                        <input value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} />
-                      ) : (svc.notes || '-')}
+                      {svc.startDate && svc.dueDate ? (
+                        (() => {
+                          const start = new Date(svc.startDate);
+                          const end = new Date(svc.dueDate);
+                          const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                          return diff >= 0 ? `${diff} วัน` : '-';
+                        })()
+                      ) : '-'}
                     </td>
                     <td style={{ textAlign: 'left' }}>{svc.pageUrl || '-'}</td>
                     <td>
@@ -341,11 +550,14 @@ export default function CustomerServicesPage() {
                           </button>
                           {openDropdown === svc._id && (
                             <div className="dropdown-menu-custom">
+                              <button className="dropdown-item" onClick={() => { setSelectedService(svc); setShowDetail(true); setOpenDropdown(null); }}>
+                                <EyeFill /> ดูรายละเอียด
+                              </button>
                               <button className="dropdown-item" onClick={() => { startEdit(svc); setOpenDropdown(null); }}>
                                 <PencilSquare /> แก้ไข
                               </button>
                               <button className="dropdown-item" onClick={() => { navigate(`/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
-                                <EyeFill /> ประวัติการโอน
+                                <EyeFill style={{ opacity: 0.7 }} /> ประวัติการโอน
                               </button>
                               <button className="dropdown-item danger" onClick={() => { askDelete(svc._id); setOpenDropdown(null); }}>
                                 <TrashFill /> ลบ

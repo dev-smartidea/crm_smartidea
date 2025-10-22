@@ -14,7 +14,10 @@
   background: #ff9800;
 }
 .badge-status.waitinfo {
-  background: #43a047;
+  background: #795548;
+}
+.badge-status.running {
+  background: #22c55e;
 }
 /* Modern service table styles */
 .customer-list-page {

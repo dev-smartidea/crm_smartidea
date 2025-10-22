@@ -24,7 +24,8 @@ export default function DashboardPage() {
   const [serviceStatus, setServiceStatus] = useState({
     'รอคิวทำเว็บ': 0,
     'รอคิวสร้างบัญชี': 0,
-    'รอลูกค้าส่งข้อมูล': 0
+    'รอลูกค้าส่งข้อมูล': 0,
+    'กำลังรันโฆษณา': 0
   });
   const [serviceTypeData, setServiceTypeData] = useState({
     labels: ['Google Ads', 'Facebook Ads', 'อื่นๆ'],
@@ -61,7 +62,18 @@ export default function DashboardPage() {
         setCustomerCount(res.data.customerCount);
         setServiceCount(res.data.serviceCount);
         setTotalRevenue(res.data.totalRevenue || 0);
-        setServiceStatus(res.data.serviceStatus);
+        console.log('Service Status from API:', res.data.serviceStatus); // Debug
+        
+        // Merge กับ default state เพื่อให้แน่ใจว่ามีทุก key
+        const mergedStatus = {
+          'รอคิวทำเว็บ': res.data.serviceStatus['รอคิวทำเว็บ'] || 0,
+          'รอคิวสร้างบัญชี': res.data.serviceStatus['รอคิวสร้างบัญชี'] || 0,
+          'รอลูกค้าส่งข้อมูล': res.data.serviceStatus['รอลูกค้าส่งข้อมูล'] || 0,
+          'กำลังรันโฆษณา': res.data.serviceStatus['กำลังรันโฆษณา'] || 0
+        };
+        console.log('Merged Status:', mergedStatus); // Debug
+        setServiceStatus(mergedStatus);
+        
         setRecentCustomers(res.data.recentCustomers || []);
         setRecentTransactions(res.data.recentTransactions || []);
         setUpcomingServices(res.data.upcomingServices || []);
@@ -152,7 +164,12 @@ export default function DashboardPage() {
             <div style={{ marginTop: 8 }}>
               {Object.entries(serviceStatus).map(([label, value]) => (
                 <div key={label} className="status-row">
-                  <span className={`status-badge ${label === 'รอคิวทำเว็บ' ? 'web' : label === 'รอคิวสร้างบัญชี' ? 'account' : 'waitinfo'}`}>{label}</span>
+                  <span className={`status-badge ${
+                    label === 'รอคิวทำเว็บ' ? 'web' : 
+                    label === 'รอคิวสร้างบัญชี' ? 'account' : 
+                    label === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
+                    label === 'กำลังรันโฆษณา' ? 'running' : ''
+                  }`}>{label}</span>
                   <span className="status-count">{value}</span>
                 </div>
               ))}

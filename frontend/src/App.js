@@ -14,6 +14,7 @@ import UserDetailPage from './pages/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import NotificationPage from './pages/NotificationPage';
 import ImageGalleryPage from './pages/ImageGalleryPage';
+import ServiceDetailPage from './pages/ServiceDetailPage';
 import axios from 'axios';
 
 function App() {
@@ -67,6 +68,7 @@ function App() {
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />
           <Route path="services/:serviceId/transactions" element={<TransactionHistoryPage />} />
+          <Route path="services/:id" element={<ServiceDetailPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
