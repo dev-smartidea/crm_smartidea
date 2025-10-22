@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Image as ImageIcon, Search, Upload, Trash, Eye, X, XCircle, Link45deg } from 'react-bootstrap-icons';
+import { Image as ImageIcon, Search, Upload, Trash, Eye, X, XCircle, Plus, Dash, ArrowCounterclockwise } from 'react-bootstrap-icons';
 import './ImageGalleryPage.css';
 
 export default function ImageGalleryPage() {
@@ -35,25 +35,17 @@ export default function ImageGalleryPage() {
   const [uploadShowServiceDropdown, setUploadShowServiceDropdown] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [imageToDelete, setImageToDelete] = useState(null);
+  // Zoom/Pan states for image view modal
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const offsetRef = useRef({ x: 0, y: 0 });
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
   // Helpers for displaying website/facebook
-  const ensureHttp = (url) => {
-    if (!url) return '';
-    if (/^https?:\/\//i.test(url)) return url;
-    return `https://${url}`;
-  };
-  const extractDomain = (url) => {
-    if (!url) return '';
-    try {
-      const u = new URL(ensureHttp(url));
-      return u.hostname.replace(/^www\./i, '');
-    } catch {
-      return url;
-    }
-  };
   const pickDisplayUrl = (img) => {
     // Prefer pageUrl from Service; fallback to customer facebook/website by service type
     if (img.pageUrl) return img.pageUrl;
@@ -141,12 +133,14 @@ export default function ImageGalleryPage() {
   useEffect(() => {
     fetchCustomers();
     fetchImages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     fetchCustomerServices(selectedCustomerId);
     setServiceFilter(''); // รีเซ็ตตัวกรองบริการเมื่อเปลี่ยนลูกค้า
     setServiceQuery('');  // เคลียร์ข้อความที่พิมพ์ในช่องบริการด้วย
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomerId]);
 
   const handleSearch = (e) => {
@@ -174,10 +168,6 @@ export default function ImageGalleryPage() {
     }
     setCurrentPage(1);
     fetchImages({ customerId, serviceName, page: 1 });
-  };
-
-  const handleCustomerChange = (customerId) => {
-    setSelectedCustomerId(customerId);
   };
 
   const handleUpload = async (e) => {
@@ -238,7 +228,41 @@ export default function ImageGalleryPage() {
   const handleImageClick = (image) => {
     setSelectedImage(image);
     setShowImageModal(true);
+    // reset zoom/pan when opening
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
   };
+
+  // Zoom helpers
+  const handleWheelZoom = (e) => {
+    const delta = -e.deltaY;
+    const next = Math.min(4, Math.max(1, +(zoom + (delta > 0 ? 0.1 : -0.1)).toFixed(2)));
+    setZoom(next);
+    if (next === 1) setOffset({ x: 0, y: 0 });
+  };
+  const handleZoomIn = () => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)));
+  const handleZoomOut = () => setZoom((z) => {
+    const next = Math.max(1, +(z - 0.25).toFixed(2));
+    if (next === 1) setOffset({ x: 0, y: 0 });
+    return next;
+  });
+  const handleZoomReset = () => { setZoom(1); setOffset({ x: 0, y: 0 }); };
+  const handleDoubleClick = () => {
+    if (zoom === 1) setZoom(2); else { setZoom(1); setOffset({ x: 0, y: 0 }); }
+  };
+  const handleMouseDown = (e) => {
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    offsetRef.current = offset;
+  };
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    setOffset({ x: offsetRef.current.x + dx, y: offsetRef.current.y + dy });
+  };
+  const stopDragging = () => setIsDragging(false);
 
   return (
     <div className="image-gallery-page fade-up">
@@ -581,7 +605,37 @@ export default function ImageGalleryPage() {
             <button className="btn-close-image" onClick={() => setShowImageModal(false)}>
               <X size={32} />
             </button>
-            <img src={`${api}${selectedImage.imageUrl}`} alt={selectedImage.customerName} />
+            <div
+              className="zoom-container"
+              onWheel={handleWheelZoom}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={stopDragging}
+              onMouseLeave={stopDragging}
+              onDoubleClick={handleDoubleClick}
+            >
+              <img
+                className="zoom-image"
+                src={`${api}${selectedImage.imageUrl}`}
+                alt={selectedImage.customerName}
+                style={{
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                  cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in'
+                }}
+                draggable={false}
+              />
+              <div className="zoom-controls">
+                <button className="zoom-btn" onClick={handleZoomOut} title="ซูมออก">
+                  <Dash />
+                </button>
+                <button className="zoom-btn" onClick={handleZoomIn} title="ซูมเข้า">
+                  <Plus />
+                </button>
+                <button className="zoom-btn" onClick={handleZoomReset} title="รีเซ็ต">
+                  <ArrowCounterclockwise />
+                </button>
+              </div>
+            </div>
             <div className="image-view-info">
               <h3>{selectedImage.customerName}</h3>
               <span className={`badge ${selectedImage.service === 'Google Ads' ? 'badge-google' : 'badge-facebook'}`}>

@@ -4,13 +4,12 @@ import { NavLink } from 'react-router-dom';
 
 // กำหนดรายการเมนู
 const menuItems = [
-  { label: 'รูปภาพ', to: '/dashboard/images', icon: '🖼️' },
-  { label: 'Dashboard', to: '/dashboard', icon: '🏠' },
-  { label: 'Customers', to: '/dashboard/customers', icon: '👥' },
-  { label: 'Sales', to: '/dashboard/sales', icon: '💰' },
-  { label: 'Reports', to: '/dashboard/reports', icon: '📊' },
-  { label: 'การแจ้งเตือน', to: '/dashboard/notifications', icon: '🔔' },
-  // ...เพิ่มรายการเมนูตามต้องการ...
+  { label: 'Dashboard', to: '/dashboard', icon: '🏠', exact: true },
+  { label: 'เพิ่มลูกค้า', to: '/dashboard/add', icon: '👤' },
+  { label: 'รายชื่อลูกค้า', to: '/dashboard/list', icon: '👥' },
+  { label: 'การแจ้งเตือน', to: '/dashboard/notifications', icon: '�' },
+  { label: 'รูปภาพ', to: '/dashboard/images', icon: '�️' },
+  { label: 'โปรไฟล์', to: '/dashboard/profile', icon: '👨‍�' },
 ];
 
 // สร้างคอมโพเนนต์ Sidebar
@@ -39,36 +38,42 @@ function Sidebar() {
         <NavLink
           key={item.to}
           to={item.to}
+          end={item.exact}
           className={({ isActive }) =>
             'sidebar-link' + (isActive ? ' active' : '')
           }
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '10px 16px',
-            borderRadius: '8px',
-            color: '#333',
-            textDecoration: 'none',
-            fontWeight: 500,
-            fontSize: '1rem',
-            transition: 'background 0.2s, color 0.2s',
-            marginBottom: '4px',
-          }}
         >
-          <span style={{ fontSize: '1.2em' }}>{item.icon}</span>
+          <span className="sidebar-icon">{item.icon}</span>
           {item.label}
         </NavLink>
       ))}
       {/* สไตล์เพิ่มเติมสำหรับ Sidebar */}
       <style>{`
-        .sidebar-link:hover {
-          background: #f0f4fa;
-          color: #1976d2;
+        .sidebar-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          border-radius: 10px;
+          color: #555;
+          text-decoration: none;
+          font-weight: 500;
+          fontSize: 1rem;
+          transition: all 0.2s ease;
+          margin-bottom: 4px;
         }
+        .sidebar-icon {
+          font-size: 1.3em;
+        }
+        .sidebar-link:hover,
         .sidebar-link.active {
-          background: #1976d2;
-          color: #fff;
+          background: #e8f4fd;
+          color: #1976d2;
+          font-weight: 600;
+        }
+        .sidebar-link.active .sidebar-icon,
+        .sidebar-link:hover .sidebar-icon {
+          transform: scale(1.1);
         }
       `}</style>
     </aside>

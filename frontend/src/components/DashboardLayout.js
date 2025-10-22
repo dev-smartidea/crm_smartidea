@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
@@ -53,17 +53,17 @@ export default function DashboardLayout() {
       <div className="dashboard-layout">
         <aside className="sidebar">
           <ul className="nav-menu"> 
-            <li><Link to="/dashboard"><HouseDoor /> Dashboard</Link></li>
-            <li><Link to="add"><PersonPlus /> เพิ่มลูกค้า</Link></li>
-            <li><Link to="list"><People /> รายชื่อลูกค้า</Link></li>
+            <li><NavLink to="/dashboard" end><HouseDoor /> Dashboard</NavLink></li>
+            <li><NavLink to="add"><PersonPlus /> เพิ่มลูกค้า</NavLink></li>
+            <li><NavLink to="list"><People /> รายชื่อลูกค้า</NavLink></li>
             <li>
-              <Link to="notifications" className="notification-link">
+              <NavLink to="notifications" className="notification-link">
                 <Bell /> การแจ้งเตือน
                 {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
-              </Link>
+              </NavLink>
             </li>
-            <li><Link to="images"><Image /> รูปภาพ</Link></li>
-            <li><Link to="profile"><PersonCircle /> โปรไฟล์</Link></li>
+            <li><NavLink to="images"><Image /> รูปภาพ</NavLink></li>
+            <li><NavLink to="profile"><PersonCircle /> โปรไฟล์</NavLink></li>
           </ul>
           <div className="logout-section">
             <button className="btn btn-danger" onClick={logout}><BoxArrowRight /> ออกจากระบบ</button>

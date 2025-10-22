@@ -46,19 +46,30 @@
   text-decoration: none;
   color: #555;
   font-size: 1rem;
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s ease;
   border-left: 4px solid transparent;
+  font-weight: 400;
+  gap: 10px;
 }
 
 .nav-menu a:hover {
-  background-color: #f0f2f5;
-  color: #0d6efd;
-  border-left-color: #0d6efd;
+  background-color: #e8f4fd;
+  color: #1976d2;
+  border-left-color: #1976d2;
+  font-weight: 500;
+}
+
+.nav-menu a.active {
+  background-color: #e8f4fd;
+  color: #1976d2;
+  border-left-color: #1976d2;
+  font-weight: 500;
 }
 
 .nav-menu a svg {
-  margin-right: 15px;
+  margin-right: 10px;
   font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .notification-link {
