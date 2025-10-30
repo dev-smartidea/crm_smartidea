@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, PersonPlusFill, CashCoin } from 'react-bootstrap-icons';
+import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, PersonPlusFill, CashCoin, TrashFill, XCircle } from 'react-bootstrap-icons';
 import { Link } from 'react-router-dom';
 import './NotificationPage.css';
 
@@ -9,6 +9,10 @@ export default function NotificationPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, service, customer, transaction, unread, read
   const [currentPage, setCurrentPage] = useState(1);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteType, setDeleteType] = useState('single'); // 'single' or 'all'
   const itemsPerPage = 20;
 
   const token = localStorage.getItem('token');
@@ -57,6 +61,78 @@ export default function NotificationPage() {
       console.error('Failed to mark all as read:', err);
     }
   };
+
+  const deleteNotification = async (notificationId) => {
+    setNotificationToDelete(notificationId);
+    setDeleteType('single');
+    setShowDeleteConfirm(true);
+  };
+
+  const deleteAllRead = async () => {
+    const readNotifications = notifications.filter(n => n.isRead);
+    
+    if (readNotifications.length === 0) {
+      alert('⚠️ ไม่มีการแจ้งเตือนที่อ่านแล้วให้ลบ');
+      return;
+    }
+
+    setDeleteType('all');
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      if (deleteType === 'single') {
+        setNotifications(notifications.filter(n => n._id !== notificationToDelete));
+        // Note: If backend supports DELETE endpoint, uncomment below
+        // await axios.delete(`${api}/api/notifications/${notificationToDelete}`, {
+        //   headers: { Authorization: `Bearer ${token}` }
+        // });
+      } else {
+        setNotifications(notifications.filter(n => !n.isRead));
+        // Note: If backend supports batch DELETE, uncomment below
+        // const readIds = notifications.filter(n => n.isRead).map(n => n._id);
+        // await axios.delete(`${api}/api/notifications/batch`, {
+        //   data: { notificationIds: readIds },
+        //   headers: { Authorization: `Bearer ${token}` }
+        // });
+      }
+      setShowDeleteConfirm(false);
+      setNotificationToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+      alert('เกิดข้อผิดพลาดในการลบการแจ้งเตือน');
+      fetchNotifications();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const DeleteConfirmModal = () => (
+    <div className="modal-backdrop">
+      <div className="modal-content">
+        <div className="modal-header">
+          <ExclamationTriangleFill />
+          <h3>ยืนยันการลบ</h3>
+        </div>
+        <div className="modal-body">
+          {deleteType === 'single' 
+            ? 'คุณแน่ใจหรือไม่ว่าต้องการลบการแจ้งเตือนนี้? การกระทำนี้ไม่สามารถย้อนกลับได้'
+            : `คุณแน่ใจหรือไม่ว่าต้องการลบการแจ้งเตือนที่อ่านแล้วทั้งหมด (${notifications.filter(n => n.isRead).length} รายการ)? การกระทำนี้ไม่สามารถย้อนกลับได้`
+          }
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+            <XCircle /> ยกเลิก
+          </button>
+          <button className="btn btn-danger" onClick={handleConfirmDelete} disabled={isDeleting}>
+            {isDeleting ? 'กำลังลบ...' : 'ยืนยันการลบ'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const getIcon = (type) => {
     switch (type) {
@@ -115,6 +191,7 @@ export default function NotificationPage() {
 
   return (
     <div className="notification-page fade-up">
+      {showDeleteConfirm && <DeleteConfirmModal />}
       <div className="notification-container">
         {/* Header */}
         <div className="notification-header">
@@ -123,11 +200,18 @@ export default function NotificationPage() {
             <h2 className="header-title">การแจ้งเตือน</h2>
             {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
           </div>
-          {unreadCount > 0 && (
-            <button className="btn-mark-all" onClick={markAllAsRead}>
-              <CheckCircleFill /> ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว
-            </button>
-          )}
+          <div className="header-actions">
+            {unreadCount > 0 && (
+              <button className="btn-mark-all" onClick={markAllAsRead}>
+                <CheckCircleFill /> ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว
+              </button>
+            )}
+            {readCount > 0 && (
+              <button className="btn-delete-all" onClick={deleteAllRead}>
+                <TrashFill /> ลบที่อ่านแล้วทั้งหมด
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Filter Tabs */}
@@ -202,15 +286,26 @@ export default function NotificationPage() {
                     )}
                   </div>
                 </div>
-                {!notif.isRead && (
-                  <button 
-                    className="btn-mark-read"
-                    onClick={() => markAsRead(notif._id)}
-                    title="ทำเครื่องหมายว่าอ่านแล้ว"
-                  >
-                    <CheckCircleFill />
-                  </button>
-                )}
+                <div className="notif-actions">
+                  {!notif.isRead && (
+                    <button 
+                      className="btn-mark-read"
+                      onClick={() => markAsRead(notif._id)}
+                      title="ทำเครื่องหมายว่าอ่านแล้ว"
+                    >
+                      <CheckCircleFill />
+                    </button>
+                  )}
+                  {notif.isRead && (
+                    <button 
+                      className="btn-delete-notif"
+                      onClick={() => deleteNotification(notif._id)}
+                      title="ลบการแจ้งเตือน"
+                    >
+                      <TrashFill />
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           ) : (

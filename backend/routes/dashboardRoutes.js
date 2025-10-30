@@ -63,9 +63,11 @@ router.get('/dashboard/summary', async (req, res) => {
 
     // ดึงรายการโอนเงินล่าสุด 5 รายการ
     const recentTransactions = await Transaction.find(transactionFilter)
+      .populate('customerId', 'name')
+      .populate('serviceId', 'customerIdField name')
       .sort({ transactionDate: -1 })
       .limit(5)
-      .select('amount transactionDate paymentMethod');
+      .select('amount transactionDate bank customerId serviceId');
 
     // ดึงบริการที่ใกล้ครบกำหนดภายใน 7 วัน
     const sevenDaysLater = new Date();

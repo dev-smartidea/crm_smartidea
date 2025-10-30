@@ -285,6 +285,91 @@
   background: #795548;
 }
 
+.badge-bank {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.badge-bank.kbank {
+  background: #138f59;
+  color: #fff;
+}
+
+.badge-bank.scb {
+  background: #4e2e7f;
+  color: #fff;
+}
+
+.badge-bank.bbl {
+  background: #1e4598;
+  color: #fff;
+}
+
+.badge-bank.ktb {
+  background: #1ba5e1;
+  color: #fff;
+}
+
+.badge-bank.tmb {
+  background: #1279be;
+  color: #fff;
+}
+
+.badge-bank.bay {
+  background: #fec43b;
+  color: #000;
+}
+
+.badge-bank.default {
+  background: #6c757d;
+  color: #fff;
+}
+
+.text-muted {
+  color: #999;
+  font-style: italic;
+}
+
+.service-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.service-badge.facebook {
+  background: #1877f2;
+}
+
+.service-badge.google {
+  background: #34a853;
+}
+
+.service-badge.other {
+  background: #6c757d;
+}
+
+.service-badge .service-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.service-badge .service-id-text {
+  display: flex;
+  align-items: center;
+}
+
 .dashboard-loading,
 .dashboard-error {
   text-align: center;

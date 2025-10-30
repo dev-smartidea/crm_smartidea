@@ -17,12 +17,20 @@
   margin-bottom: 30px;
   padding-bottom: 20px;
   border-bottom: 2px solid #e0e0e0;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .header-icon {
@@ -62,6 +70,25 @@
 
 .btn-mark-all:hover {
   background: #1565c0;
+  transform: translateY(-2px);
+}
+
+.btn-delete-all {
+  background: #dc3545;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s ease;
+}
+
+.btn-delete-all:hover {
+  background: #c82333;
   transform: translateY(-2px);
 }
 
@@ -213,6 +240,12 @@
   text-decoration: underline;
 }
 
+.notif-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .btn-mark-read {
   background: transparent;
   border: none;
@@ -226,6 +259,22 @@
 
 .btn-mark-read:hover {
   background: #e3f2fd;
+  transform: scale(1.1);
+}
+
+.btn-delete-notif {
+  background: transparent;
+  border: none;
+  color: #dc3545;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.btn-delete-notif:hover {
+  background: #fee;
   transform: scale(1.1);
 }
 
@@ -335,7 +384,12 @@
     gap: 16px;
   }
 
-  .btn-mark-all {
+  .header-actions {
+    width: 100%;
+  }
+
+  .btn-mark-all,
+  .btn-delete-all {
     width: 100%;
     justify-content: center;
   }
@@ -343,6 +397,11 @@
   .notification-item {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .notif-actions {
+    flex-direction: row;
+    align-self: flex-end;
   }
 
   .notif-footer {
@@ -355,4 +414,96 @@
   .page-numbers {
     display: none;
   }
+}
+
+/* Modal styles matching CustomerListPage */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #dc3545;
+}
+
+.modal-body {
+  margin-bottom: 25px;
+  color: #555;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.modal-footer .btn {
+  padding: 10px 25px;
+  font-weight: 500;
+}
+
+/* Ensure cancel button keeps gray style and doesn't turn white on hover */
+.modal-footer .btn.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease;
+}
+
+.modal-footer .btn.btn-secondary:hover,
+.modal-footer .btn.btn-secondary:focus,
+.modal-footer .btn.btn-secondary:active {
+  background: #e0e0e0;
+  color: #333;
+  box-shadow: none;
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.modal-footer .btn.btn-danger {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  transition: background 0.15s, transform 0.15s ease;
+}
+
+.modal-footer .btn.btn-danger:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.modal-footer .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
 }

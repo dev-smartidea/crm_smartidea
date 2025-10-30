@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Line, Doughnut } from 'react-chartjs-2';
 import 'chart.js/auto';
-import { PeopleFill, BriefcaseFill, ClockFill, CashCoin, Plus, EyeFill } from 'react-bootstrap-icons';
+import { PeopleFill, BriefcaseFill, ClockFill, CashCoin, Plus, EyeFill, Google, Facebook } from 'react-bootstrap-icons';
 import { Link } from 'react-router-dom';
 import './DashboardPage.css';
 
@@ -59,6 +59,10 @@ export default function DashboardPage() {
         const res = await axios.get(`${api}/api/dashboard/summary`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        
+        console.log('Dashboard data received:', res.data);
+        console.log('Recent transactions:', res.data.recentTransactions);
+        
         setCustomerCount(res.data.customerCount);
         setServiceCount(res.data.serviceCount);
         setTotalRevenue(res.data.totalRevenue || 0);
@@ -240,17 +244,55 @@ export default function DashboardPage() {
             <table className="mini-table">
               <thead>
                 <tr>
+                  <th>ชื่อลูกค้า</th>
+                  <th>บริการ (ID)</th>
                   <th>จำนวน</th>
                   <th>วันที่</th>
-                  <th>วิธีการชำระ</th>
+                  <th>ธนาคาร</th>
                 </tr>
               </thead>
               <tbody>
                 {recentTransactions.map((tx) => (
                   <tr key={tx._id}>
-                    <td>{tx.amount.toLocaleString()} บ.</td>
-                    <td>{new Date(tx.transactionDate).toLocaleDateString('th-TH')}</td>
-                    <td><span className="badge-status web">{tx.paymentMethod}</span></td>
+                    <td>{tx.customerId?.name || '-'}</td>
+                    <td>
+                      {tx.serviceId?.customerIdField && tx.serviceId?.name ? (
+                        <span className={`service-badge ${
+                          tx.serviceId.name === 'Facebook Ads' ? 'facebook' : 
+                          tx.serviceId.name === 'Google Ads' ? 'google' : 
+                          'other'
+                        }`}>
+                          {tx.serviceId.name === 'Facebook Ads' && <Facebook className="service-icon" />}
+                          {tx.serviceId.name === 'Google Ads' && <Google className="service-icon" />}
+                          <span className="service-id-text">{tx.serviceId.customerIdField}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                    <td><strong>{tx.amount.toLocaleString()}</strong> บาท</td>
+                    <td>{new Date(tx.transactionDate).toLocaleDateString('th-TH', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })}</td>
+                    <td>
+                      {tx.bank ? (
+                        <span className={`badge-bank ${
+                          tx.bank === 'KBANK' || tx.bank === 'กสิกรไทย' ? 'kbank' :
+                          tx.bank === 'SCB' || tx.bank === 'ไทยพาณิชย์' ? 'scb' :
+                          tx.bank === 'BBL' || tx.bank === 'กรุงเทพ' ? 'bbl' :
+                          tx.bank === 'KTB' || tx.bank === 'กรุงไทย' ? 'ktb' :
+                          tx.bank === 'TMB' || tx.bank === 'ทหารไทยธนชาต' ? 'tmb' :
+                          tx.bank === 'BAY' || tx.bank === 'กรุงศรี' ? 'bay' :
+                          'default'
+                        }`}>
+                          {tx.bank}
+                        </span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
