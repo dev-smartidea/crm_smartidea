@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
+import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2, ThreeDotsVertical, XCircle, Eye, Upload } from 'react-bootstrap-icons';
 import '../pages/CustomerListPage.css'; // reuse table styles
 import '../pages/CustomerServicesPage.css';
 import './ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
@@ -17,16 +17,17 @@ export default function TransactionHistoryPage() {
     amount: '',
     transactionDate: '',
     notes: '',
-    paymentMethod: 'โอนผ่านธนาคาร',
     bank: 'KBANK',
-    slipImage: ''
+    slipImage: null // เก็บ File object
   });
+  const [slipPreview, setSlipPreview] = useState(null); // แสดงตัวอย่างรูป
+  const [viewSlip, setViewSlip] = useState(null); // สำหรับ modal แสดงสลิปขนาดใหญ่
+  const [uploadingId, setUploadingId] = useState(null); // อัปโหลดสลิปรายแถว
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     amount: '',
     transactionDate: '',
     notes: '',
-    paymentMethod: 'โอนผ่านธนาคาร',
     bank: 'KBANK'
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -43,6 +44,10 @@ export default function TransactionHistoryPage() {
         axios.get(`${api}/api/services/${serviceId}/transactions`, authHeaders)
       ]);
       setService(svcRes.data);
+      console.log('Transactions loaded:', txRes.data);
+      txRes.data.forEach(tx => {
+        console.log(`Transaction ${tx._id}: slipImage =`, tx.slipImage);
+      });
       setTransactions(txRes.data);
     } catch (err) {
       console.error(err);
@@ -70,21 +75,49 @@ export default function TransactionHistoryPage() {
     e.preventDefault();
     if (!form.amount || !form.transactionDate) return;
     try {
-      const payload = { ...form, amount: parseFloat(form.amount) };
-      const res = await axios.post(`${api}/api/services/${serviceId}/transactions`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
+      // ใช้ FormData สำหรับอัปโหลดไฟล์
+      const formData = new FormData();
+      formData.append('amount', parseFloat(form.amount));
+      formData.append('transactionDate', form.transactionDate);
+      formData.append('notes', form.notes || '');
+      formData.append('bank', form.bank);
+      if (form.slipImage) {
+        formData.append('slipImage', form.slipImage);
+      }
+
+      // Debug: ดูข้อมูลใน FormData
+      console.log('=== Frontend FormData Debug ===');
+      console.log('amount:', form.amount);
+      console.log('transactionDate:', form.transactionDate);
+      console.log('bank:', form.bank);
+      console.log('notes:', form.notes);
+      console.log('slipImage:', form.slipImage);
+      console.log('FormData entries:');
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ':', pair[1]);
+      }
+
+      const res = await axios.post(`${api}/api/services/${serviceId}/transactions`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+          // ไม่ต้องระบุ Content-Type เพราะ FormData จะตั้งค่าเองพร้อม boundary
+        }
       });
+      console.log('Response:', res.data);
       setTransactions([res.data, ...transactions]);
       setShowCreate(false);
       setForm({
         amount: '',
         transactionDate: '',
         notes: '',
-        paymentMethod: 'โอนผ่านธนาคาร',
         bank: 'KBANK',
-        slipImage: ''
+        slipImage: null
       });
+      setSlipPreview(null);
     } catch (err) {
+      console.error('=== Frontend Error ===');
+      console.error('Error:', err);
+      console.error('Response data:', err?.response?.data);
       const detail = err?.response?.data?.detail || err?.message || '';
       alert(`เพิ่มรายการไม่สำเร็จ${detail ? `: ${detail}` : ''}`);
     }
@@ -96,9 +129,56 @@ export default function TransactionHistoryPage() {
       amount: tx.amount,
       transactionDate: tx.transactionDate ? new Date(tx.transactionDate).toISOString().slice(0, 10) : '',
       notes: tx.notes || '',
-      paymentMethod: tx.paymentMethod || 'โอนผ่านธนาคาร',
       bank: tx.bank || ''
     });
+  };
+
+  const handleSlipChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setForm({ ...form, slipImage: file });
+      // แสดงตัวอย่างรูป
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSlipPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSlipPreview = () => {
+    setForm({ ...form, slipImage: null });
+    setSlipPreview(null);
+  };
+
+  // อัปโหลดสลิปให้รายการที่ไม่มีสลิป
+  const triggerUploadFor = (txId) => {
+    const el = document.getElementById(`slip-input-${txId}`);
+    if (el) el.click();
+  };
+
+  const handleInlineSlipChange = async (txId, file) => {
+    if (!file) return;
+    // ตรวจสอบขนาดไฟล์ไม่เกิน 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      alert('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      return;
+    }
+    try {
+      setUploadingId(txId);
+      const formData = new FormData();
+      formData.append('slipImage', file);
+
+      const res = await axios.put(`${api}/api/transactions/${txId}`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTransactions(transactions.map(t => (t._id === txId ? res.data : t)));
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || 'อัปโหลดสลิปไม่สำเร็จ';
+      alert(msg);
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   const saveEdit = async (txId) => {
@@ -153,6 +233,22 @@ export default function TransactionHistoryPage() {
     </div>
   );
 
+  const SlipViewModal = () => (
+    <div className="modal-backdrop" onClick={() => setViewSlip(null)}>
+      <div className="modal-content" style={{ maxWidth: '800px', padding: 0 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
+          <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+            <XCircle />
+          </button>
+        </div>
+        <div className="modal-body" style={{ padding: 0 }}>
+          <img src={`${api}${viewSlip}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+        </div>
+      </div>
+    </div>
+  );
+
   // คำนวณยอดรวมทั้งหมด
   const totalAmount = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
@@ -160,6 +256,7 @@ export default function TransactionHistoryPage() {
     <div className="customer-list-page fade-up">
       <div className="list-container">
         {showDeleteConfirm && <DeleteConfirmModal />}
+        {viewSlip && <SlipViewModal />}
         <div className="list-header">
           <div className="list-header-title-group">
             <CashCoin className="list-header-icon" />
@@ -219,26 +316,14 @@ export default function TransactionHistoryPage() {
                   />
                 </label>
                 <label>
-                  วิธีการชำระเงิน
-                  <select
-                    value={form.paymentMethod}
-                    onChange={e => setForm({ ...form, paymentMethod: e.target.value })}
-                  >
-                    <option value="โอนผ่านธนาคาร">โอนผ่านธนาคาร</option>
-                    <option value="เงินสด">เงินสด</option>
-                    <option value="บัตรเครดิต">บัตรเครดิต</option>
-                    <option value="อื่นๆ">อื่นๆ</option>
-                  </select>
-                </label>
-                <label>
                   บัญชีธนาคาร
                   <select
                     value={form.bank}
                     onChange={e => setForm({ ...form, bank: e.target.value })}
                   >
-                    <option value="KBANK">KBANK</option>
-                    <option value="SCB">SCB</option>
-                    <option value="BBL">BBL</option>
+                    <option value="KBANK">KBANK (กสิกรไทย)</option>
+                    <option value="SCB">SCB (ไทยพาณิชย์)</option>
+                    <option value="BBL">BBL (กรุงเทพ)</option>
                   </select>
                 </label>
                 <label>
@@ -249,6 +334,27 @@ export default function TransactionHistoryPage() {
                     rows={3}
                     placeholder="เช่น เลขที่อ้างอิง, หมายเหตุเพิ่มเติม"
                   />
+                </label>
+                <label>
+                  อัปโหลดสลิปโอนเงิน
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleSlipChange}
+                    style={{ marginTop: '8px' }}
+                  />
+                  {slipPreview && (
+                    <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                      <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #ddd' }} />
+                      <button
+                        type="button"
+                        onClick={removeSlipPreview}
+                        style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '18px' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
                 </label>
                 <div className="svc-actions">
                   <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreate(false)}>
@@ -269,8 +375,8 @@ export default function TransactionHistoryPage() {
               <tr>
                     <th>วันที่โอน</th>
                     <th>จำนวนเงิน (บาท)</th>
-                    <th>วิธีการชำระ</th>
                     <th>บัญชีธนาคาร</th>
+                    <th>สลิป</th>
                     <th>หมายเหตุ</th>
                     <th>การจัดการ</th>
               </tr>
@@ -278,7 +384,7 @@ export default function TransactionHistoryPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="text-center p-5">
+                  <td colSpan="6" className="text-center p-5">
                     กำลังโหลด...
                   </td>
                 </tr>
@@ -313,35 +419,43 @@ export default function TransactionHistoryPage() {
                     <td>
                       {editingId === tx._id ? (
                         <select
-                          value={editForm.paymentMethod}
-                          onChange={e => setEditForm({ ...editForm, paymentMethod: e.target.value })}
-                        >
-                          <option value="โอนผ่านธนาคาร">โอนผ่านธนาคาร</option>
-                          <option value="เงินสด">เงินสด</option>
-                          <option value="บัตรเครดิต">บัตรเครดิต</option>
-                          <option value="อื่นๆ">อื่นๆ</option>
-                        </select>
-                      ) : (
-                        <span className={`badge-status ${tx.paymentMethod === 'โอนผ่านธนาคาร' ? 'web' : tx.paymentMethod === 'เงินสด' ? 'account' : tx.paymentMethod === 'บัตรเครดิต' ? 'waitinfo' : ''}`}>{tx.paymentMethod || '-'}</span>
-                      )}
-                    </td>
-                    <td>
-                      {editingId === tx._id ? (
-                        <select
                           value={editForm.bank}
                           onChange={e => setEditForm({ ...editForm, bank: e.target.value })}
                         >
                           <option value="">-- เลือกธนาคาร --</option>
-                          <option value="KBANK">KBANK</option>
-                          <option value="SCB">SCB</option>
-                          <option value="BBL">BBL</option>
-                          <option value="KTB">KTB</option>
-                          <option value="TMB">TMB</option>
-                          <option value="GSB">GSB</option>
-                          <option value="BAY">BAY</option>
+                          <option value="KBANK">KBANK (กสิกรไทย)</option>
+                          <option value="SCB">SCB (ไทยพาณิชย์)</option>
+                          <option value="BBL">BBL (กรุงเทพ)</option>
                         </select>
                       ) : (
                         <span className="badge-status web"><Bank2 /> {tx.bank || '-'}</span>
+                      )}
+                    </td>
+                    <td>
+                      {tx.slipImage ? (
+                        <button
+                          className="btn btn-sm btn-outline-info"
+                          onClick={() => setViewSlip(tx.slipImage)}
+                        >
+                          <Eye /> ดูสลิป
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => triggerUploadFor(tx._id)}
+                            disabled={uploadingId === tx._id}
+                          >
+                            <Upload /> {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
+                          </button>
+                          <input
+                            id={`slip-input-${tx._id}`}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
+                          />
+                        </>
                       )}
                     </td>
                     <td>
@@ -391,7 +505,7 @@ export default function TransactionHistoryPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="text-center p-5">
+                  <td colSpan="6" className="text-center p-5">
                     ยังไม่มีรายการโอนเงิน
                   </td>
                 </tr>

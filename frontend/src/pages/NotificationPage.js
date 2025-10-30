@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, PersonPlusFill, CashCoin, TrashFill, XCircle } from 'react-bootstrap-icons';
+import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, PersonPlusFill, CashCoin, TrashFill, XCircle, ArrowClockwise } from 'react-bootstrap-icons';
 import { Link } from 'react-router-dom';
 import './NotificationPage.css';
 
 export default function NotificationPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, service, customer, transaction, unread, read
   const [currentPage, setCurrentPage] = useState(1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -17,24 +18,52 @@ export default function NotificationPage() {
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
+  const DUE_SOON_WINDOW_DAYS = 1; // ปรับจำนวนวันสำหรับ "ใกล้ครบกำหนด" (ฝั่งหน้าเว็บ)
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (isRefresh = false) => {
     try {
-      setLoading(true);
-      const res = await axios.get(`${api}/api/notifications`, {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      const res = await axios.get(`${api}/api/notifications?windowDays=${DUE_SOON_WINDOW_DAYS}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNotifications(res.data || []);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     } finally {
-      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
+
+  // โหลดข้อมูลเมื่อเปิดหน้าและทุกครั้งที่กลับมาดูหน้านี้
+  useEffect(() => {
+    fetchNotifications();
+
+    // Auto-refresh ทุก 30 วินาทีเมื่ออยู่ในหน้านี้
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+
+    // Cleanup interval เมื่อออกจากหน้า
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh เมื่อกลับมาที่หน้า (window focus)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchNotifications();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
 
   const markAsRead = async (notificationId) => {
     try {
@@ -201,6 +230,15 @@ export default function NotificationPage() {
             {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
           </div>
           <div className="header-actions">
+            <button 
+              className="btn-refresh" 
+              onClick={() => fetchNotifications(true)}
+              disabled={refreshing}
+              title="รีเฟรชข้อมูล"
+            >
+              <ArrowClockwise className={refreshing ? 'spinning' : ''} /> 
+              {refreshing ? 'กำลังโหลด...' : 'รีเฟรช'}
+            </button>
             {unreadCount > 0 && (
               <button className="btn-mark-all" onClick={markAllAsRead}>
                 <CheckCircleFill /> ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว

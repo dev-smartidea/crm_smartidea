@@ -9,7 +9,9 @@ app.use(cors({
   origin: true, // อนุญาตทุก origin
   credentials: true
 }));
+// รองรับ JSON body และ x-www-form-urlencoded (เผื่อบาง client ส่งฟิลด์ text มาพร้อม multipart)
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // เพิ่ม session middleware
 const session = require('express-session');
@@ -22,6 +24,7 @@ app.use(session({
 // ให้ express ให้บริการไฟล์ static สำหรับรูปโปรไฟล์
 app.use('/uploads/avatars', express.static(__dirname + '/uploads/avatars'));
 app.use('/uploads/images', express.static(__dirname + '/uploads/images'));
+app.use('/uploads/slips', express.static(__dirname + '/uploads/slips'));
 
 // ✅ โหลด customerRoutes
 const customerRoutes = require('./routes/customerRoutes');

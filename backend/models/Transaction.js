@@ -9,8 +9,7 @@ const transactionSchema = new mongoose.Schema({
   transactionDate: { type: Date, required: true }, // วันที่โอน
   notes: { type: String }, // หมายเหตุ
   slipImage: { type: String }, // path ของรูปสลิป/หลักฐาน (optional)
-  paymentMethod: { type: String, enum: ['โอนผ่านธนาคาร', 'เงินสด', 'บัตรเครดิต', 'อื่นๆ'], default: 'โอนผ่านธนาคาร' },
-  bank: { type: String } // บัญชีธนาคาร (KBANK, SCB, BBL, etc.)
+  bank: { type: String, enum: ['KBANK', 'SCB', 'BBL'], required: true } // บัญชีธนาคาร (จำกัดเฉพาะ 3 ธนาคารที่ใช้งาน)
 }, { timestamps: true });
 
 // Indexes to speed up typical queries (by service/user and recent first)

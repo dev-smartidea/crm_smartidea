@@ -50,13 +50,14 @@ router.get('/notifications', async (req, res) => {
       });
     });
 
-    // 2. บริการที่ใกล้ครบกำหนด (Due Soon) - ภายใน 7 วัน
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+  // 2. บริการที่ใกล้ครบกำหนด (Due Soon) - ภายใน X วัน (ปรับได้)
+  const windowDays = Math.max(1, parseInt(req.query.windowDays || process.env.NOTIF_DUE_SOON_DAYS || '7', 10));
+  const dueSoonEdge = new Date();
+  dueSoonEdge.setDate(dueSoonEdge.getDate() + windowDays);
 
     const dueSoonServices = await Service.find({
       ...serviceFilter,
-      dueDate: { $gte: now, $lte: sevenDaysLater }
+      dueDate: { $gte: now, $lte: dueSoonEdge }
     }).populate('customerId', 'name').sort({ dueDate: 1 }).limit(10);
 
     dueSoonServices.forEach(svc => {
@@ -93,7 +94,7 @@ router.get('/notifications', async (req, res) => {
       });
     });
 
-    // 4. รายการโอนเงินใหม่ (ภายใน 7 วันล่าสุด)
+  // 4. รายการโอนเงินใหม่ (ภายใน 7 วันล่าสุด)
     const transactionFilter = user.role === 'admin' ? {} : { userId: user.id };
     const recentTransactions = await Transaction.find({
       ...transactionFilter,
@@ -108,7 +109,7 @@ router.get('/notifications', async (req, res) => {
         _id: `new-transaction-${tx._id}`,
         type: 'new_transaction',
         title: '💰 รายการโอนเงินใหม่',
-        message: `มีรายการโอนเงิน ${tx.amount.toLocaleString()} บาท (${tx.paymentMethod}) ${tx.serviceId?.customerId?.name ? `สำหรับ "${tx.serviceId.customerId.name}"` : ''}`,
+        message: `มีรายการโอนเงิน ${tx.amount.toLocaleString()} บาท${tx.bank ? ` (${tx.bank})` : ''} ${tx.serviceId?.customerId?.name ? `สำหรับ "${tx.serviceId.customerId.name}"` : ''}`,
         link: tx.serviceId ? `/dashboard/services/${tx.serviceId._id}/transactions` : null,
         createdAt: tx.createdAt,
         isRead: false

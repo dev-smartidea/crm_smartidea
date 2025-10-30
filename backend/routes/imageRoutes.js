@@ -7,6 +7,7 @@ const fs = require('fs');
 const Image = require('../models/Image');
 const Customer = require('../models/Customer');
 const Service = require('../models/Service');
+const Transaction = require('../models/Transaction');
 
 // Helper: auth + return user object (id, role)
 function getUserFromReq(req) {
@@ -190,6 +191,23 @@ router.delete('/images/:id', async (req, res) => {
     const filePath = path.join(__dirname, '..', image.imageUrl);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
+    }
+
+    console.log('=== Deleting image from gallery ===');
+    console.log('Image URL:', image.imageUrl);
+    console.log('Is slip?', image.imageUrl && image.imageUrl.includes('/uploads/slips/'));
+
+    // ถ้าเป็นสลิปโอนเงิน ให้ลบ slipImage ใน Transaction ด้วย
+    if (image.imageUrl && image.imageUrl.includes('/uploads/slips/')) {
+      try {
+        const result = await Transaction.updateMany(
+          { slipImage: image.imageUrl },
+          { $set: { slipImage: null } }
+        );
+        console.log(`Cleared slipImage in ${result.modifiedCount} transactions for: ${image.imageUrl}`);
+      } catch (e) {
+        console.warn('Failed to clear Transaction slipImage:', e.message);
+      }
     }
 
     await Image.findByIdAndDelete(req.params.id);

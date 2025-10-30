@@ -33,6 +33,43 @@
   flex-wrap: wrap;
 }
 
+.btn-refresh {
+  background: #28a745;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-refresh .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .header-icon {
   font-size: 2rem;
   color: #1976d2;
