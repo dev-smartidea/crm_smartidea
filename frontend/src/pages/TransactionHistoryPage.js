@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, Bank2, ThreeDotsVertical, XCircle, Eye, Upload } from 'react-bootstrap-icons';
+import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, ThreeDotsVertical, XCircle, Eye, Upload } from 'react-bootstrap-icons';
 import '../pages/CustomerListPage.css'; // reuse table styles
 import '../pages/CustomerServicesPage.css';
 import './ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
+import './DashboardPage.css'; // reuse .badge-bank styles to match Dashboard
 
 export default function TransactionHistoryPage() {
   const { serviceId } = useParams(); // service id from URL
@@ -21,6 +22,7 @@ export default function TransactionHistoryPage() {
     slipImage: null // เก็บ File object
   });
   const [slipPreview, setSlipPreview] = useState(null); // แสดงตัวอย่างรูป
+  // viewSlip: { id, url } | null
   const [viewSlip, setViewSlip] = useState(null); // สำหรับ modal แสดงสลิปขนาดใหญ่
   const [uploadingId, setUploadingId] = useState(null); // อัปโหลดสลิปรายแถว
   const [editingId, setEditingId] = useState(null);
@@ -44,10 +46,6 @@ export default function TransactionHistoryPage() {
         axios.get(`${api}/api/services/${serviceId}/transactions`, authHeaders)
       ]);
       setService(svcRes.data);
-      console.log('Transactions loaded:', txRes.data);
-      txRes.data.forEach(tx => {
-        console.log(`Transaction ${tx._id}: slipImage =`, tx.slipImage);
-      });
       setTransactions(txRes.data);
     } catch (err) {
       console.error(err);
@@ -85,25 +83,11 @@ export default function TransactionHistoryPage() {
         formData.append('slipImage', form.slipImage);
       }
 
-      // Debug: ดูข้อมูลใน FormData
-      console.log('=== Frontend FormData Debug ===');
-      console.log('amount:', form.amount);
-      console.log('transactionDate:', form.transactionDate);
-      console.log('bank:', form.bank);
-      console.log('notes:', form.notes);
-      console.log('slipImage:', form.slipImage);
-      console.log('FormData entries:');
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ':', pair[1]);
-      }
-
       const res = await axios.post(`${api}/api/services/${serviceId}/transactions`, formData, {
         headers: {
           Authorization: `Bearer ${token}`
-          // ไม่ต้องระบุ Content-Type เพราะ FormData จะตั้งค่าเองพร้อม boundary
         }
       });
-      console.log('Response:', res.data);
       setTransactions([res.data, ...transactions]);
       setShowCreate(false);
       setForm({
@@ -115,9 +99,6 @@ export default function TransactionHistoryPage() {
       });
       setSlipPreview(null);
     } catch (err) {
-      console.error('=== Frontend Error ===');
-      console.error('Error:', err);
-      console.error('Response data:', err?.response?.data);
       const detail = err?.response?.data?.detail || err?.message || '';
       alert(`เพิ่มรายการไม่สำเร็จ${detail ? `: ${detail}` : ''}`);
     }
@@ -173,6 +154,7 @@ export default function TransactionHistoryPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTransactions(transactions.map(t => (t._id === txId ? res.data : t)));
+      return res.data;
     } catch (err) {
       const msg = err?.response?.data?.detail || err?.message || 'อัปโหลดสลิปไม่สำเร็จ';
       alert(msg);
@@ -233,17 +215,46 @@ export default function TransactionHistoryPage() {
     </div>
   );
 
+  const handleModalUploadChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (file && viewSlip?.id) {
+      const updatedTx = await handleInlineSlipChange(viewSlip.id, file);
+      if (updatedTx && updatedTx.slipImage) setViewSlip({ id: viewSlip.id, url: updatedTx.slipImage });
+      else setViewSlip(null);
+    }
+  };
+
+  const handleDeleteSlip = async () => {
+    if (!viewSlip?.id) return;
+    try {
+      await axios.delete(`${api}/api/transactions/${viewSlip.id}/slip`, { headers: { Authorization: `Bearer ${token}` } });
+      setTransactions(transactions.map(t => (t._id === viewSlip.id ? { ...t, slipImage: null } : t)));
+      setViewSlip(null);
+    } catch (err) {
+      alert('ลบสลิปไม่สำเร็จ');
+    }
+  };
+
   const SlipViewModal = () => (
     <div className="modal-backdrop" onClick={() => setViewSlip(null)}>
-      <div className="modal-content" style={{ maxWidth: '800px', padding: 0 }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+      <div className="modal-content slip-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
           <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
             <XCircle />
           </button>
         </div>
-        <div className="modal-body" style={{ padding: 0 }}>
-          <img src={`${api}${viewSlip}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+        <div className="modal-body slip-modal-body">
+          <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+        </div>
+        <div className="modal-footer slip-modal-footer">
+          <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
+          <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()}>
+            <Upload /> อัปโหลดภาพใหม่
+          </button>
+          <button className="btn-action-delete" onClick={handleDeleteSlip}>
+            ลบสลิป
+          </button>
         </div>
       </div>
     </div>
@@ -428,14 +439,28 @@ export default function TransactionHistoryPage() {
                           <option value="BBL">BBL (กรุงเทพ)</option>
                         </select>
                       ) : (
-                        <span className="badge-status web"><Bank2 /> {tx.bank || '-'}</span>
+                        tx.bank ? (
+                          <span className={`badge-bank ${
+                            tx.bank === 'KBANK' || tx.bank === 'กสิกรไทย' ? 'kbank' :
+                            tx.bank === 'SCB' || tx.bank === 'ไทยพาณิชย์' ? 'scb' :
+                            tx.bank === 'BBL' || tx.bank === 'กรุงเทพ' ? 'bbl' :
+                            tx.bank === 'KTB' || tx.bank === 'กรุงไทย' ? 'ktb' :
+                            tx.bank === 'TMB' || tx.bank === 'ทหารไทยธนชาต' ? 'tmb' :
+                            tx.bank === 'BAY' || tx.bank === 'กรุงศรี' ? 'bay' :
+                            'default'
+                          }`}>
+                            {tx.bank}
+                          </span>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )
                       )}
                     </td>
                     <td>
                       {tx.slipImage ? (
                         <button
                           className="btn btn-sm btn-outline-info"
-                          onClick={() => setViewSlip(tx.slipImage)}
+                          onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
                         >
                           <Eye /> ดูสลิป
                         </button>

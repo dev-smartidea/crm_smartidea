@@ -270,6 +270,40 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
   }
 });
 
+// DELETE /api/transactions/:id/slip - ลบสลิปของรายการ (ไม่ลบรายการโอนเงิน)
+router.delete('/transactions/:id/slip', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // ดึงรายการตามสิทธิ์
+    const tx = user.role === 'admin'
+      ? await Transaction.findById(req.params.id)
+      : await Transaction.findOne({ _id: req.params.id, userId: user.id });
+
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    if (tx.slipImage) {
+      // ลบไฟล์จริง
+      const relative = (tx.slipImage || '').replace(/^[\\\/]/, '');
+      const fullPath = path.join(__dirname, '..', relative);
+      console.log('[DELETE SLIP] tx:', tx._id.toString(), 'image:', tx.slipImage, 'fsPath:', fullPath);
+      if (fs.existsSync(fullPath)) {
+        try { fs.unlinkSync(fullPath); } catch (e) { console.warn('unlink slip failed:', e.message); }
+      }
+      // ลบจากคลังรูปภาพด้วย
+      try { await Image.deleteMany({ imageUrl: tx.slipImage }); } catch (e) { console.warn('delete gallery slip failed:', e.message); }
+    }
+
+    tx.slipImage = null;
+    await tx.save();
+    res.json({ success: true, transaction: tx });
+  } catch (err) {
+    console.error('Delete slip failed:', err);
+    res.status(500).json({ error: 'Delete slip failed', detail: err.message });
+  }
+});
+
 // DELETE /api/transactions/:id - ลบรายการโอนเงิน (และลบไฟล์สลิปด้วย)
 router.delete('/transactions/:id', async (req, res) => {
   try {
