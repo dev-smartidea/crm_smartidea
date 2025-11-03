@@ -3,7 +3,7 @@ import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell, Image } from 'react-bootstrap-icons';
+import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell, Image, ClockHistory } from 'react-bootstrap-icons';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -56,6 +56,11 @@ export default function DashboardLayout() {
             <li><NavLink to="/dashboard" end><HouseDoor /> Dashboard</NavLink></li>
             <li><NavLink to="add"><PersonPlus /> เพิ่มลูกค้า</NavLink></li>
             <li><NavLink to="list"><People /> รายชื่อลูกค้า</NavLink></li>
+            <li>
+              <NavLink to="activity" onClick={(e) => e.preventDefault()} title="เร็วๆ นี้">
+                <ClockHistory /> กิจกรรม
+              </NavLink>
+            </li>
             <li>
               <NavLink to="notifications" className="notification-link">
                 <Bell /> การแจ้งเตือน

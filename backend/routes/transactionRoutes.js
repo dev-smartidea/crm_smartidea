@@ -96,7 +96,6 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
       if (tx.slipImage) {
         const fullPath = path.join(__dirname, '..', tx.slipImage);
         if (!fileExists(fullPath)) {
-          console.log(`⚠️ Slip image not found, clearing: ${tx.slipImage} for transaction ${tx._id}`);
           tx.slipImage = null;
           needsSave = true;
         }
@@ -117,13 +116,6 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
 // POST /api/services/:serviceId/transactions - เพิ่มรายการโอนเงินใหม่ (พร้อมอัปโหลดสลิป)
 router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req, res) => {
   try {
-    console.log('=== Backend POST Transaction Debug ===');
-    console.log('Headers:', req.headers);
-    console.log('Content-Type:', req.headers['content-type']);
-    console.log('req.body:', req.body);
-    console.log('req.file:', req.file);
-    console.log('req.body type:', typeof req.body);
-    console.log('req.body keys:', Object.keys(req.body || {}));
     
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -137,7 +129,6 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     }
 
   const { amount, transactionDate, notes, bank } = req.body || {};
-    console.log('Destructured values:', { amount, transactionDate, notes, bank });
     
     if (!amount || !transactionDate) {
       return res.status(400).json({ 
@@ -187,7 +178,6 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       // ไม่ throw ต่อ เพื่อไม่ให้กระทบการสร้างรายการโอนเงินหลัก
     }
 
-    console.log('Transaction saved successfully:', transaction);
     res.status(201).json(transaction);
   } catch (err) {
     console.error('=== Backend Create transaction error ===');
@@ -287,7 +277,6 @@ router.delete('/transactions/:id/slip', async (req, res) => {
       // ลบไฟล์จริง
       const relative = (tx.slipImage || '').replace(/^[\\\/]/, '');
       const fullPath = path.join(__dirname, '..', relative);
-      console.log('[DELETE SLIP] tx:', tx._id.toString(), 'image:', tx.slipImage, 'fsPath:', fullPath);
       if (fs.existsSync(fullPath)) {
         try { fs.unlinkSync(fullPath); } catch (e) { console.warn('unlink slip failed:', e.message); }
       }

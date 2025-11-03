@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, PersonPlusFill, CashCoin, TrashFill, XCircle, ArrowClockwise } from 'react-bootstrap-icons';
 import { Link } from 'react-router-dom';
@@ -20,7 +20,7 @@ export default function NotificationPage() {
   const api = process.env.REACT_APP_API_URL;
   const DUE_SOON_WINDOW_DAYS = 1; // ปรับจำนวนวันสำหรับ "ใกล้ครบกำหนด" (ฝั่งหน้าเว็บ)
 
-  const fetchNotifications = async (isRefresh = false) => {
+  const fetchNotifications = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -40,7 +40,7 @@ export default function NotificationPage() {
         setLoading(false);
       }
     }
-  };
+  }, [api, token, DUE_SOON_WINDOW_DAYS]);
 
   // โหลดข้อมูลเมื่อเปิดหน้าและทุกครั้งที่กลับมาดูหน้านี้
   useEffect(() => {
@@ -53,17 +53,16 @@ export default function NotificationPage() {
 
     // Cleanup interval เมื่อออกจากหน้า
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNotifications]);
 
   // Refresh เมื่อกลับมาที่หน้า (window focus)
   useEffect(() => {
     const handleFocus = () => {
       fetchNotifications();
     };
-    
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  }, [fetchNotifications]);
 
   const markAsRead = async (notificationId) => {
     try {

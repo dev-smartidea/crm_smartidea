@@ -193,9 +193,6 @@ router.delete('/images/:id', async (req, res) => {
       fs.unlinkSync(filePath);
     }
 
-    console.log('=== Deleting image from gallery ===');
-    console.log('Image URL:', image.imageUrl);
-    console.log('Is slip?', image.imageUrl && image.imageUrl.includes('/uploads/slips/'));
 
     // ถ้าเป็นสลิปโอนเงิน ให้ลบ slipImage ใน Transaction ด้วย
     if (image.imageUrl && image.imageUrl.includes('/uploads/slips/')) {
@@ -204,7 +201,7 @@ router.delete('/images/:id', async (req, res) => {
           { slipImage: image.imageUrl },
           { $set: { slipImage: null } }
         );
-        console.log(`Cleared slipImage in ${result.modifiedCount} transactions for: ${image.imageUrl}`);
+        // cleared slip references in related transactions
       } catch (e) {
         console.warn('Failed to clear Transaction slipImage:', e.message);
       }

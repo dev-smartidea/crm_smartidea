@@ -60,8 +60,6 @@ export default function DashboardPage() {
           headers: { Authorization: `Bearer ${token}` }
         });
         
-        console.log('Dashboard data received:', res.data);
-        console.log('Recent transactions:', res.data.recentTransactions);
         
         setCustomerCount(res.data.customerCount);
         setServiceCount(res.data.serviceCount);

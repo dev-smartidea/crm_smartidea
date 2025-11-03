@@ -9,6 +9,7 @@ const menuItems = [
   { label: 'รายชื่อลูกค้า', to: '/dashboard/list', icon: '👥' },
   { label: 'การแจ้งเตือน', to: '/dashboard/notifications', icon: '�' },
   { label: 'รูปภาพ', to: '/dashboard/images', icon: '�️' },
+  { label: 'กิจกรรม', to: '/dashboard/activity', icon: '📝' },
   { label: 'โปรไฟล์', to: '/dashboard/profile', icon: '👨‍�' },
 ];
 

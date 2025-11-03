@@ -67,7 +67,6 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 // ✅ Register
 router.post('/register', async (req, res) => {
   try {
-    console.log('Register request body:', req.body);
     const { username, name, email, password } = req.body;
     if (!username || !name || !email || !password) {
       return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
@@ -89,16 +88,13 @@ router.post('/register', async (req, res) => {
 // ✅ Login
 router.post('/login', async (req, res) => {
   try {
-    console.log('Login request body:', req.body);
     const { username, password } = req.body;
     const user = await User.findOne({ username });
     if (!user) {
-      console.log('Login failed: user not found');
       return res.status(400).json({ error: 'ไม่พบผู้ใช้' });
     }
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      console.log('Login failed: password incorrect');
       return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
     }
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });

@@ -5,7 +5,6 @@ const Service = require('../models/Service');
 const Customer = require('../models/Customer');
 const Transaction = require('../models/Transaction');
 const NotificationRead = require('../models/NotificationRead');
-
 // Helper: auth + return user object (id, role)
 function getUserFromReq(req) {
   const token = req.headers.authorization?.split(' ')[1];
