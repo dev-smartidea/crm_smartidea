@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Line, Doughnut } from 'react-chartjs-2';
 import 'chart.js/auto';
-import { PeopleFill, BriefcaseFill, ClockFill, CashCoin, Plus, EyeFill, Google, Facebook } from 'react-bootstrap-icons';
-import { Link } from 'react-router-dom';
+import { PeopleFill, BriefcaseFill, ClockFill, CashCoin, Google, Facebook } from 'react-bootstrap-icons';
 import './DashboardPage.css';
 
 // Icon components

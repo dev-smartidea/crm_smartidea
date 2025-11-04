@@ -54,6 +54,10 @@ router.post('/', async (req, res) => {
     if (err.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Invalid token' });
     }
+    // Handle duplicate customerCode gracefully
+    if (err.code === 11000 && err.keyPattern && err.keyPattern.customerCode) {
+      return res.status(409).json({ error: 'รหัสลูกค้าซ้ำ กรุณาใช้รหัสอื่น' });
+    }
     res.status(400).json({ error: err.message });
   }
 });
