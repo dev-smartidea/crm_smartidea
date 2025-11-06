@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
 import './CustomerListPage.css';
@@ -107,11 +107,22 @@ export default function CustomerListPage() {
             <Search className="search-icon" />
             <input
               type="text"
-              className="form-control"
-              placeholder="ค้นหาลูกค้า..."
+              className="form-control search-elevated"
+              placeholder="ค้นหาลูกค้า"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
+            {search && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label="ล้างคำค้นหา"
+                title="ล้างคำค้นหา"
+                onClick={() => setSearch('')}
+              >
+                <XCircle size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -120,8 +131,8 @@ export default function CustomerListPage() {
             <thead>
               <tr>
                 <th>ลูกค้า</th>
-                <th>ID</th>
-                <th>บริการที่สนใจ</th>
+                <th>รหัสลูกค้า</th>
+                <th>สินค้า/บริการ</th>
                 <th>เบอร์โทรศัพท์</th>
                 <th>วันที่เพิ่ม</th>
                 <th>การจัดการ</th>
@@ -147,9 +158,15 @@ export default function CustomerListPage() {
                         <span className="customer-name">{cust.name}</span>
                       </div>
                     </td>
-                    <td>{cust._id.slice(-6).toUpperCase()}</td>
+                    <td>{cust.customerCode || cust._id?.slice(-6).toUpperCase() || '-'}</td>
                     <td>
-                      <span className={`badge badge-service ${cust.service === 'Google Ads' ? 'badge-google' : cust.service === 'Facebook Ads' ? 'badge-facebook' : 'badge-other'}`}>{cust.service}</span>
+                      {cust.productService ? (
+                        <span className="badge badge-product" title={cust.productService}>
+                          {cust.productService.length > 40 ? `${cust.productService.slice(0, 40)}…` : cust.productService}
+                        </span>
+                      ) : (
+                        <span className="badge badge-product">-</span>
+                      )}
                     </td>
                     <td>{cust.phone}</td>
                     <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
@@ -158,13 +175,19 @@ export default function CustomerListPage() {
                         <button 
                           className="btn-dropdown-toggle" 
                           onClick={(e) => {
-                            setOpenDropdown(openDropdown === cust._id ? null : cust._id);
+                            // ป้องกัน event จากการวิ่งไปถึง document และไปปิด dropdown ทิ้งก่อนที่ toggle จะทำงาน
+                            e.stopPropagation();
+                            // ใช้ functional update เพื่อหลีกเลี่ยงค่า state เก่าจาก closure
+                            setOpenDropdown((prev) => (prev === cust._id ? null : cust._id));
                           }}
                         >
                           <ThreeDotsVertical />
                         </button>
                         {openDropdown === cust._id && (
                           <div className="dropdown-menu-custom">
+                            <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}`); setOpenDropdown(null); }}>
+                              <EyeFill /> ดูรายละเอียด
+                            </button>
                             <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}/services`); setOpenDropdown(null); }}>
                               <EyeFill /> บริการ
                             </button>

@@ -16,7 +16,7 @@ export default function CustomerServicesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ 
     name: 'Google Ads', 
-    status: 'รอกำเนิด', 
+    status: 'รอคิวทำเว็บ', 
     notes: '', 
     pageUrl: '', 
     startDate: '', 
@@ -104,7 +104,7 @@ export default function CustomerServicesPage() {
       setShowCreate(false);
       setForm({ 
         name: 'Google Ads', 
-        status: 'รอกำเนิด', 
+        status: 'รอคิวทำเว็บ', 
         notes: '', 
         pageUrl: '', 
         startDate: '', 
@@ -117,16 +117,7 @@ export default function CustomerServicesPage() {
     }
   };
 
-  const startEdit = (svc) => {
-    setEditingId(svc._id);
-    setEditForm({
-      name: svc.name,
-      status: svc.status,
-      notes: svc.notes || '',
-      startDate: svc.startDate ? new Date(svc.startDate).toISOString().slice(0,10) : '',
-      dueDate: svc.dueDate ? new Date(svc.dueDate).toISOString().slice(0,10) : ''
-    });
-  };
+  // (removed unused startEdit function to satisfy linter)
 
   const saveEdit = async (svcId) => {
     try {
@@ -261,7 +252,7 @@ export default function CustomerServicesPage() {
                   Customer ID
                   <input type="text" value={form.customerIdField} onChange={e => setForm({ ...form, customerIdField: e.target.value })} placeholder="" />
                 </label>
-                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ marginBottom: '15px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>สถานะ</label>
                   <div style={{ display: 'flex', gap: '20px', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -294,6 +285,16 @@ export default function CustomerServicesPage() {
                       />
                       <span>รอลูกค้าส่งข้อมูล</span>
                     </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input 
+                          type="radio" 
+                          name="status" 
+                          value="กำลังรันโฆษณา"
+                          checked={form.status === 'กำลังรันโฆษณา'}
+                          onChange={e => setForm({ ...form, status: e.target.value })}
+                        />
+                        <span>กำลังรันโฆษณา</span>
+                      </label>
                   </div>
                 </div>
                 <label>
@@ -465,7 +466,7 @@ export default function CustomerServicesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" className="text-center p-5">กำลังโหลด...</td></tr>
+                <tr><td colSpan="8" className="text-center p-5">กำลังโหลด...</td></tr>
               ) : services.length > 0 ? (
                 services.map((svc) => {
                   // ตรวจสอบว่าบริการหมดอายุหรือไม่
@@ -485,6 +486,7 @@ export default function CustomerServicesPage() {
                           <option value="รอคิวทำเว็บ">รอคิวทำเว็บ</option>
                           <option value="รอคิวสร้างบัญชี">รอคิวสร้างบัญชี</option>
                           <option value="รอลูกค้าส่งข้อมูล">รอลูกค้าส่งข้อมูล</option>
+                          <option value="กำลังรันโฆษณา">กำลังรันโฆษณา</option>
                         </select>
                       ) : (
                         <span className={
@@ -543,7 +545,8 @@ export default function CustomerServicesPage() {
                           <button 
                             className="btn-dropdown-toggle" 
                             onClick={(e) => {
-                              setOpenDropdown(openDropdown === svc._id ? null : svc._id);
+                              e.stopPropagation();
+                              setOpenDropdown((prev) => (prev === svc._id ? null : svc._id));
                             }}
                           >
                             <ThreeDotsVertical />
@@ -568,7 +571,7 @@ export default function CustomerServicesPage() {
                   );
                 })
               ) : (
-                <tr><td colSpan="7" className="text-center p-5">ยังไม่มีบริการ</td></tr>
+                <tr><td colSpan="8" className="text-center p-5">ยังไม่มีบริการ</td></tr>
               )}
             </tbody>
           </table>

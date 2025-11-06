@@ -116,6 +116,38 @@
   animation: slideDown 0.4s ease;
 }
 
+/* Error Message */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  padding: 20px 25px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+  animation: slideDown 0.4s ease;
+}
+
+.error-icon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.error-text h4 {
+  margin: 0 0 5px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.error-text p {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;

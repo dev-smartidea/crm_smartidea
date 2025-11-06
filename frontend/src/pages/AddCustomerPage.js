@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { PersonPlusFill, TelephoneFill, Globe, BriefcaseFill, CheckCircleFill, ArrowCounterclockwise, Building, CreditCard, EnvelopeFill, TagFill } from 'react-bootstrap-icons';
+import { PersonPlusFill, TelephoneFill, Globe, BriefcaseFill, CheckCircleFill, ArrowCounterclockwise, Building, CreditCard, EnvelopeFill, TagFill, ExclamationTriangleFill } from 'react-bootstrap-icons';
 import './AddCustomerPage.css';
 import './ImageGalleryPage.css'; // reuse gradient blue button style
 
@@ -15,14 +15,16 @@ export default function AddCustomerPage() {
     phone: '',
     email: '',
     taxId: '',
-    businessSize: ''
+    businessSize: '',
+    productService: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [touched, setTouched] = useState({});
-  // Local UI state for combo-style dropdowns (match Image Gallery pattern)
+  // Combo-style dropdown local states (like Image Gallery)
   const [typeQuery, setTypeQuery] = useState('');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [sizeQuery, setSizeQuery] = useState('');
@@ -37,7 +39,7 @@ export default function AddCustomerPage() {
   };
 
   const calculateProgress = () => {
-    const requiredFields = ['customerCode', 'name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize'];
+    const requiredFields = ['customerCode', 'name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize', 'productService'];
     const filled = requiredFields.filter((field) => String(formData[field] || '').trim()).length;
     return Math.round((filled / requiredFields.length) * 100);
   };
@@ -47,10 +49,11 @@ export default function AddCustomerPage() {
   const handleReset = () => {
     setFormData(initialFormState);
     setSubmitSuccess(false);
+    setSubmitError('');
     setTouched({});
     setTypeQuery('');
-    setSizeQuery('');
     setShowTypeDropdown(false);
+    setSizeQuery('');
     setShowSizeDropdown(false);
   };
 
@@ -58,9 +61,13 @@ export default function AddCustomerPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitSuccess(false);
+    setSubmitError('');
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/customers`, formData, {
+      const payload = { ...formData };
+      if (!payload.customerType && typeQuery) payload.customerType = typeQuery;
+      if (!payload.businessSize && sizeQuery) payload.businessSize = sizeQuery;
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/customers`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSubmitSuccess(true);
@@ -73,11 +80,13 @@ export default function AddCustomerPage() {
       const status = error?.response?.status;
       const message = error?.response?.data?.error;
       if (status === 409) {
-        alert(message || 'รหัสลูกค้าซ้ำ กรุณาใช้รหัสอื่น');
+        setSubmitError('มีลูกค้าคนนี้ในระบบแล้ว - ' + (message || 'รหัสลูกค้านี้ถูกใช้ไปแล้ว กรุณาใช้รหัสอื่น'));
       } else {
-        alert(message || 'เกิดข้อผิดพลาดในการเพิ่มลูกค้า');
+        setSubmitError(message || 'เกิดข้อผิดพลาดในการเพิ่มลูกค้า');
       }
       setIsSubmitting(false);
+      // Auto-hide error after 5 seconds
+      setTimeout(() => setSubmitError(''), 5000);
     }
   };
 
@@ -110,6 +119,16 @@ export default function AddCustomerPage() {
             <div className="success-text">
               <h4>บันทึกข้อมูลสำเร็จ!</h4>
               <p>เพิ่มข้อมูลลูกค้าเข้าสู่ระบบเรียบร้อยแล้ว</p>
+            </div>
+          </div>
+        )}
+
+        {submitError && (
+          <div className="error-message">
+            <ExclamationTriangleFill className="error-icon" />
+            <div className="error-text">
+              <h4>เกิดข้อผิดพลาด!</h4>
+              <p>{submitError}</p>
             </div>
           </div>
         )}
@@ -170,28 +189,28 @@ export default function AddCustomerPage() {
                       placeholder="เลือกประเภทลูกค้า..."
                       value={typeQuery}
                       onFocus={() => setShowTypeDropdown(true)}
-                      onChange={(e) => { setTypeQuery(e.target.value); setShowTypeDropdown(true); }}
+                      onClick={() => setShowTypeDropdown(true)}
+                      readOnly
+                      onChange={() => {}}
                       onBlur={handleBlur}
                       required
                     />
                     {showTypeDropdown && (
                       <div className="combo-panel" onMouseLeave={() => setShowTypeDropdown(false)}>
-                        {customerTypeOptions
-                          .filter(opt => opt.toLowerCase().includes((typeQuery || '').toLowerCase()))
-                          .map(opt => (
-                            <div
-                              key={opt}
-                              className="combo-item"
-                              onMouseDown={() => {
-                                setFormData({ ...formData, customerType: opt });
-                                setTypeQuery(opt);
-                                setShowTypeDropdown(false);
-                                setTouched({ ...touched, customerType: true });
-                              }}
-                            >
-                              {opt}
-                            </div>
-                          ))}
+                        {customerTypeOptions.map(opt => (
+                          <div
+                            key={opt}
+                            className={`combo-item ${formData.customerType === opt ? 'selected' : ''}`}
+                            onMouseDown={() => {
+                              setFormData({ ...formData, customerType: opt });
+                              setTypeQuery(opt);
+                              setShowTypeDropdown(false);
+                              setTouched({ ...touched, customerType: true });
+                            }}
+                          >
+                            {opt}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -209,28 +228,28 @@ export default function AddCustomerPage() {
                       placeholder="เลือกขนาดธุรกิจ..."
                       value={sizeQuery}
                       onFocus={() => setShowSizeDropdown(true)}
-                      onChange={(e) => { setSizeQuery(e.target.value); setShowSizeDropdown(true); }}
+                      onClick={() => setShowSizeDropdown(true)}
+                      readOnly
+                      onChange={() => {}}
                       onBlur={handleBlur}
                       required
                     />
                     {showSizeDropdown && (
                       <div className="combo-panel" onMouseLeave={() => setShowSizeDropdown(false)}>
-                        {businessSizeOptions
-                          .filter(opt => opt.toLowerCase().includes((sizeQuery || '').toLowerCase()))
-                          .map(opt => (
-                            <div
-                              key={opt}
-                              className="combo-item"
-                              onMouseDown={() => {
-                                setFormData({ ...formData, businessSize: opt });
-                                setSizeQuery(opt);
-                                setShowSizeDropdown(false);
-                                setTouched({ ...touched, businessSize: true });
-                              }}
-                            >
-                              {opt}
-                            </div>
-                          ))}
+                        {businessSizeOptions.map(opt => (
+                          <div
+                            key={opt}
+                            className={`combo-item ${formData.businessSize === opt ? 'selected' : ''}`}
+                            onMouseDown={() => {
+                              setFormData({ ...formData, businessSize: opt });
+                              setSizeQuery(opt);
+                              setShowSizeDropdown(false);
+                              setTouched({ ...touched, businessSize: true });
+                            }}
+                          >
+                            {opt}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -305,6 +324,25 @@ export default function AddCustomerPage() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="เลขประจำตัวผู้เสียภาษี"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="productService">
+                    <BriefcaseFill /> สินค้า / บริการของลูกค้า <span className="required">*</span>
+                  </label>
+                  <textarea
+                    id="productService"
+                    name="productService"
+                    className={`form-input ${touched.productService && formData.productService ? 'valid' : ''} ${touched.productService && !formData.productService ? 'invalid' : ''}`}
+                    value={formData.productService}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    rows={3}
+                    placeholder="ระบุสินค้าหรือบริการที่ลูกค้าประกอบธุรกิจ"
                     required
                   />
                 </div>

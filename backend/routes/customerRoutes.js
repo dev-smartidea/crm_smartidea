@@ -11,15 +11,25 @@ router.get('/', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const loggedInUserId = decoded.id;
 
-    const { search, userId } = req.query;
-    let query = {};
+  const { search, userId } = req.query;
+  let query = {};
     if (userId) {
       query.userId = userId;
     } else {
       query.userId = loggedInUserId;
     }
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
+      // และป้องกัน regex injection ด้วยการ escape อักขระพิเศษ
+      const escaped = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      query.$or = [
+        { name: regex },
+        { customerCode: regex },
+        { phone: regex },
+        { email: regex },
+        { productService: regex },
+      ];
     }
     const customers = await Customer.find(query);
     res.json(customers);
@@ -96,7 +106,11 @@ router.delete('/:id', async (req, res) => {
 // ✅ PUT แก้ไขข้อมูลลูกค้า
 router.put('/:id', async (req, res) => {
   try {
-    const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const customer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
     res.json(customer);
   } catch (err) {
     res.status(400).json({ error: err.message });
