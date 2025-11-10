@@ -143,6 +143,16 @@
 .status-badge.running {
   background: #22c55e;
 }
+/* New statuses */
+.status-badge.inprogress {
+  background: #2563eb; /* blue */
+}
+.status-badge.due {
+  background: #f59e0b; /* amber */
+}
+.status-badge.overdue30 {
+  background: #ef4444; /* red */
+}
 
 .status-count {
   font-weight: 700;
@@ -283,6 +293,16 @@
 }
 .badge-status.waitinfo {
   background: #795548;
+}
+/* New badge classes for tables */
+.badge-status.inprogress {
+  background: #2563eb;
+}
+.badge-status.due {
+  background: #f59e0b;
+}
+.badge-status.overdue30 {
+  background: #ef4444;
 }
 
 .badge-bank {

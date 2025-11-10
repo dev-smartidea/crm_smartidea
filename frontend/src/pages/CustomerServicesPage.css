@@ -19,6 +19,16 @@
 .badge-status.running {
   background: #22c55e;
 }
+/* New status styles for updated schema */
+.badge-status.inprogress {
+  background: #2563eb; /* blue */
+}
+.badge-status.overdue30 {
+  background: #ef4444; /* red */
+}
+.badge-status.due {
+  background: #f59e0b; /* amber */
+}
 /* Modern service table styles */
 .customer-list-page {
   padding: 40px;
@@ -189,13 +199,22 @@
 }
 @keyframes svcPop { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .svc-form label { display: flex; flex-direction: column; font-size: 14px; gap: 6px; font-weight: 500; }
-.svc-form input[type=text], .svc-form input[type=date], .svc-form select, .svc-form textarea {
+.svc-form input[type=text], .svc-form input[type=date], .svc-form input[type=number], .svc-form select, .svc-form textarea {
   border: 1px solid #d3d8e2;
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
+}
+.svc-form input[type=number]::-webkit-outer-spin-button,
+.svc-form input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.svc-form input[type=number] {
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
 .svc-row-2 { display: flex; gap: 14px; }
 .svc-row-2 > label { flex: 1; }

@@ -15,13 +15,17 @@ export default function CustomerServicesPage() {
   // form popup สำหรับสร้าง
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ 
-    name: 'Google Ads', 
-    status: 'รอคิวทำเว็บ', 
+    serviceType: 'Google Ads', 
+    status: 'อยู่ระหว่างบริการ', 
+    acquisitionRole: 'sale',
+    acquisitionPerson: 'นายก',
+    ownership: 'ลูกค้า',
+    price: '',
     notes: '', 
     pageUrl: '', 
     startDate: '', 
     dueDate: '',
-    customerIdField: ''
+    cid: ''
   });
   const [editingId, setEditingId] = useState(null);
   // state สำหรับจำนวนวัน
@@ -37,7 +41,7 @@ export default function CustomerServicesPage() {
       setDaysDiff('');
     }
   }, [form.startDate, form.dueDate]);
-  const [editForm, setEditForm] = useState({ name: '', status: 'active', notes: '', startDate: '', dueDate: '' });
+  const [editForm, setEditForm] = useState({ serviceType: '', status: 'อยู่ระหว่างบริการ', notes: '', startDate: '', dueDate: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState(null);
   const [error, setError] = useState('');
@@ -96,20 +100,33 @@ export default function CustomerServicesPage() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.name) return;
+    if (!form.serviceType) return;
     try {
-  const payload = { ...form, status: typeof form.status === 'string' ? form.status.trim() : form.status };
+      const payload = {
+        ...form,
+        status: typeof form.status === 'string' ? form.status.trim() : form.status,
+        // เข้ากันได้ย้อนหลัง
+        name: form.serviceType,
+        serviceType: form.serviceType,
+        customerIdField: form.cid,
+        cid: form.cid,
+        price: form.price !== '' ? Number(form.price) : undefined,
+      };
       const res = await axios.post(`${api}/api/customers/${id}/services`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setServices([res.data, ...services]);
       setShowCreate(false);
       setForm({ 
-        name: 'Google Ads', 
-        status: 'รอคิวทำเว็บ', 
-        notes: '', 
-        pageUrl: '', 
-        startDate: '', 
+        serviceType: 'Google Ads',
+        status: 'อยู่ระหว่างบริการ',
+        acquisitionRole: 'sale',
+        acquisitionPerson: 'นายก',
+        ownership: 'ลูกค้า',
+        price: '',
+        notes: '',
+        pageUrl: '',
+        startDate: '',
         dueDate: '',
-        customerIdField: ''
+        cid: ''
       });
     } catch (err) {
       const detail = err?.response?.data?.detail || err?.message || '';
@@ -152,9 +169,13 @@ export default function CustomerServicesPage() {
 
   const startDetailEdit = () => {
     setDetailForm({
-      name: selectedService.name,
+      serviceType: selectedService.serviceType || selectedService.name,
       pageUrl: selectedService.pageUrl || '',
-      customerIdField: selectedService.customerIdField || '',
+      cid: selectedService.cid || selectedService.customerIdField || '',
+      acquisitionRole: selectedService.acquisitionRole || 'sale',
+      acquisitionPerson: selectedService.acquisitionPerson || 'นายก',
+      ownership: selectedService.ownership || 'ลูกค้า',
+      price: typeof selectedService.price === 'number' ? selectedService.price : '',
       status: selectedService.status,
       startDate: selectedService.startDate ? new Date(selectedService.startDate).toISOString().slice(0,10) : '',
       dueDate: selectedService.dueDate ? new Date(selectedService.dueDate).toISOString().slice(0,10) : '',
@@ -168,6 +189,11 @@ export default function CustomerServicesPage() {
       const payload = { ...detailForm };
       if (!payload.startDate) delete payload.startDate;
       if (!payload.dueDate) delete payload.dueDate;
+      if (payload.price === '' || payload.price === null) {
+        delete payload.price;
+      } else {
+        payload.price = Number(payload.price);
+      }
       const res = await axios.put(`${api}/api/services/${selectedService._id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setServices(services.map(s => s._id === selectedService._id ? res.data : s));
       setSelectedService(res.data);
@@ -223,16 +249,45 @@ export default function CustomerServicesPage() {
               <h3 style={{ marginTop: 0 }}>เพิ่มบริการใหม่</h3>
               <form onSubmit={handleCreate} className="svc-form">
                 <label>
-                  บริการ
-                  <select value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required>
+                  ประเภทบริการ
+                  <select value={form.serviceType} onChange={e => setForm({ ...form, serviceType: e.target.value })} required>
                     <option value="Google Ads">Google Ads</option>
                     <option value="Facebook Ads">Facebook Ads</option>
                   </select>
                 </label>
+                <div className="svc-row-2">
+                  <label>
+                    ช่องทางการได้มา
+                    <select value={form.acquisitionRole} onChange={e => setForm({ ...form, acquisitionRole: e.target.value })}>
+                      <option value="sale">ขายโดย sale</option>
+                      <option value="admin">ขายโดย admin</option>
+                    </select>
+                  </label>
+                  <label>
+                    ผู้ขาย/ผู้ดูแล
+                    <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
+                      <option value="นายก">นายก</option>
+                      <option value="นายข">นายข</option>
+                    </select>
+                  </label>
+                </div>
                 <label>
                   Website / Facebook Page
                   <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="" />
                 </label>
+                <div className="svc-row-2">
+                  <label>
+                    สิทธิการเป็นเจ้าของ
+                    <select value={form.ownership} onChange={e => setForm({ ...form, ownership: e.target.value })}>
+                      <option value="ลูกค้า">ลูกค้า</option>
+                      <option value="website ภายใต้บริษัท">website ภายใต้บริษัท</option>
+                    </select>
+                  </label>
+                  <label>
+                    ราคาบริการ (บาท)
+                    <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+                  </label>
+                </div>
                 <div className="svc-row-2">
                   <label>
                     วันที่เริ่มต้น
@@ -249,8 +304,8 @@ export default function CustomerServicesPage() {
                   </label>
                 </div>
                 <label>
-                  Customer ID
-                  <input type="text" value={form.customerIdField} onChange={e => setForm({ ...form, customerIdField: e.target.value })} placeholder="" />
+                  CID
+                  <input type="text" value={form.cid} onChange={e => setForm({ ...form, cid: e.target.value })} placeholder="" />
                 </label>
                   <div style={{ marginBottom: '15px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>สถานะ</label>
@@ -259,42 +314,32 @@ export default function CustomerServicesPage() {
                       <input 
                         type="radio" 
                         name="status" 
-                        value="รอคิวทำเว็บ"
-                        checked={form.status === 'รอคิวทำเว็บ'}
+                        value="อยู่ระหว่างบริการ"
+                        checked={form.status === 'อยู่ระหว่างบริการ'}
                         onChange={e => setForm({ ...form, status: e.target.value })}
                       />
-                      <span>รอคิวทำเว็บ</span>
+                      <span>อยู่ระหว่างบริการ</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       <input 
                         type="radio" 
                         name="status" 
-                        value="รอคิวสร้างบัญชี"
-                        checked={form.status === 'รอคิวสร้างบัญชี'}
+                        value="เกินกำหนดมากกว่า 30 วัน"
+                        checked={form.status === 'เกินกำหนดมากกว่า 30 วัน'}
                         onChange={e => setForm({ ...form, status: e.target.value })}
                       />
-                      <span>รอคิวสร้างบัญชี</span>
+                      <span>เกินกำหนดมากกว่า 30 วัน</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       <input 
                         type="radio" 
                         name="status" 
-                        value="รอลูกค้าส่งข้อมูล"
-                        checked={form.status === 'รอลูกค้าส่งข้อมูล'}
+                        value="ครบกำหนด"
+                        checked={form.status === 'ครบกำหนด'}
                         onChange={e => setForm({ ...form, status: e.target.value })}
                       />
-                      <span>รอลูกค้าส่งข้อมูล</span>
+                      <span>ครบกำหนด</span>
                     </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        <input 
-                          type="radio" 
-                          name="status" 
-                          value="กำลังรันโฆษณา"
-                          checked={form.status === 'กำลังรันโฆษณา'}
-                          onChange={e => setForm({ ...form, status: e.target.value })}
-                        />
-                        <span>กำลังรันโฆษณา</span>
-                      </label>
                   </div>
                 </div>
                 <label>
@@ -322,18 +367,24 @@ export default function CustomerServicesPage() {
               
               {!isEditingInDetail ? (
                 <>
-                  <div style={{ marginBottom: 12 }}><strong>บริการ:</strong> {selectedService.name}</div>
+                  <div style={{ marginBottom: 12 }}><strong>ประเภทบริการ:</strong> {selectedService.serviceType || selectedService.name}</div>
+                  <div style={{ marginBottom: 12 }}><strong>ช่องทางการได้มา:</strong> {selectedService.acquisitionRole === 'admin' ? 'ขายโดย admin' : 'ขายโดย sale'}</div>
+                  <div style={{ marginBottom: 12 }}><strong>ผู้ขาย/ผู้ดูแล:</strong> {selectedService.acquisitionPerson || '-'}</div>
+                  <div style={{ marginBottom: 12 }}><strong>สิทธิการเป็นเจ้าของ:</strong> {selectedService.ownership || '-'}</div>
                   <div style={{ marginBottom: 12 }}><strong>Website / Facebook Page:</strong> {selectedService.pageUrl || '-'}</div>
-                  <div style={{ marginBottom: 12 }}><strong>Customer ID:</strong> {selectedService.customerIdField || '-'}</div>
+                  <div style={{ marginBottom: 12 }}><strong>CID:</strong> {selectedService.cid || selectedService.customerIdField || '-'}</div>
+                  <div style={{ marginBottom: 12 }}><strong>ราคาบริการ (บาท):</strong> {(
+                    typeof selectedService.price === 'number' || selectedService.price === 0
+                  ) ? Number(selectedService.price).toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '-'}</div>
                   <div style={{ marginBottom: 12 }}>
                     <strong>สถานะ:</strong>{' '}
                     <span className={
-                      `badge-status ` +
-                      (selectedService.status === 'รอคิวทำเว็บ' ? 'web' :
-                       selectedService.status === 'รอคิวสร้างบัญชี' ? 'account' :
-                       selectedService.status === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
-                       selectedService.status === 'กำลังรันโฆษณา' ? 'running' :
-                       '')
+                      `badge-status ` + (
+                        selectedService.status === 'อยู่ระหว่างบริการ' ? 'inprogress' :
+                        selectedService.status === 'เกินกำหนดมากกว่า 30 วัน' ? 'overdue30' :
+                        selectedService.status === 'ครบกำหนด' ? 'due' :
+                        ''
+                      )
                     }>
                       {selectedService.status}
                     </span>
@@ -341,11 +392,20 @@ export default function CustomerServicesPage() {
                   <div style={{ marginBottom: 12 }}><strong>วันที่เริ่มต้น:</strong> {selectedService.startDate ? new Date(selectedService.startDate).toLocaleDateString('th-TH') : '-'}</div>
                   <div style={{ marginBottom: 12 }}><strong>วันที่ครบกำหนด:</strong> {selectedService.dueDate ? new Date(selectedService.dueDate).toLocaleDateString('th-TH') : '-'}</div>
                   <div style={{ marginBottom: 12 }}>
+                    <strong>จำนวนเดือน:</strong> {selectedService.startDate && selectedService.dueDate ? (() => {
+                      if (typeof selectedService.months === 'number') return `${selectedService.months} เดือน`;
+                      const s = new Date(selectedService.startDate);
+                      const e = new Date(selectedService.dueDate);
+                      const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+                      return months >= 0 ? `${months} เดือน` : '-';
+                    })() : '-'}
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
                     <strong>จำนวนวัน:</strong> {selectedService.startDate && selectedService.dueDate ? (() => {
-                      const start = new Date(selectedService.startDate);
-                      const end = new Date(selectedService.dueDate);
-                      const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-                      return diff >= 0 ? `${diff} วัน` : '-';
+                      const s = new Date(selectedService.startDate);
+                      const e = new Date(selectedService.dueDate);
+                      const days = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+                      return days >= 0 ? `${days} วัน` : '-';
                     })() : '-'}
                   </div>
                   <div style={{ marginBottom: 12 }}><strong>note:</strong> {selectedService.notes || '-'}</div>
@@ -361,17 +421,46 @@ export default function CustomerServicesPage() {
               ) : (
                 <form className="svc-form" onSubmit={(e) => { e.preventDefault(); saveDetailEdit(); }}>
                   <label>
-                    บริการ
-                    <input type="text" value={detailForm.name} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                    ประเภทบริการ
+                    <input type="text" value={detailForm.serviceType} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
                   </label>
                   <label>
                     Website / Facebook Page
                     <input type="text" value={detailForm.pageUrl} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
                   </label>
                   <label>
-                    Customer ID
-                    <input type="text" value={detailForm.customerIdField} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                    CID
+                    <input type="text" value={detailForm.cid} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
                   </label>
+                  <div className="svc-row-2">
+                    <label>
+                      ช่องทางการได้มา
+                      <select value={detailForm.acquisitionRole} onChange={e => setDetailForm({ ...detailForm, acquisitionRole: e.target.value })}>
+                        <option value="sale">ขายโดย sale</option>
+                        <option value="admin">ขายโดย admin</option>
+                      </select>
+                    </label>
+                    <label>
+                      ผู้ขาย/ผู้ดูแล
+                      <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
+                        <option value="นายก">นายก</option>
+                        <option value="นายข">นายข</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="svc-row-2">
+                    <label>
+                      สิทธิการเป็นเจ้าของ
+                      <select value={detailForm.ownership} onChange={e => setDetailForm({ ...detailForm, ownership: e.target.value })}>
+                        <option value="ลูกค้า">ลูกค้า</option>
+                        <option value="website ภายใต้บริษัท">website ภายใต้บริษัท</option>
+                      </select>
+                    </label>
+                    <label>
+                      ราคาบริการ (บาท)
+                      <input type="number" min="0" step="0.01" value={detailForm.price} onChange={e => setDetailForm({ ...detailForm, price: e.target.value })} />
+                    </label>
+                  </div>
                   <div className="svc-row-2">
                     <label>
                       วันที่เริ่มต้น
@@ -394,41 +483,31 @@ export default function CustomerServicesPage() {
                         <input 
                           type="radio" 
                           name="detailStatus" 
-                          value="รอคิวทำเว็บ"
-                          checked={detailForm.status === 'รอคิวทำเว็บ'}
+                          value="อยู่ระหว่างบริการ"
+                          checked={detailForm.status === 'อยู่ระหว่างบริการ'}
                           onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
                         />
-                        <span>รอคิวทำเว็บ</span>
+                        <span>อยู่ระหว่างบริการ</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                         <input 
                           type="radio" 
                           name="detailStatus" 
-                          value="รอคิวสร้างบัญชี"
-                          checked={detailForm.status === 'รอคิวสร้างบัญชี'}
+                          value="เกินกำหนดมากกว่า 30 วัน"
+                          checked={detailForm.status === 'เกินกำหนดมากกว่า 30 วัน'}
                           onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
                         />
-                        <span>รอคิวสร้างบัญชี</span>
+                        <span>เกินกำหนดมากกว่า 30 วัน</span>
                       </label>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                         <input 
                           type="radio" 
                           name="detailStatus" 
-                          value="รอลูกค้าส่งข้อมูล"
-                          checked={detailForm.status === 'รอลูกค้าส่งข้อมูล'}
+                          value="ครบกำหนด"
+                          checked={detailForm.status === 'ครบกำหนด'}
                           onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
                         />
-                        <span>รอลูกค้าส่งข้อมูล</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        <input 
-                          type="radio" 
-                          name="detailStatus" 
-                          value="กำลังรันโฆษณา"
-                          checked={detailForm.status === 'กำลังรันโฆษณา'}
-                          onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
-                        />
-                        <span>กำลังรันโฆษณา</span>
+                        <span>ครบกำหนด</span>
                       </label>
                     </div>
                   </div>
@@ -454,12 +533,12 @@ export default function CustomerServicesPage() {
           <table className="customer-table">
             <thead>
               <tr>
-                <th>บริการ</th>
-                <th>Customer ID</th>
+                <th>ประเภทบริการ</th>
+                <th>CID</th>
                 <th>สถานะ</th>
                 <th>เริ่ม</th>
                 <th>ครบกำหนด</th>
-                <th>จำนวนวัน</th>
+                <th>จำนวนเดือน</th>
                 <th>Website / Facebook Page</th>
                 <th>การจัดการ</th>
               </tr>
@@ -474,32 +553,19 @@ export default function CustomerServicesPage() {
                   
                   return (
                     <tr key={svc._id} className={isExpired ? 'expired-service' : ''}>
-                      <td>
-                        {editingId === svc._id ? (
-                          <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
-                        ) : svc.name}
-                      </td>
-                    <td>{svc.customerIdField || '-'}</td>
+                      <td>{svc.serviceType || svc.name}</td>
+                    <td>{svc.cid || svc.customerIdField || '-'}</td>
                     <td>
-                      {editingId === svc._id ? (
-                        <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
-                          <option value="รอคิวทำเว็บ">รอคิวทำเว็บ</option>
-                          <option value="รอคิวสร้างบัญชี">รอคิวสร้างบัญชี</option>
-                          <option value="รอลูกค้าส่งข้อมูล">รอลูกค้าส่งข้อมูล</option>
-                          <option value="กำลังรันโฆษณา">กำลังรันโฆษณา</option>
-                        </select>
-                      ) : (
-                        <span className={
-                          `badge-status ` +
-                          (svc.status === 'รอคิวทำเว็บ' ? 'web' :
-                           svc.status === 'รอคิวสร้างบัญชี' ? 'account' :
-                           svc.status === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
-                           svc.status === 'กำลังรันโฆษณา' ? 'running' :
-                           '')
-                        }>
-                          {svc.status}
-                        </span>
-                      )}
+                      <span className={
+                        `badge-status ` + (
+                          svc.status === 'อยู่ระหว่างบริการ' ? 'inprogress' :
+                          svc.status === 'เกินกำหนดมากกว่า 30 วัน' ? 'overdue30' :
+                          svc.status === 'ครบกำหนด' ? 'due' :
+                          ''
+                        )
+                      }>
+                        {svc.status}
+                      </span>
                     </td>
                     <td>
                       {editingId === svc._id ? (
@@ -526,10 +592,11 @@ export default function CustomerServicesPage() {
                     <td>
                       {svc.startDate && svc.dueDate ? (
                         (() => {
-                          const start = new Date(svc.startDate);
-                          const end = new Date(svc.dueDate);
-                          const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-                          return diff >= 0 ? `${diff} วัน` : '-';
+                          if (typeof svc.months === 'number') return `${svc.months} เดือน`;
+                          const s = new Date(svc.startDate);
+                          const e = new Date(svc.dueDate);
+                          const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+                          return months >= 0 ? `${months} เดือน` : '-';
                         })()
                       ) : '-'}
                     </td>

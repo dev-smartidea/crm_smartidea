@@ -61,5 +61,9 @@ app.get('/', (req, res) => {
 // เชื่อมต่อ MongoDB
 connectDB();
 
+// เริ่มตัวตั้งเวลาอัปเดตสถานะบริการอัตโนมัติ
+const { initStatusScheduler } = require('./utils/statusScheduler');
+initStatusScheduler();
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0');

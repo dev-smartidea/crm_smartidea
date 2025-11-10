@@ -49,19 +49,47 @@ router.post('/customers/:customerId/services', async (req, res) => {
       customer = await Customer.findOne({ _id: req.params.customerId, userId: user.id });
     }
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-  const { name, status, notes, pageUrl, startDate, dueDate, customerIdField } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
+    // รับทั้งฟิลด์ใหม่และฟิลด์เดิม เพื่อความเข้ากันได้ย้อนหลัง
+    const {
+      // เดิม
+      name,
+      customerIdField,
+      // ใหม่
+      serviceType,
+      cid,
+      acquisitionRole,
+      acquisitionPerson,
+      ownership,
+      price,
+      status,
+      notes,
+      pageUrl,
+      startDate,
+      dueDate
+    } = req.body;
+
+    const effectiveName = serviceType || name; // ใช้ค่าใหม่เป็นหลัก
+    if (!effectiveName) return res.status(400).json({ error: 'Service type/name is required' });
+
     const service = new Service({
       customerId: customer._id,
       userId: customer.userId, // always assign to the owner of the customer
-      name,
-  status: typeof status === 'string' ? status.trim() : status,
+      // ฟิลด์ใหม่
+      serviceType: serviceType || undefined,
+      cid: cid || customerIdField || undefined,
+      acquisitionRole: acquisitionRole || undefined,
+      acquisitionPerson: acquisitionPerson || undefined,
+      ownership: ownership || undefined,
+      price: (price === '' || price === null || typeof price === 'undefined') ? undefined : Number(price),
+      // ฟิลด์เดิม (ยังคงส่งให้ model sync)
+      name: effectiveName,
+      status: typeof status === 'string' ? status.trim() : status,
       notes,
       pageUrl,
       startDate: startDate ? new Date(startDate) : undefined,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       // store human-entered Customer ID (separate from ObjectId customerId)
-      customerIdField
+      customerIdField: customerIdField || cid || undefined
     });
     await service.save();
     res.status(201).json(service);

@@ -21,10 +21,9 @@ export default function DashboardPage() {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [upcomingServices, setUpcomingServices] = useState([]);
   const [serviceStatus, setServiceStatus] = useState({
-    'รอคิวทำเว็บ': 0,
-    'รอคิวสร้างบัญชี': 0,
-    'รอลูกค้าส่งข้อมูล': 0,
-    'กำลังรันโฆษณา': 0
+    'อยู่ระหว่างบริการ': 0,
+    'ครบกำหนด': 0,
+    'เกินกำหนดมากกว่า 30 วัน': 0
   });
   const [serviceTypeData, setServiceTypeData] = useState({
     labels: ['Google Ads', 'Facebook Ads', 'อื่นๆ'],
@@ -47,6 +46,7 @@ export default function DashboardPage() {
       }
     ]
   });
+  const [chartMaxY, setChartMaxY] = useState(0);
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -66,10 +66,9 @@ export default function DashboardPage() {
         
         // Merge กับ default state เพื่อให้แน่ใจว่ามีทุก key
         const mergedStatus = {
-          'รอคิวทำเว็บ': res.data.serviceStatus['รอคิวทำเว็บ'] || 0,
-          'รอคิวสร้างบัญชี': res.data.serviceStatus['รอคิวสร้างบัญชี'] || 0,
-          'รอลูกค้าส่งข้อมูล': res.data.serviceStatus['รอลูกค้าส่งข้อมูล'] || 0,
-          'กำลังรันโฆษณา': res.data.serviceStatus['กำลังรันโฆษณา'] || 0
+          'อยู่ระหว่างบริการ': res.data.serviceStatus['อยู่ระหว่างบริการ'] || 0,
+          'ครบกำหนด': res.data.serviceStatus['ครบกำหนด'] || 0,
+          'เกินกำหนดมากกว่า 30 วัน': res.data.serviceStatus['เกินกำหนดมากกว่า 30 วัน'] || 0
         };
         setServiceStatus(mergedStatus);
         
@@ -106,6 +105,8 @@ export default function DashboardPage() {
             }
           ]
         });
+        const maxY = Math.max(0, ...(res.data.transactionChart.data || [0]));
+        setChartMaxY(maxY);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
@@ -164,10 +165,9 @@ export default function DashboardPage() {
               {Object.entries(serviceStatus).map(([label, value]) => (
                 <div key={label} className="status-row">
                   <span className={`status-badge ${
-                    label === 'รอคิวทำเว็บ' ? 'web' : 
-                    label === 'รอคิวสร้างบัญชี' ? 'account' : 
-                    label === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
-                    label === 'กำลังรันโฆษณา' ? 'running' : ''
+                    label === 'อยู่ระหว่างบริการ' ? 'inprogress' : 
+                    label === 'ครบกำหนด' ? 'due' : 
+                    label === 'เกินกำหนดมากกว่า 30 วัน' ? 'overdue30' : ''
                   }`}>{label}</span>
                   <span className="status-count">{value}</span>
                 </div>
@@ -187,7 +187,16 @@ export default function DashboardPage() {
             plugins: { legend: { display: false } },
             scales: {
               x: { grid: { color: '#f0f0f0' } },
-              y: { grid: { color: '#f0f0f0' }, beginAtZero: true }
+              y: {
+                grid: { color: '#f0f0f0' },
+                beginAtZero: true,
+                suggestedMax: Math.max(5, chartMaxY + 1),
+                ticks: {
+                  stepSize: 1,
+                  // แสดงเฉพาะเลขจำนวนเต็มเพื่อเป็น "จำนวนนับ"
+                  callback: (value) => (Number.isInteger(value) ? value : '')
+                }
+              }
             }
           }} />
         </div>
@@ -222,7 +231,7 @@ export default function DashboardPage() {
                 {recentCustomers.map((cust) => (
                   <tr key={cust._id}>
                     <td>{cust.name}</td>
-                    <td>{cust._id.slice(-6).toUpperCase()}</td>
+                    <td>{cust.customerCode || '-'}</td>
                     <td>{cust.phone}</td>
                     <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
                   </tr>
@@ -331,11 +340,12 @@ export default function DashboardPage() {
                   <td>{new Date(svc.dueDate).toLocaleDateString('th-TH')}</td>
                   <td>
                     <span className={
-                      `badge-status ` +
-                      (svc.status === 'รอคิวทำเว็บ' ? 'web' :
-                       svc.status === 'รอคิวสร้างบัญชี' ? 'account' :
-                       svc.status === 'รอลูกค้าส่งข้อมูล' ? 'waitinfo' :
-                       'web')
+                      `badge-status ` + (
+                        svc.status === 'อยู่ระหว่างบริการ' ? 'inprogress' :
+                        svc.status === 'ครบกำหนด' ? 'due' :
+                        svc.status === 'เกินกำหนดมากกว่า 30 วัน' ? 'overdue30' :
+                        ''
+                      )
                     }>
                       {svc.status}
                     </span>

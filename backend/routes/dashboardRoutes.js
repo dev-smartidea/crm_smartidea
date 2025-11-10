@@ -36,12 +36,12 @@ router.get('/dashboard/summary', async (req, res) => {
     // นับสถานะบริการ (อิงตามสถานะที่ใช้จริงในระบบ)
     const serviceStatusFilter = user.role === 'admin' ? {} : { userId: user.id };
     const services = await Service.find(serviceStatusFilter);
-    
+    // แปลงเป็น plain object เพื่อให้ได้สถานะที่คำนวณอัตโนมัติจาก model
+    const svcPlain = services.map(s => s.toObject());
     const serviceStatus = {
-      'รอคิวทำเว็บ': services.filter(s => s.status === 'รอคิวทำเว็บ').length,
-      'รอคิวสร้างบัญชี': services.filter(s => s.status === 'รอคิวสร้างบัญชี').length,
-      'รอลูกค้าส่งข้อมูล': services.filter(s => s.status === 'รอลูกค้าส่งข้อมูล').length,
-      'กำลังรันโฆษณา': services.filter(s => s.status === 'กำลังรันโฆษณา').length
+      'อยู่ระหว่างบริการ': svcPlain.filter(s => s.status === 'อยู่ระหว่างบริการ').length,
+      'ครบกำหนด': svcPlain.filter(s => s.status === 'ครบกำหนด').length,
+      'เกินกำหนดมากกว่า 30 วัน': svcPlain.filter(s => s.status === 'เกินกำหนดมากกว่า 30 วัน').length
     };
 
     // นับประเภทบริการ
@@ -58,8 +58,8 @@ router.get('/dashboard/summary', async (req, res) => {
 
     // ดึงลูกค้าล่าสุด 5 คน
     const recentCustomers = user.role === 'admin'
-      ? await Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt')
-      : await Customer.find({ userId: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt');
+      ? await Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode')
+      : await Customer.find({ userId: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode');
 
     // ดึงรายการโอนเงินล่าสุด 5 รายการ
     const recentTransactions = await Transaction.find(transactionFilter)
@@ -81,15 +81,18 @@ router.get('/dashboard/summary', async (req, res) => {
       .limit(10)
         .select('name status dueDate customerId pageUrl customerIdField');
 
-      const upcomingServicesFormatted = upcomingServices.map(svc => ({
-        _id: svc._id,
-        name: svc.name,
-        status: svc.status,
-        dueDate: svc.dueDate,
-        customerName: svc.customerId?.name || '-',
-        pageUrl: svc.pageUrl || '-',
-        customerIdField: svc.customerIdField || '-'
-      }));
+      const upcomingServicesFormatted = upcomingServices.map(svc => {
+        const obj = svc.toObject();
+        return {
+          _id: svc._id,
+          name: obj.name,
+          status: obj.status,
+          dueDate: obj.dueDate,
+          customerName: obj.customerId?.name || '-',
+          pageUrl: obj.pageUrl || '-',
+          customerIdField: obj.customerIdField || '-'
+        };
+      });
 
     // ดึงข้อมูลการเติมเงิน 30 วันล่าสุด แบ่งตามวัน
     const thirtyDaysAgo = new Date();
