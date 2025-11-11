@@ -112,19 +112,17 @@ export default function NotificationPage() {
     setIsDeleting(true);
     try {
       if (deleteType === 'single') {
+        await axios.delete(`${api}/api/notifications/${notificationToDelete}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setNotifications(notifications.filter(n => n._id !== notificationToDelete));
-        // Note: If backend supports DELETE endpoint, uncomment below
-        // await axios.delete(`${api}/api/notifications/${notificationToDelete}`, {
-        //   headers: { Authorization: `Bearer ${token}` }
-        // });
       } else {
+        const readIds = notifications.filter(n => n.isRead).map(n => n._id);
+        await axios.delete(`${api}/api/notifications/batch`, {
+          data: { notificationIds: readIds },
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setNotifications(notifications.filter(n => !n.isRead));
-        // Note: If backend supports batch DELETE, uncomment below
-        // const readIds = notifications.filter(n => n.isRead).map(n => n._id);
-        // await axios.delete(`${api}/api/notifications/batch`, {
-        //   data: { notificationIds: readIds },
-        //   headers: { Authorization: `Bearer ${token}` }
-        // });
       }
       setShowDeleteConfirm(false);
       setNotificationToDelete(null);

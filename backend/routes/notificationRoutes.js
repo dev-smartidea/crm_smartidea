@@ -190,4 +190,48 @@ router.put('/notifications/read-all', async (req, res) => {
   }
 });
 
+// DELETE /api/notifications/:id - ลบการแจ้งเตือน (ลบ read record ออกจาก DB)
+router.delete('/notifications/:id', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const notificationId = req.params.id;
+    
+    // ลบ read record ออกจาก database
+    await NotificationRead.findOneAndDelete({
+      userId: user.id,
+      notificationId
+    });
+
+    res.json({ success: true, message: 'Notification deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
+// DELETE /api/notifications/batch - ลบหลายรายการพร้อมกัน
+router.delete('/notifications/batch', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { notificationIds } = req.body;
+    
+    if (!notificationIds || !Array.isArray(notificationIds)) {
+      return res.status(400).json({ error: 'notificationIds array required' });
+    }
+
+    // ลบ read records ออกจาก database
+    await NotificationRead.deleteMany({
+      userId: user.id,
+      notificationId: { $in: notificationIds }
+    });
+
+    res.json({ success: true, message: 'Notifications deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
 module.exports = router;

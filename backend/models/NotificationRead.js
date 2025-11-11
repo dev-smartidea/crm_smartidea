@@ -13,6 +13,10 @@ const notificationReadSchema = new mongoose.Schema({
   readAt: { 
     type: Date, 
     default: Date.now 
+  },
+  deleted: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
