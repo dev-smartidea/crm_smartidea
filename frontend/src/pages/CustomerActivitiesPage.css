@@ -1,0 +1,290 @@
+.customer-activities-page {
+  padding: 40px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+}
+
+.customer-activities-page .activities-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Header Section */
+.customer-activities-page .page-header {
+  background: linear-gradient(90deg, #5b9df9 0%, #6a7efc 100%);
+  padding: 35px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(91, 157, 249, 0.25);
+  margin-bottom: 30px;
+  color: #fff;
+}
+
+.customer-activities-page .header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.customer-activities-page .header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.customer-activities-page .page-header-icon {
+  font-size: 3rem;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 20px;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 75px;
+  min-height: 75px;
+}
+
+.customer-activities-page .customer-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.customer-activities-page .customer-info h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.customer-activities-page .customer-name {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.customer-activities-page .header-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.customer-activities-page .btn-back {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.customer-activities-page .btn-back:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.customer-activities-page .btn-add-activity {
+  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  color: white;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-activities-page .btn-add-activity:hover {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+/* Modal Overlay and Card */
+.activity-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 60px;
+  z-index: 999;
+}
+
+.activity-modal-card {
+  background: #fff;
+  width: 100%;
+  max-width: 540px;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.25);
+  animation: activityPop 0.25s ease;
+}
+
+@keyframes activityPop {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.customer-activities-page .activities-section {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.customer-activities-page .loading {
+  background: white;
+  text-align: center;
+  padding: 80px 20px;
+  color: #6b7280;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+/* Delete Confirmation Modal */
+.customer-activities-page .modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+}
+
+.customer-activities-page .modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.customer-activities-page .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #dc3545;
+}
+
+.customer-activities-page .modal-header svg {
+  font-size: 28px;
+}
+
+.customer-activities-page .modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: inherit;
+}
+
+.customer-activities-page .modal-body {
+  margin-bottom: 25px;
+  color: #555;
+}
+
+.customer-activities-page .modal-footer {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.customer-activities-page .modal-footer .btn {
+  padding: 10px 25px;
+  font-weight: 500;
+}
+
+/* Ensure cancel button keeps gray style */
+.customer-activities-page .modal-footer .btn.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease;
+}
+
+.customer-activities-page .modal-footer .btn.btn-secondary:hover:not(:disabled),
+.customer-activities-page .modal-footer .btn.btn-secondary:focus,
+.customer-activities-page .modal-footer .btn.btn-secondary:active {
+  background: #e0e0e0;
+  color: #333;
+  box-shadow: none;
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.customer-activities-page .modal-footer .btn.btn-secondary:hover:not(:disabled),
+.customer-activities-page .modal-footer .btn.btn-secondary:focus,
+.customer-activities-page .modal-footer .btn.btn-secondary:active {
+  background: #e0e0e0;
+  color: #333;
+  box-shadow: none;
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.customer-activities-page .btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease;
+}
+
+.customer-activities-page .btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-2px);
+}
+
+.customer-activities-page .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

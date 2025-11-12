@@ -1,0 +1,100 @@
+.activity-form {
+  background: white;
+  padding: 24px 26px 28px;
+  border-radius: 14px;
+}
+
+.activity-form h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.activity-form .required {
+  color: #dc3545;
+  margin-left: 2px;
+}
+
+.activity-form .svc-form label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
+
+.activity-form .svc-form label .required {
+  color: #dc3545;
+  margin-left: 2px;
+}
+
+.activity-form .svc-form input[type=text],
+.activity-form .svc-form input[type=date],
+.activity-form .svc-form select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #d3d8e2;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.activity-form .svc-form input:focus,
+.activity-form .svc-form select:focus {
+  outline: none;
+  border-color: #90b4ff;
+  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+}
+
+.activity-form .svc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.activity-form .btn-modal {
+  min-width: 120px;
+  font-size: 1.08rem;
+  font-weight: 600;
+  padding: 12px 0;
+  border-radius: 10px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.10);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.activity-form .btn-modal-cancel {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.activity-form .btn-modal-cancel:hover:not(:disabled) {
+  background: #d0d0d0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.activity-form .btn-modal-save {
+  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  color: #fff;
+}
+
+.activity-form .btn-modal-save:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.18);
+  transform: translateY(-2px);
+}
+
+.activity-form .btn-modal:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

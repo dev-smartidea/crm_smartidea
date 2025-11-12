@@ -42,26 +42,9 @@ export default function NotificationPage() {
     }
   }, [api, token, DUE_SOON_WINDOW_DAYS]);
 
-  // โหลดข้อมูลเมื่อเปิดหน้าและทุกครั้งที่กลับมาดูหน้านี้
+  // โหลดข้อมูลเมื่อเปิดหน้า
   useEffect(() => {
     fetchNotifications();
-
-    // Auto-refresh ทุก 30 วินาทีเมื่ออยู่ในหน้านี้
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 30000);
-
-    // Cleanup interval เมื่อออกจากหน้า
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
-
-  // Refresh เมื่อกลับมาที่หน้า (window focus)
-  useEffect(() => {
-    const handleFocus = () => {
-      fetchNotifications();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
   }, [fetchNotifications]);
 
   const markAsRead = async (notificationId) => {

@@ -26,6 +26,10 @@ app.use('/uploads/avatars', express.static(__dirname + '/uploads/avatars'));
 app.use('/uploads/images', express.static(__dirname + '/uploads/images'));
 app.use('/uploads/slips', express.static(__dirname + '/uploads/slips'));
 
+// ✅ Auth routes - ต้องมาก่อน routes อื่นที่ใช้ /api เพราะไม่ต้องการ middleware
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
 // ✅ โหลด customerRoutes
 const customerRoutes = require('./routes/customerRoutes');
 app.use('/api/customers', customerRoutes);
@@ -50,8 +54,9 @@ app.use('/api', notificationRoutes); // เส้นทางจะเป็น 
 const imageRoutes = require('./routes/imageRoutes');
 app.use('/api', imageRoutes); // เส้นทางจะเป็น /api/images
 
-const authRoutes = require('./routes/authRoutes');
-app.use('/api/auth', authRoutes);
+// ✅ Activity routes (กิจกรรม)
+const activityRoutes = require('./routes/activityRoutes');
+app.use('/api', activityRoutes); // เส้นทางจะเป็น /api/customers/:customerId/activities, /api/activities/:id
 
 // ✅ route หลัก
 app.get('/', (req, res) => {
@@ -66,4 +71,7 @@ const { initStatusScheduler } = require('./utils/statusScheduler');
 initStatusScheduler();
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Backend server running on http://0.0.0.0:${PORT}`);
+  console.log(`🌐 Network access: http://192.168.1.189:${PORT}`);
+});

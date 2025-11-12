@@ -1,0 +1,150 @@
+.activity-list {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.activity-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.activity-list thead {
+  background: linear-gradient(180deg, #f8f9fa 0%, #f1f3f5 100%);
+}
+
+.activity-list th {
+  padding: 18px 20px;
+  text-align: left;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activity-list td {
+  padding: 18px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  font-size: 0.95rem;
+  vertical-align: middle;
+}
+
+.activity-list tbody tr {
+  transition: all 0.2s;
+}
+
+.activity-list tbody tr:hover {
+  background-color: #f9fafb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: scale(1.001);
+}
+
+.activity-list tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.activity-list .badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+/* Activity Type Badges */
+.activity-list .badge-type-new {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.activity-list .badge-type-edit {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+/* Project Status Badges */
+.activity-list .badge-status-waiting {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.activity-list .badge-status-designing {
+  background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+  color: #1e3a8a;
+  border: 1px solid #60a5fa;
+}
+
+.activity-list .badge-status-creating {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.activity-list .action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.activity-list .btn-edit,
+.activity-list .btn-delete {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-list .btn-edit {
+  background-color: #fff;
+  color: #1976d2;
+  border: 1.5px solid #1976d2;
+}
+
+.activity-list .btn-edit:hover {
+  background-color: #1976d2;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.25);
+}
+
+.activity-list .btn-delete {
+  background-color: #fff;
+  color: #dc3545;
+  border: 1.5px solid #dc3545;
+}
+
+.activity-list .btn-delete:hover {
+  background-color: #dc3545;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
+}
+
+.no-activities {
+  background: white;
+  padding: 100px 40px;
+  text-align: center;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.no-activities p {
+  color: #6b7280;
+  font-size: 1.15rem;
+  font-weight: 500;
+  margin: 0;
+}

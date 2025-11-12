@@ -125,14 +125,22 @@ router.get('/notifications', async (req, res) => {
       notificationId: { $in: notificationIds }
     });
     
-    const readSet = new Set(readRecords.map(r => r.notificationId));
+    console.log('📊 Total notifications:', notifications.length);
+    console.log('📊 Read records:', readRecords.length);
+    console.log('📊 Deleted records:', readRecords.filter(r => r.deleted).length);
     
-    // อัพเดทสถานะ isRead
-    notifications.forEach(n => {
+    const readSet = new Set(readRecords.filter(r => !r.deleted).map(r => r.notificationId));
+    const deletedSet = new Set(readRecords.filter(r => r.deleted).map(r => r.notificationId));
+    
+    // กรองออกที่ถูกลบไปแล้ว และอัพเดทสถานะ isRead
+    const activeNotifications = notifications.filter(n => !deletedSet.has(n._id));
+    console.log('📊 Active notifications after filter:', activeNotifications.length);
+    
+    activeNotifications.forEach(n => {
       n.isRead = readSet.has(n._id);
     });
 
-    res.json(notifications);
+    res.json(activeNotifications);
   } catch (err) {
     console.error('Notifications error:', err);
     res.status(500).json({ error: 'Server error', detail: err.message });
@@ -190,7 +198,7 @@ router.put('/notifications/read-all', async (req, res) => {
   }
 });
 
-// DELETE /api/notifications/:id - ลบการแจ้งเตือน (ลบ read record ออกจาก DB)
+// DELETE /api/notifications/:id - ลบการแจ้งเตือน (ทำเครื่องหมายว่าถูกลบ)
 router.delete('/notifications/:id', async (req, res) => {
   try {
     const user = getUserFromReq(req);
@@ -198,11 +206,17 @@ router.delete('/notifications/:id', async (req, res) => {
 
     const notificationId = req.params.id;
     
-    // ลบ read record ออกจาก database
-    await NotificationRead.findOneAndDelete({
-      userId: user.id,
-      notificationId
-    });
+    // อัพเดทหรือสร้าง record โดยทำเครื่องหมายว่าถูกลบแล้ว
+    await NotificationRead.findOneAndUpdate(
+      { userId: user.id, notificationId },
+      { 
+        userId: user.id, 
+        notificationId, 
+        readAt: new Date(),
+        deleted: true 
+      },
+      { upsert: true, new: true }
+    );
 
     res.json({ success: true, message: 'Notification deleted' });
   } catch (err) {
@@ -222,11 +236,21 @@ router.delete('/notifications/batch', async (req, res) => {
       return res.status(400).json({ error: 'notificationIds array required' });
     }
 
-    // ลบ read records ออกจาก database
-    await NotificationRead.deleteMany({
-      userId: user.id,
-      notificationId: { $in: notificationIds }
-    });
+    // อัพเดทหรือสร้าง records โดยทำเครื่องหมายว่าถูกลบแล้ว
+    const promises = notificationIds.map(notificationId =>
+      NotificationRead.findOneAndUpdate(
+        { userId: user.id, notificationId },
+        { 
+          userId: user.id, 
+          notificationId, 
+          readAt: new Date(),
+          deleted: true 
+        },
+        { upsert: true, new: true }
+      )
+    );
+    
+    await Promise.all(promises);
 
     res.json({ success: true, message: 'Notifications deleted' });
   } catch (err) {

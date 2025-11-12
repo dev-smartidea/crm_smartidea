@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
+import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill, ThreeDotsVertical, XCircle, ExclamationTriangleFill } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
 import './CustomerServicesPage.css';
 import './ImageGalleryPage.css'; // reuse btn-header-upload style for gradient blue button
@@ -11,6 +11,7 @@ export default function CustomerServicesPage() {
   const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
   const [services, setServices] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   // form popup สำหรับสร้าง
   const [showCreate, setShowCreate] = useState(false);
@@ -44,6 +45,7 @@ export default function CustomerServicesPage() {
   const [editForm, setEditForm] = useState({ serviceType: '', status: 'อยู่ระหว่างบริการ', notes: '', startDate: '', dueDate: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState('');
   const [openDropdown, setOpenDropdown] = useState(null); // เก็บ ID ของ dropdown ที่เปิดอยู่
   const [showDetail, setShowDetail] = useState(false); // แสดง modal รายละเอียด
@@ -64,6 +66,9 @@ export default function CustomerServicesPage() {
       // ดึงบริการทั้งหมดของ customer
       const servicesRes = await axios.get(`${api}/api/customers/${id}/services`, { headers: { Authorization: `Bearer ${token}` } });
       setServices(servicesRes.data || []);
+      // ดึงกิจกรรมทั้งหมดของ customer
+      const activitiesRes = await axios.get(`${api}/api/customers/${id}/activities`, { headers: { Authorization: `Bearer ${token}` } });
+      setActivities(activitiesRes.data || []);
       setLoading(false);
     } catch (err) {
       setError('โหลดข้อมูลไม่สำเร็จ');
@@ -157,6 +162,7 @@ export default function CustomerServicesPage() {
 
   const confirmDelete = async () => {
     if (!serviceToDelete) return;
+    setIsDeleting(true);
     try {
       await axios.delete(`${api}/api/services/${serviceToDelete}`, { headers: { Authorization: `Bearer ${token}` } });
       setServices(services.filter(s => s._id !== serviceToDelete));
@@ -164,6 +170,8 @@ export default function CustomerServicesPage() {
       setServiceToDelete(null);
     } catch (err) {
       alert('ลบไม่สำเร็จ');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -211,13 +219,20 @@ export default function CustomerServicesPage() {
   const DeleteConfirmModal = () => (
     <div className="modal-backdrop">
       <div className="modal-content">
-        <div className="modal-header" style={{ color: '#dc3545' }}>
-          <h3 style={{ margin: 0 }}>ยืนยันการลบบริการ</h3>
+        <div className="modal-header">
+          <ExclamationTriangleFill />
+          <h3>ยืนยันการลบ</h3>
         </div>
-        <div className="modal-body">คุณแน่ใจหรือไม่ว่าต้องการลบบริการนี้? การกระทำนี้ไม่สามารถย้อนกลับได้</div>
+        <div className="modal-body">
+          คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลลูกค้ารายนี้? การกระทำนี้ไม่สามารถย้อนกลับได้
+        </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" type="button" onClick={() => setShowDeleteConfirm(false)}><XCircle /> ยกเลิก</button>
-          <button className="btn btn-danger" type="button" onClick={confirmDelete}>ยืนยันลบ</button>
+          <button className="btn btn-secondary" type="button" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+            <XCircle /> ยกเลิก
+          </button>
+          <button className="btn btn-danger" type="button" onClick={confirmDelete} disabled={isDeleting}>
+            {isDeleting ? 'กำลังลบ...' : 'ยืนยันการลบ'}
+          </button>
         </div>
       </div>
     </div> 
@@ -234,12 +249,37 @@ export default function CustomerServicesPage() {
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <Link to="/dashboard/list" className="btn btn-sm btn-back"><ArrowLeftCircleFill /> กลับ</Link>
-            <button className="btn-header-upload" onClick={() => setShowCreate(true)}><Plus /> เพิ่มบริการ</button>
+            <button 
+              className="btn-header-manage-activity" 
+              onClick={() => navigate(`/dashboard/customers/${id}/activities`)}
+              style={{ background: '#17a2b8', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              จัดการกิจกรรม
+            </button>
+            <button 
+              className="btn-header-upload" 
+              onClick={() => {
+                if (activities.length === 0) {
+                  alert('กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ');
+                  return;
+                }
+                setShowCreate(true);
+              }}
+              disabled={activities.length === 0}
+              style={{ opacity: activities.length === 0 ? 0.5 : 1 }}
+            >
+              <Plus /> เพิ่มบริการ
+            </button>
           </div>
         </div>
         {customer && (
           <div style={{ marginBottom: '15px', padding: '10px', background: '#f5f7fa', borderRadius: 8 }}>
             <strong>โทร:</strong> {customer.phone} {customer.service && <em style={{ marginLeft: 8, color: '#888' }}>(บริการเดิม: {customer.service})</em>}
+          </div>
+        )}
+        {activities.length === 0 && (
+          <div style={{ marginBottom: '15px', padding: '15px', background: '#fff3cd', borderRadius: 8, color: '#856404' }}>
+            ⚠️ กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ กดปุ่ม "จัดการกิจกรรม" เพื่อเริ่มเพิ่มกิจกรรม
           </div>
         )}
         {error && <div style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
