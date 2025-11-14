@@ -9,7 +9,14 @@ const transactionSchema = new mongoose.Schema({
   transactionDate: { type: Date, required: true }, // วันที่โอน
   notes: { type: String }, // หมายเหตุ
   slipImage: { type: String }, // path ของรูปสลิป/หลักฐาน (optional)
-  bank: { type: String, enum: ['KBANK', 'SCB', 'BBL'], required: true } // บัญชีธนาคาร (จำกัดเฉพาะ 3 ธนาคารที่ใช้งาน)
+  bank: { type: String, enum: ['KBANK', 'SCB', 'BBL'], required: true }, // บัญชีธนาคาร (จำกัดเฉพาะ 3 ธนาคารที่ใช้งาน)
+  // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
+  breakdowns: [{
+    code: { type: String, enum: ['11', '12', '13', '14', '15', '16'], required: true }, // รหัส
+    amount: { type: Number, required: true }, // ยอดเงินของรายการย่อย
+    statusNote: { type: String, enum: ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'], required: true }, // สถานะ/หมายเหตุ
+    isAutoVat: { type: Boolean, default: false } // ระบุว่ารายการนี้ถูกสร้างอัตโนมัติจากการคำนวณ VAT หรือไม่
+  }]
 }, { timestamps: true });
 
 // Indexes to speed up typical queries (by service/user and recent first)

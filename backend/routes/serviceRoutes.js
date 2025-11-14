@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Service = require('../models/Service');
 const Customer = require('../models/Customer');
+const Notification = require('../models/Notification');
 
 // Helper: auth + return user object (id, role)
 function getUserFromReq(req) {
@@ -92,6 +93,46 @@ router.post('/customers/:customerId/services', async (req, res) => {
       customerIdField: customerIdField || cid || undefined
     });
     await service.save();
+
+    // ตรวจสอบและสร้างการแจ้งเตือนถ้าบริการใกล้ครบกำหนดหรือเกินกำหนด
+    try {
+      if (dueDate) {
+        const now = new Date();
+        const due = new Date(dueDate);
+        const daysUntilDue = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+        
+        // ถ้าเกินกำหนดแล้ว
+        if (due < now) {
+          const daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+          await Notification.create({
+            userId: customer.userId,
+            type: 'service_overdue',
+            title: '⚠️ บริการเกินกำหนด',
+            message: `บริการ "${effectiveName}" ของลูกค้า "${customer.name}" เกินกำหนดแล้ว ${daysOverdue} วัน`,
+            link: `/dashboard/customer/${customer._id}/services`,
+            relatedServiceId: service._id,
+            relatedCustomerId: customer._id,
+            isRead: false
+          });
+        }
+        // ถ้าใกล้ครบกำหนด (ภายใน 7 วัน)
+        else if (daysUntilDue <= 7 && daysUntilDue >= 0) {
+          await Notification.create({
+            userId: customer.userId,
+            type: 'service_due_soon',
+            title: '⏰ บริการใกล้ครบกำหนด',
+            message: `บริการ "${effectiveName}" ของลูกค้า "${customer.name}" จะครบกำหนดในอีก ${daysUntilDue} วัน`,
+            link: `/dashboard/customer/${customer._id}/services`,
+            relatedServiceId: service._id,
+            relatedCustomerId: customer._id,
+            isRead: false
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Create notification failed:', e.message);
+    }
+
     res.status(201).json(service);
   } catch (err) {
     res.status(400).json({ error: 'Create failed', detail: err.message });

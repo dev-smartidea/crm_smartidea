@@ -191,11 +191,14 @@
 .svc-modal-card {
   background: #fff;
   width: 100%;
-  max-width: 520px;
+  max-width: 760px; /* expanded to fit breakdown row */
   border-radius: 14px;
   padding: 24px 26px 28px;
   box-shadow: 0 8px 28px -6px rgba(0,0,0,0.25);
   animation: svcPop .25s ease;
+}
+@media (max-width: 840px) {
+  .svc-modal-card { max-width: calc(100% - 40px); }
 }
 @keyframes svcPop { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .svc-form label { display: flex; flex-direction: column; font-size: 14px; gap: 6px; font-weight: 500; }
@@ -282,6 +285,54 @@
   border-color: #d1d5db;
   color: #6b7280;
   transform: translateY(-2px);
+}
+
+/* Manage Activity Button - เขียวเข้ม */
+.btn-manage-activity {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+.btn-manage-activity:hover {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Add Service Button - สีน้ำเงิน */
+.btn-add-service {
+  background: linear-gradient(90deg, #5b9df9 0%, #6a7efc 100%);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(91, 157, 249, 0.15);
+}
+.btn-add-service:hover:not(:disabled) {
+  background: linear-gradient(90deg, #5b9df9 0%, #6a7efc 100%);
+  box-shadow: 0 4px 16px rgba(91, 157, 249, 0.25);
+  transform: translateY(-2px);
+}
+.btn-add-service:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Expired service highlight */

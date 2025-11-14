@@ -7,6 +7,27 @@ const { authMiddleware } = require('../middleware/auth');
 // Apply authentication to all routes
 router.use(authMiddleware);
 
+// GET all activities for the current user (across all their customers)
+router.get('/activities', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Find all customers belonging to this user
+    const customers = await Customer.find({ userId });
+    const customerIds = customers.map(c => c._id);
+
+    // Find all activities for those customers
+    const activities = await Activity.find({ customerId: { $in: customerIds } })
+      .populate('customerId', 'name customerCode')
+      .sort({ createdAt: -1 });
+
+    res.json(activities);
+  } catch (error) {
+    console.error('Error fetching all activities:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลกิจกรรม' });
+  }
+});
+
 // GET all activities for a specific customer
 router.get('/customers/:customerId/activities', async (req, res) => {
   try {

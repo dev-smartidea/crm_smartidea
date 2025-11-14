@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const Service = require('../models/Service');
-const Customer = require('../models/Customer');
-const Transaction = require('../models/Transaction');
-const NotificationRead = require('../models/NotificationRead');
+const Notification = require('../models/Notification');
+
 // Helper: auth + return user object (id, role)
 function getUserFromReq(req) {
   const token = req.headers.authorization?.split(' ')[1];
@@ -17,130 +15,18 @@ function getUserFromReq(req) {
   }
 }
 
-// GET /api/notifications - ดึงการแจ้งเตือนทั้งหมด
+// GET /api/notifications - ดึงการแจ้งเตือนทั้งหมดจาก database
 router.get('/notifications', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const notifications = [];
-    const now = new Date();
+    // ดึงการแจ้งเตือนของ user นี้ เรียงตามวันที่ล่าสุด
+    const notifications = await Notification.find({ userId: user.id })
+      .sort({ createdAt: -1 })
+      .limit(100); // จำกัดไม่เกิน 100 รายการ
 
-    // Filter based on user role
-    const serviceFilter = user.role === 'admin' ? {} : { userId: user.id };
-    const customerFilter = user.role === 'admin' ? {} : { userId: user.id };
-
-    // 1. บริการที่เกินกำหนดแล้ว (Overdue)
-    const overdueServices = await Service.find({
-      ...serviceFilter,
-      dueDate: { $lt: now }
-    }).populate('customerId', 'name').sort({ dueDate: 1 }).limit(10);
-
-    overdueServices.forEach(svc => {
-      const daysOverdue = Math.floor((now - new Date(svc.dueDate)) / (1000 * 60 * 60 * 24));
-      notifications.push({
-        _id: `overdue-${svc._id}`,
-        type: 'service_overdue',
-        title: '⚠️ บริการเกินกำหนด',
-        message: `บริการ "${svc.name}" ของลูกค้า "${svc.customerId?.name || '-'}" เกินกำหนดแล้ว ${daysOverdue} วัน`,
-        link: `/dashboard/customer/${svc.customerId?._id}/services`,
-        createdAt: svc.dueDate,
-        isRead: false
-      });
-    });
-
-  // 2. บริการที่ใกล้ครบกำหนด (Due Soon) - ภายใน X วัน (ปรับได้)
-  const windowDays = Math.max(1, parseInt(req.query.windowDays || process.env.NOTIF_DUE_SOON_DAYS || '7', 10));
-  const dueSoonEdge = new Date();
-  dueSoonEdge.setDate(dueSoonEdge.getDate() + windowDays);
-
-    const dueSoonServices = await Service.find({
-      ...serviceFilter,
-      dueDate: { $gte: now, $lte: dueSoonEdge }
-    }).populate('customerId', 'name').sort({ dueDate: 1 }).limit(10);
-
-    dueSoonServices.forEach(svc => {
-      const daysLeft = Math.ceil((new Date(svc.dueDate) - now) / (1000 * 60 * 60 * 24));
-      notifications.push({
-        _id: `due-soon-${svc._id}`,
-        type: 'service_due_soon',
-        title: '⏰ บริการใกล้ครบกำหนด',
-        message: `บริการ "${svc.name}" ของลูกค้า "${svc.customerId?.name || '-'}" จะครบกำหนดในอีก ${daysLeft} วัน`,
-        link: `/dashboard/customer/${svc.customerId?._id}/services`,
-        createdAt: svc.dueDate,
-        isRead: false
-      });
-    });
-
-    // 3. ลูกค้าใหม่ (ภายใน 7 วันล่าสุด)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const newCustomers = await Customer.find({
-      ...customerFilter,
-      createdAt: { $gte: sevenDaysAgo }
-    }).sort({ createdAt: -1 }).limit(10);
-
-    newCustomers.forEach(customer => {
-      notifications.push({
-        _id: `new-customer-${customer._id}`,
-        type: 'new_customer',
-        title: '👤 ลูกค้าใหม่',
-        message: `มีลูกค้าใหม่ "${customer.name}" เพิ่มเข้ามาในระบบ`,
-        link: `/dashboard/customer/${customer._id}/services`,
-        createdAt: customer.createdAt,
-        isRead: false
-      });
-    });
-
-  // 4. รายการโอนเงินใหม่ (ภายใน 7 วันล่าสุด)
-    const transactionFilter = user.role === 'admin' ? {} : { userId: user.id };
-    const recentTransactions = await Transaction.find({
-      ...transactionFilter,
-      createdAt: { $gte: sevenDaysAgo }
-    }).populate({
-      path: 'serviceId',
-      populate: { path: 'customerId', select: 'name' }
-    }).sort({ createdAt: -1 }).limit(10);
-
-    recentTransactions.forEach(tx => {
-      notifications.push({
-        _id: `new-transaction-${tx._id}`,
-        type: 'new_transaction',
-        title: '💰 รายการโอนเงินใหม่',
-        message: `มีรายการโอนเงิน ${tx.amount.toLocaleString()} บาท${tx.bank ? ` (${tx.bank})` : ''} ${tx.serviceId?.customerId?.name ? `สำหรับ "${tx.serviceId.customerId.name}"` : ''}`,
-        link: tx.serviceId ? `/dashboard/services/${tx.serviceId._id}/transactions` : null,
-        createdAt: tx.createdAt,
-        isRead: false
-      });
-    });
-
-    // เรียงตามวันที่ล่าสุด
-    notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    // ดึงข้อมูลการอ่านจาก DB
-    const notificationIds = notifications.map(n => n._id);
-    const readRecords = await NotificationRead.find({
-      userId: user.id,
-      notificationId: { $in: notificationIds }
-    });
-    
-    console.log('📊 Total notifications:', notifications.length);
-    console.log('📊 Read records:', readRecords.length);
-    console.log('📊 Deleted records:', readRecords.filter(r => r.deleted).length);
-    
-    const readSet = new Set(readRecords.filter(r => !r.deleted).map(r => r.notificationId));
-    const deletedSet = new Set(readRecords.filter(r => r.deleted).map(r => r.notificationId));
-    
-    // กรองออกที่ถูกลบไปแล้ว และอัพเดทสถานะ isRead
-    const activeNotifications = notifications.filter(n => !deletedSet.has(n._id));
-    console.log('📊 Active notifications after filter:', activeNotifications.length);
-    
-    activeNotifications.forEach(n => {
-      n.isRead = readSet.has(n._id);
-    });
-
-    res.json(activeNotifications);
+    res.json(notifications);
   } catch (err) {
     console.error('Notifications error:', err);
     res.status(500).json({ error: 'Server error', detail: err.message });
@@ -149,6 +35,95 @@ router.get('/notifications', async (req, res) => {
 
 // PUT /api/notifications/:id/read - ทำเครื่องหมายว่าอ่านแล้ว
 router.put('/notifications/:id/read', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: user.id },
+      { isRead: true, readAt: new Date() },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    res.json({ success: true, message: 'Marked as read', notification });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
+// PUT /api/notifications/read-all - ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว
+router.put('/notifications/read-all', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    await Notification.updateMany(
+      { userId: user.id, isRead: false },
+      { isRead: true, readAt: new Date() }
+    );
+
+    res.json({ success: true, message: 'All marked as read' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
+// DELETE /api/notifications/:id - ลบการแจ้งเตือนออกจาก database
+router.delete('/notifications/:id', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const notification = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      userId: user.id
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    res.json({ success: true, message: 'Notification deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
+// DELETE /api/notifications/batch - ลบหลายรายการพร้อมกัน
+router.delete('/notifications/batch', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { notificationIds } = req.body;
+    
+    if (!notificationIds || !Array.isArray(notificationIds)) {
+      return res.status(400).json({ error: 'notificationIds array required' });
+    }
+
+    const result = await Notification.deleteMany({
+      _id: { $in: notificationIds },
+      userId: user.id
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Notifications deleted',
+      deletedCount: result.deletedCount 
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
+module.exports = router;
+
+// GET /api/notifications - ดึงการแจ้งเตือนทั้งหมดจาก database
+router.get('/notifications', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });

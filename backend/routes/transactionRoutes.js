@@ -8,6 +8,11 @@ const Transaction = require('../models/Transaction');
 const Service = require('../models/Service');
 const Customer = require('../models/Customer');
 const Image = require('../models/Image');
+const Notification = require('../models/Notification');
+
+// กำหนดรายการรหัส/สถานะที่อนุญาต
+const ALLOWED_BREAKDOWN_CODES = ['11', '12', '13', '14', '15', '16'];
+const ALLOWED_STATUS_NOTES = ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'];
 
 // Helper: ตรวจสอบว่าไฟล์มีอยู่จริงหรือไม่
 function fileExists(filePath) {
@@ -129,6 +134,28 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     }
 
   const { amount, transactionDate, notes, bank } = req.body || {};
+  // แปลง breakdowns จาก string -> array (ถ้ามี)
+  let breakdowns = [];
+  if (req.body && typeof req.body.breakdowns !== 'undefined') {
+    try {
+      const raw = typeof req.body.breakdowns === 'string' ? JSON.parse(req.body.breakdowns) : req.body.breakdowns;
+      if (Array.isArray(raw)) {
+        breakdowns = raw
+          .map(it => ({
+            code: String(it.code || '').trim(),
+            amount: Number(it.amount),
+            statusNote: String(it.statusNote || '').trim(),
+            isAutoVat: Boolean(it.isAutoVat)
+          }))
+          .filter(it => ALLOWED_BREAKDOWN_CODES.includes(it.code) &&
+                        !Number.isNaN(it.amount) && it.amount !== null &&
+                        ALLOWED_STATUS_NOTES.includes(it.statusNote));
+      }
+    } catch (e) {
+      // ถ้า parse ไม่ได้ ให้ข้ามโดยไม่บล็อคการสร้างหลัก
+      console.warn('Invalid breakdowns payload (ignored):', e.message);
+    }
+  }
     
     if (!amount || !transactionDate) {
       return res.status(400).json({ 
@@ -151,10 +178,30 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       transactionDate: new Date(transactionDate),
       notes: notes || '',
       slipImage,
-      bank
+      bank,
+      breakdowns: breakdowns && breakdowns.length ? breakdowns : undefined
     });
 
     await transaction.save();
+
+    // สร้างการแจ้งเตือนรายการโอนเงินใหม่
+    try {
+      const customer = await Customer.findById(service.customerId).select('name');
+      await Notification.create({
+        userId: service.userId,
+        type: 'new_transaction',
+        title: '💰 รายการโอนเงินใหม่',
+        message: `มีรายการโอนเงิน ${parseFloat(amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท${bank ? ` (${bank})` : ''} สำหรับ "${customer?.name || 'ลูกค้า'}"`,
+        link: `/dashboard/services/${service._id}/transactions`,
+        relatedTransactionId: transaction._id,
+        relatedServiceId: service._id,
+        relatedCustomerId: service.customerId,
+        isRead: false
+      });
+    } catch (e) {
+      console.error('Create notification failed:', e.message);
+      // ไม่ throw ต่อ เพื่อไม่ให้กระทบการสร้างรายการโอนเงินหลัก
+    }
 
     // ถ้ามีสลิป -> เพิ่มรายการเข้าคลังรูปภาพด้วย
     try {
@@ -195,6 +242,30 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
 
   const update = { ...(req.body || {}) };
     if (update.transactionDate) update.transactionDate = new Date(update.transactionDate);
+
+    // รองรับการอัปเดต breakdowns (stringified JSON หรือ array)
+    if (typeof update.breakdowns !== 'undefined') {
+      try {
+        const raw = typeof update.breakdowns === 'string' ? JSON.parse(update.breakdowns) : update.breakdowns;
+        if (Array.isArray(raw)) {
+          update.breakdowns = raw
+            .map(it => ({
+              code: String(it.code || '').trim(),
+              amount: Number(it.amount),
+              statusNote: String(it.statusNote || '').trim(),
+              isAutoVat: Boolean(it.isAutoVat)
+            }))
+            .filter(it => ALLOWED_BREAKDOWN_CODES.includes(it.code) &&
+                          !Number.isNaN(it.amount) && it.amount !== null &&
+                          ALLOWED_STATUS_NOTES.includes(it.statusNote));
+        } else {
+          delete update.breakdowns; // invalid payload -> ignore
+        }
+      } catch (e) {
+        console.warn('Invalid breakdowns payload on update (ignored):', e.message);
+        delete update.breakdowns;
+      }
+    }
 
     // ถ้ามีการอัปโหลดสลิปใหม่
     const uploadedFile = (req.file || (Array.isArray(req.files) ? req.files[0] : null));

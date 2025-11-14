@@ -250,14 +250,13 @@ export default function CustomerServicesPage() {
           <div style={{ display: 'flex', gap: '10px' }}>
             <Link to="/dashboard/list" className="btn btn-sm btn-back"><ArrowLeftCircleFill /> กลับ</Link>
             <button 
-              className="btn-header-manage-activity" 
+              className="btn-manage-activity" 
               onClick={() => navigate(`/dashboard/customers/${id}/activities`)}
-              style={{ background: '#17a2b8', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}
             >
               จัดการกิจกรรม
             </button>
             <button 
-              className="btn-header-upload" 
+              className="btn-add-service" 
               onClick={() => {
                 if (activities.length === 0) {
                   alert('กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ');

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Customer = require('../models/Customer');
+const Notification = require('../models/Notification');
 const jwt = require('jsonwebtoken');
 
 router.get('/', async (req, res) => {
@@ -59,6 +60,22 @@ router.post('/', async (req, res) => {
     });
 
     await customer.save();
+
+    // สร้างการแจ้งเตือนลูกค้าใหม่
+    try {
+      await Notification.create({
+        userId: userId,
+        type: 'new_customer',
+        title: '👤 ลูกค้าใหม่',
+        message: `มีลูกค้าใหม่ "${customer.name}" เพิ่มเข้ามาในระบบ`,
+        link: `/dashboard/customer/${customer._id}/services`,
+        relatedCustomerId: customer._id,
+        isRead: false
+      });
+    } catch (e) {
+      console.error('Create notification failed:', e.message);
+    }
+
     res.status(201).json(customer);
   } catch (err) {
     if (err.name === 'JsonWebTokenError') {

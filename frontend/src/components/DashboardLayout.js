@@ -9,6 +9,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activitiesCount, setActivitiesCount] = useState(0);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -42,6 +43,23 @@ export default function DashboardLayout() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchActivitiesCount = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/activities`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setActivitiesCount(res.data.length);
+      } catch {}
+    };
+    fetchActivitiesCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchActivitiesCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const logout = () => {
     localStorage.removeItem('token');
     navigate('/login');
@@ -57,8 +75,9 @@ export default function DashboardLayout() {
             <li><NavLink to="add"><PersonPlus /> เพิ่มลูกค้า</NavLink></li>
             <li><NavLink to="list"><People /> รายชื่อลูกค้า</NavLink></li>
             <li>
-              <NavLink to="activity" onClick={(e) => e.preventDefault()} title="เร็วๆ นี้">
+              <NavLink to="activities" className="notification-link">
                 <ClockHistory /> กิจกรรม
+                {activitiesCount > 0 && <span className="notification-badge">{activitiesCount}</span>}
               </NavLink>
             </li>
             <li>
