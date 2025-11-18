@@ -16,6 +16,7 @@ import UserDetailPage from './pages/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import NotificationPage from './pages/NotificationPage';
 import ImageGalleryPage from './pages/ImageGalleryPage';
+import TopUpPage from './pages/TopUpPage';
 import axios from 'axios';
 
 function App() {
@@ -62,6 +63,7 @@ function App() {
           <Route path="list" element={<CustomerListPage />} />
           <Route path="notifications" element={<NotificationPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
+          <Route path="topup" element={<TopUpPage />} />
           <Route path="customer/:id" element={<CustomerDetailPage />} />
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />

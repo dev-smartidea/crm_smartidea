@@ -1,3 +1,82 @@
+/* White header bar like customer list page */
+.page-header {
+  margin: -40px -40px 24px;
+  padding: 24px 32px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  color: #333;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  position: relative;
+  min-height: 100px;
+}
+
+.header-content { display: block; }
+
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.page-header-icon {
+  font-size: 2.5rem;
+  color: #1976d2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: rgba(25, 118, 210, 0.1);
+  border-radius: 16px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.95rem;
+  color: #6b7280;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 12px;
+  position: absolute;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.btn-back {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn-back:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  transform: translateY(-2px);
+  color: #1f2937;
+}
+
 .badge-status {
   display: inline-block;
   padding: 6px 18px;
@@ -264,27 +343,6 @@
 .btn-modal:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* Back button style */
-.btn-back {
-  background: #fff;
-  color: #6b7280;
-  border: 2px solid #e5e7eb;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  transition: all 0.2s;
-}
-.btn-back:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-  color: #6b7280;
-  transform: translateY(-2px);
 }
 
 /* Manage Activity Button - เขียวเข้ม */

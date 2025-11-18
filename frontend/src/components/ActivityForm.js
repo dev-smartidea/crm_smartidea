@@ -10,6 +10,7 @@ const ActivityForm = ({ activity, onSave, onCancel }) => {
     projectStatus: '',
     dueDate: ''
   });
+  const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     if (activity) {
@@ -38,6 +39,12 @@ const ActivityForm = ({ activity, onSave, onCancel }) => {
     // Validate
     if (!formData.activityType || !formData.projectName || !formData.projectStatus || !formData.dueDate || !formData.serviceCode) {
       alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+
+    // ตรวจสอบวันที่ครบกำหนดไม่ให้เป็นวันที่ผ่านมาแล้ว
+    if (formData.dueDate < today) {
+      alert('ไม่สามารถกำหนดวันที่แล้วเสร็จเป็นวันที่ผ่านมาแล้วได้');
       return;
     }
 
@@ -106,6 +113,7 @@ const ActivityForm = ({ activity, onSave, onCancel }) => {
           <input
             type="date"
             name="dueDate"
+            min={today}
             value={formData.dueDate}
             onChange={handleChange}
             required

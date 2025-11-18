@@ -3,7 +3,7 @@ import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell, Image, ClockHistory } from 'react-bootstrap-icons';
+import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell, Image, ClockHistory, Wallet } from 'react-bootstrap-icons';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -86,6 +86,7 @@ export default function DashboardLayout() {
                 {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
               </NavLink>
             </li>
+            <li><NavLink to="topup"><Wallet /> การเติมเงิน</NavLink></li>
             <li><NavLink to="images"><Image /> รูปภาพ</NavLink></li>
             <li><NavLink to="profile"><PersonCircle /> โปรไฟล์</NavLink></li>
           </ul>

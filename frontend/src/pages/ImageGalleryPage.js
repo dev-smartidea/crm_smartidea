@@ -270,7 +270,10 @@ export default function ImageGalleryPage() {
         <div className="gallery-header">
           <div className="gallery-header-title">
             <ImageIcon className="gallery-icon" />
-            <h2>คลังรูปภาพ</h2>
+            <div>
+              <h2>คลังรูปภาพ</h2>
+              <p className="gallery-subtitle">พื้นที่จัดเก็บและค้นหารูปภาพของลูกค้า</p>
+            </div>
           </div>
           <button className="btn-header-upload" onClick={() => setShowUploadModal(true)}>
             <Upload /> อัปโหลดรูปภาพ

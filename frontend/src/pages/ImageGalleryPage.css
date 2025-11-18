@@ -15,27 +15,47 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid #f0f0f0;
+  /* Blue banner like sample */
+  margin: -32px -32px 24px;
+  padding: 32px;
+  border-bottom: none;
+  background: linear-gradient(135deg, #1976d2 0%, #0d6efd 100%);
+  color: #fff;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.15);
+  min-height: 120px;
 }
 
 .gallery-header-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .gallery-icon {
-  font-size: 2rem;
-  color: #1976d2;
+  font-size: 2.5rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
 }
 
 .gallery-header h2 {
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #333;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.gallery-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.95rem;
+  color: #e6f2ff;
 }
 
 /* Header upload button */

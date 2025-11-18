@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, EyeFill, ThreeDotsVertical, XCircle, ExclamationTriangleFill } from 'react-bootstrap-icons';
+import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircle, EyeFill, ThreeDotsVertical, XCircle, ExclamationTriangleFill } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
 import './CustomerServicesPage.css';
 import './ImageGalleryPage.css'; // reuse btn-header-upload style for gradient blue button
@@ -106,6 +106,7 @@ export default function CustomerServicesPage() {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!form.serviceType) return;
+    
     try {
       const payload = {
         ...form,
@@ -242,33 +243,40 @@ export default function CustomerServicesPage() {
     <div className="customer-list-page fade-up">
       <div className="list-container">
         {showDeleteConfirm && <DeleteConfirmModal />}
-        <div className="list-header">
-          <div className="list-header-title-group">
-            <PeopleFill className="list-header-icon" />
-            <h2 className="list-header-title">{customer ? customer.name : '...'}</h2>
-          </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <Link to="/dashboard/list" className="btn btn-sm btn-back"><ArrowLeftCircleFill /> กลับ</Link>
-            <button 
-              className="btn-manage-activity" 
-              onClick={() => navigate(`/dashboard/customers/${id}/activities`)}
-            >
-              จัดการกิจกรรม
-            </button>
-            <button 
-              className="btn-add-service" 
-              onClick={() => {
-                if (activities.length === 0) {
-                  alert('กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ');
-                  return;
-                }
-                setShowCreate(true);
-              }}
-              disabled={activities.length === 0}
-              style={{ opacity: activities.length === 0 ? 0.5 : 1 }}
-            >
-              <Plus /> เพิ่มบริการ
-            </button>
+        <div className="page-header">
+          <div className="header-content">
+            <div className="header-title-group">
+              <div className="page-header-icon">
+                <PeopleFill />
+              </div>
+              <div>
+                <h1>{customer ? customer.name : '...'}</h1>
+                <p className="subtitle">จัดการบริการและกิจกรรมของลูกค้า</p>
+              </div>
+            </div>
+            <div className="header-buttons">
+              <Link to="/dashboard/list" className="btn btn-sm btn-back"><ArrowLeftCircle /> กลับ</Link>
+              <button 
+                className="btn-manage-activity" 
+                onClick={() => navigate(`/dashboard/customers/${id}/activities`)}
+              >
+                จัดการกิจกรรม
+              </button>
+              <button 
+                className="btn-add-service" 
+                onClick={() => {
+                  if (activities.length === 0) {
+                    alert('กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ');
+                    return;
+                  }
+                  setShowCreate(true);
+                }}
+                disabled={activities.length === 0}
+                style={{ opacity: activities.length === 0 ? 0.5 : 1 }}
+              >
+                <Plus /> เพิ่มบริการ
+              </button>
+            </div>
           </div>
         </div>
         {customer && (

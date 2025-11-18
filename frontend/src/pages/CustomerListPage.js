@@ -98,12 +98,19 @@ export default function CustomerListPage() {
     <div className="customer-list-page fade-up">
       {showDeleteConfirm && <DeleteConfirmModal />}
       <div className="list-container">
-        <div className="list-header">
-          <div className="list-header-title-group">
-            <PeopleFill className="list-header-icon" />
-            <h2 className="list-header-title">รายชื่อลูกค้า</h2>
-          </div>
-          <div className="search-box">
+        <div className="page-header">
+          <div className="header-content">
+            <div className="header-title-group">
+              <div className="page-header-icon">
+                <PeopleFill />
+              </div>
+              <div>
+                <h1>รายชื่อลูกค้า</h1>
+                <p className="subtitle">จัดการและดูข้อมูลลูกค้าทั้งหมด</p>
+              </div>
+            </div>
+            <div className="header-buttons">
+              <div className="search-box">
             <Search className="search-icon" />
             <input
               type="text"
@@ -123,6 +130,8 @@ export default function CustomerListPage() {
                 <XCircle size={18} />
               </button>
             )}
+          </div>
+            </div>
           </div>
         </div>
 

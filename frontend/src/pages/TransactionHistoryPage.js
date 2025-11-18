@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircleFill, ThreeDotsVertical, XCircle, Eye, Upload } from 'react-bootstrap-icons';
+import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircle, ThreeDotsVertical, XCircle, Eye, Upload } from 'react-bootstrap-icons';
 import '../pages/CustomerListPage.css'; // reuse table styles
 import '../pages/CustomerServicesPage.css';
 import './ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
@@ -480,20 +480,27 @@ export default function TransactionHistoryPage() {
       <div className="list-container">
         {showDeleteConfirm && <DeleteConfirmModal />}
         {viewSlip && <SlipViewModal />}
-        <div className="list-header">
-          <div className="list-header-title-group">
-            <CashCoin className="list-header-icon" />
-            <h2 className="list-header-title">
-              ประวัติการโอนเงิน: {service ? `${service.name} / ${service.customerId?.name || '...'}` : '...'}
-            </h2>
-          </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <Link to={`/dashboard/customer/${service?.customerId?._id || service?.customerId}/services`} className="btn btn-sm btn-back">
-              <ArrowLeftCircleFill /> กลับ
-            </Link>
-            <button className="btn-header-upload" onClick={() => setShowCreate(true)}>
-              <Plus /> เพิ่มรายการโอนเงิน
-            </button>
+        <div className="page-header">
+          <div className="header-content">
+            <div className="header-title-group">
+              <div className="page-header-icon">
+                <CashCoin />
+              </div>
+              <div>
+                <h1>
+                  ประวัติการโอนเงิน: {service ? `${service.name} / ${service.customerId?.name || '...'}` : '...'}
+                </h1>
+                <p className="subtitle">บันทึกและจัดการรายการโอนเงิน</p>
+              </div>
+            </div>
+            <div className="header-buttons">
+              <Link to={`/dashboard/customer/${service?.customerId?._id || service?.customerId}/services`} className="btn btn-sm btn-back">
+                <ArrowLeftCircle /> กลับ
+              </Link>
+              <button className="btn-header-upload" onClick={() => setShowCreate(true)}>
+                <Plus /> เพิ่มรายการโอนเงิน
+              </button>
+            </div>
           </div>
         </div>
         {service && (

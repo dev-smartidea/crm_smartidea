@@ -14,6 +14,16 @@ const AllActivitiesPage = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activityToDelete, setActivityToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
+  const [editForm, setEditForm] = useState({
+    projectName: '',
+    activityType: '',
+    projectStatus: '',
+    dueDate: ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const today = new Date().toISOString().split('T')[0];
 
   const fetchAllActivities = async () => {
     try {
@@ -87,6 +97,47 @@ const AllActivitiesPage = () => {
     }
   };
 
+  const handleEditActivity = (activity) => {
+    setEditingActivity(activity);
+    setEditForm({
+      projectName: activity.projectName || '',
+      activityType: activity.activityType || '',
+      projectStatus: activity.projectStatus || '',
+      dueDate: activity.dueDate ? new Date(activity.dueDate).toISOString().split('T')[0] : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingActivity) return;
+    
+    // ตรวจสอบวันที่ครบกำหนดไม่ให้เป็นวันที่ผ่านมาแล้ว
+    if (editForm.dueDate && editForm.dueDate < today) {
+      alert('ไม่สามารถกำหนดวันที่แล้วเสร็จเป็นวันที่ผ่านมาแล้วได้');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/activities/${editingActivity._id}`,
+        editForm,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setShowEditModal(false);
+      setEditingActivity(null);
+      fetchAllActivities();
+    } catch (error) {
+      console.error('Error updating activity:', error);
+      alert('ไม่สามารถอัพเดทกิจกรรมได้');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const DeleteConfirmModal = () => (
     <div className="modal-backdrop">
       <div className="modal-content">
@@ -109,6 +160,68 @@ const AllActivitiesPage = () => {
     </div>
   );
 
+  const EditActivityModal = () => (
+    <div className="modal-backdrop">
+      <div className="modal-content edit-modal">
+        <div className="modal-header">
+          <h3>แก้ไขกิจกรรม</h3>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label>ชื่อ Project</label>
+            <input
+              type="text"
+              value={editForm.projectName}
+              onChange={(e) => setEditForm({ ...editForm, projectName: e.target.value })}
+              placeholder="ระบุชื่อโครงการ"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>ประเภทงาน</label>
+            <select
+              value={editForm.activityType}
+              onChange={(e) => setEditForm({ ...editForm, activityType: e.target.value })}
+            >
+              <option value="งานใหม่">งานใหม่</option>
+              <option value="งานแก้ไข / ปรับปรุงบัญชี">งานแก้ไข / ปรับปรุงบัญชี</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>สถานะ</label>
+            <select
+              value={editForm.projectStatus}
+              onChange={(e) => setEditForm({ ...editForm, projectStatus: e.target.value })}
+            >
+              <option value="รอข้อมูล / รูปภาพ ลูกค้า">รอข้อมูล / รูปภาพ ลูกค้า</option>
+              <option value="อยู่ระหว่างทำกราฟฟิก">อยู่ระหว่างทำกราฟฟิก</option>
+              <option value="อยู่ระหว่างสร้างบัญชี">อยู่ระหว่างสร้างบัญชี</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>วันที่กำหนดเสร็จ</label>
+            <input
+              type="date"
+              min={today}
+              value={editForm.dueDate}
+              onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={() => setShowEditModal(false)} disabled={isSaving}>
+            <XCircle /> ยกเลิก
+          </button>
+          <button className="btn btn-primary" onClick={handleSaveEdit} disabled={isSaving}>
+            {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // Filter activities
   const filteredActivities = activities.filter(activity => {
     const matchesSearch = 
@@ -125,6 +238,7 @@ const AllActivitiesPage = () => {
   return (
     <div className="all-activities-page">
       {showDeleteConfirm && <DeleteConfirmModal />}
+      {showEditModal && <EditActivityModal />}
       <div className="activities-container">
         <div className="page-header">
           <div className="header-content">
@@ -261,6 +375,13 @@ const AllActivitiesPage = () => {
                             title="ดูรายละเอียด"
                           >
                             ดู
+                          </button>
+                          <button
+                            className="btn-edit-small"
+                            onClick={() => handleEditActivity(activity)}
+                            title="แก้ไข"
+                          >
+                            แก้ไข
                           </button>
                           <button
                             className="btn-delete-small"
