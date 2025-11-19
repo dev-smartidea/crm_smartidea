@@ -260,12 +260,12 @@
 .svc-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0,0,0,0.6);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 60px;
-  z-index: 999;
+  z-index: 9999;
 }
 .svc-modal-card {
   background: #fff;

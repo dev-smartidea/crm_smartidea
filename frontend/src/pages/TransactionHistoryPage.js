@@ -518,7 +518,9 @@ export default function TransactionHistoryPage() {
           ยอดรวมทั้งหมด: {totalAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท
         </div>
 
-        {showCreate && (
+        {/* Create Transaction Modal - moved outside list-container for proper overlay */}
+        {/* kept here temporarily for readability; actual render moved below */}
+        {false && showCreate && (
           <div className="svc-modal-overlay" onClick={() => setShowCreate(false)}>
             <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
               <h3 style={{ marginTop: 0 }}>เพิ่มรายการโอนเงินใหม่</h3>
@@ -685,7 +687,8 @@ export default function TransactionHistoryPage() {
         )}
 
         {/* Edit Transaction Modal */}
-        {editingId && (
+        {/* Edit Transaction Modal - moved outside list-container for proper overlay */}
+        {false && editingId && (
           <div className="svc-modal-overlay" onClick={cancelEdit}>
             <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
               <h3 style={{ marginTop: 0 }}>แก้ไขรายการโอนเงิน</h3>
@@ -969,6 +972,337 @@ export default function TransactionHistoryPage() {
           </table>
         </div>
       </div>
+
+      {/* Create Transaction Modal - render outside to overlay sidebar/header */}
+      {showCreate && (
+        <div className="svc-modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>เพิ่มรายการโอนเงินใหม่</h3>
+            <form onSubmit={handleCreate} className="svc-form">
+              <label>
+                จำนวนเงิน (บาท)
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                  required
+                  placeholder="0.00"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
+                />
+              </label>
+              <label>
+                วันที่โอน
+                <input
+                  type="date"
+                  value={form.transactionDate}
+                  onChange={e => setForm({ ...form, transactionDate: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                บัญชีธนาคาร
+                <select
+                  value={form.bank}
+                  onChange={e => setForm({ ...form, bank: e.target.value })}
+                >
+                  <option value="KBANK">KBANK (กสิกรไทย)</option>
+                  <option value="SCB">SCB (ไทยพาณิชย์)</option>
+                  <option value="BBL">BBL (กรุงเทพ)</option>
+                </select>
+              </label>
+              {/* Breakdown Rows */}
+              <div style={{ marginTop: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong>แยกสัดส่วนการโอนเงิน</strong>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? '#dc3545' : '#6c757d', marginTop: 4 }}>
+                  ยอดรวม: {breakdownSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท {form.amount ? `(ยอดทั้งหมด ${parseFloat(form.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท)` : ''}
+                </div>
+                {form.breakdowns.map((row, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1.8fr 1fr auto', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                    {/* Add button moved to front as small + icon, appears only on last row */}
+                    <div>
+                      {idx === form.breakdowns.length - 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={addBreakdownRow}
+                          title="เพิ่มแถว"
+                          style={{ padding: '4px 10px', lineHeight: 1 }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                    <select value={row.code} onChange={e => updateBreakdown(idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
+                      {BREAKDOWN_CODE_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="ยอดเงิน"
+                        value={row.amount}
+                        onChange={e => updateBreakdown(idx, 'amount', e.target.value)}
+                        style={{ 
+                          flex: '1 1 auto',
+                          minWidth: 0,
+                          paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                        }}
+                        disabled={row.isAutoVat}
+                      />
+                      {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
+                      {row.code !== '12' && row.code !== '13' && (
+                        <button
+                          type="button"
+                          onClick={() => computeVatForRow(idx)}
+                          title="คำนวณ VAT 7%"
+                          style={{
+                            position: 'absolute',
+                            right: '4px',
+                            padding: '3px 7px',
+                            border: '1px solid #d3d8e2',
+                            background: '#f8f9fa',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            fontSize: '10px',
+                            color: '#334155',
+                            fontWeight: '500'
+                          }}
+                        >
+                          คำนวณ VAT
+                        </button>
+                      )}
+                    </div>
+                    <select value={row.statusNote} onChange={e => updateBreakdown(idx, 'statusNote', e.target.value)} style={{ minWidth: 0 }}>
+                      {STATUS_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <div style={{ display: 'flex', gap: '4px', minWidth: 0 }}>
+                      {form.breakdowns.length > 1 && (
+                        <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdownRow(idx)} style={{ whiteSpace: 'nowrap' }}>ลบ</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* หมายเหตุอยู่หลังแยกสัดส่วนและก่อนอัปโหลดสลิป */}
+              <label>
+                หมายเหตุ
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm({ ...form, notes: e.target.value })}
+                  rows={3}
+                  placeholder="เช่น เลขที่อ้างอิง, หมายเหตุเพิ่มเติม"
+                />
+              </label>
+              <label>
+                อัปโหลดสลิปโอนเงิน
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSlipChange}
+                  style={{ marginTop: '8px' }}
+                />
+                {slipPreview && (
+                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                    <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #ddd' }} />
+                    <button
+                      type="button"
+                      onClick={removeSlipPreview}
+                      style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '18px' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </label>
+              <div className="svc-actions">
+                <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreate(false)}>
+                  <XCircle /> ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn-modal btn-modal-save"
+                  disabled={breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2)}
+                  title={breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? 'ยอดรวมจากการแยกไม่ตรงกับยอดเงินหลัก' : ''}
+                >
+                  บันทึก
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal - render outside to overlay sidebar/header */}
+      {editingId && (
+        <div className="svc-modal-overlay" onClick={cancelEdit}>
+          <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>แก้ไขรายการโอนเงิน</h3>
+            <form onSubmit={(e) => { e.preventDefault(); saveEdit(editingId); }} className="svc-form">
+              <label>
+                จำนวนเงิน (บาท)
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editForm.amount}
+                  onChange={e => setEditForm({ ...editForm, amount: e.target.value })}
+                  required
+                  placeholder="0.00"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
+                />
+              </label>
+              <label>
+                วันที่โอน
+                <input
+                  type="date"
+                  value={editForm.transactionDate}
+                  onChange={e => setEditForm({ ...editForm, transactionDate: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                บัญชีธนาคาร
+                <select
+                  value={editForm.bank}
+                  onChange={e => setEditForm({ ...editForm, bank: e.target.value })}
+                >
+                  <option value="KBANK">KBANK (กสิกรไทย)</option>
+                  <option value="SCB">SCB (ไทยพาณิชย์)</option>
+                  <option value="BBL">BBL (กรุงเทพ)</option>
+                </select>
+              </label>
+              {/* Breakdown Rows */}
+              <div style={{ marginTop: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong>แยกสัดส่วนการโอนเงิน</strong>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: editBreakdownSum.toFixed(2) !== (parseFloat(editForm.amount || 0)).toFixed(2) ? '#dc3545' : '#6c757d', marginTop: 4 }}>
+                  ยอดรวม: {editBreakdownSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท {editForm.amount ? `(ยอดทั้งหมด ${parseFloat(editForm.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท)` : ''}
+                </div>
+                {editForm.breakdowns.map((row, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1.8fr 1fr auto', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                    <div>
+                      {idx === editForm.breakdowns.length - 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={addEditBreakdownRow}
+                          title="เพิ่มแถว"
+                          style={{ padding: '4px 10px', lineHeight: 1 }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                    <select value={row.code} onChange={e => updateEditBreakdown(idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
+                      {BREAKDOWN_CODE_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="ยอดเงิน"
+                        value={row.amount}
+                        onChange={e => updateEditBreakdown(idx, 'amount', e.target.value)}
+                        style={{ 
+                          flex: '1 1 auto',
+                          minWidth: 0,
+                          paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                        }}
+                        disabled={row.isAutoVat}
+                      />
+                      {row.code !== '12' && row.code !== '13' && (
+                        <button
+                          type="button"
+                          onClick={() => computeVatForEditRow(idx)}
+                          title="คำนวณ VAT 7%"
+                          style={{
+                            position: 'absolute',
+                            right: '4px',
+                            padding: '3px 7px',
+                            border: '1px solid #d3d8e2',
+                            background: '#f8f9fa',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            fontSize: '10px',
+                            color: '#334155',
+                            fontWeight: '500'
+                          }}
+                        >
+                          คำนวณ VAT
+                        </button>
+                      )}
+                    </div>
+                    <select value={row.statusNote} onChange={e => updateEditBreakdown(idx, 'statusNote', e.target.value)} style={{ minWidth: 0 }}>
+                      {STATUS_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <div style={{ display: 'flex', gap: '4px', minWidth: 0 }}>
+                      {editForm.breakdowns.length > 1 && (
+                        <button type="button" className="btn btn-sm btn-danger" onClick={() => removeEditBreakdownRow(idx)} style={{ whiteSpace: 'nowrap' }}>ลบ</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <label>
+                หมายเหตุ
+                <textarea
+                  value={editForm.notes}
+                  onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+                  rows={3}
+                  placeholder="เช่น เลขที่อ้างอิง, หมายเหตุเพิ่มเติม"
+                />
+              </label>
+              <label>
+                อัปโหลดสลิปโอนเงิน
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleEditSlipChange}
+                  style={{ marginTop: '8px' }}
+                />
+                {editSlipPreview && (
+                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                    <img src={editSlipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #ddd' }} />
+                    <button
+                      type="button"
+                      onClick={removeEditSlipPreview}
+                      style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '18px' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </label>
+              <div className="svc-actions">
+                <button type="button" className="btn-modal btn-modal-cancel" onClick={cancelEdit}>
+                  <XCircle /> ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn-modal btn-modal-save"
+                  disabled={editBreakdownSum.toFixed(2) !== (parseFloat(editForm.amount || 0)).toFixed(2)}
+                  title={editBreakdownSum.toFixed(2) !== (parseFloat(editForm.amount || 0)).toFixed(2) ? 'ยอดรวมจากการแยกไม่ตรงกับยอดเงินหลัก' : ''}
+                >
+                  บันทึก
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Slip View Modal - ย้ายออกมานอก list-container */}
       {viewSlip && <SlipViewModal />}

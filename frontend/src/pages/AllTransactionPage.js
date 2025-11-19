@@ -12,6 +12,9 @@ export default function AllTransactionPage() {
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Pagination
+  const pageSize = 20;
+  const [currentPage, setCurrentPage] = useState(1);
   // ค้นหาแบบ combobox เหมือนหน้า "คลังรูปภาพ"
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
@@ -63,6 +66,7 @@ export default function AllTransactionPage() {
 
       setTransactions(formattedTransactions);
       setFilteredTransactions(formattedTransactions);
+      setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('ไม่สามารถโหลดข้อมูลได้');
@@ -121,6 +125,7 @@ export default function AllTransactionPage() {
       filtered = filtered.filter(tx => (tx.service?.name === serviceName));
     }
     setFilteredTransactions(filtered);
+    setCurrentPage(1);
   };
 
   // สร้างรายการเติมเงินใหม่
@@ -303,6 +308,14 @@ export default function AllTransactionPage() {
     }
   };
 
+  // Ensure current page stays within bounds when filtered list changes
+  useEffect(() => {
+    const total = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+    if (currentPage > total) {
+      setCurrentPage(total);
+    }
+  }, [filteredTransactions]);
+
   const handleDeleteSlip = async () => {
     if (!viewSlip?.id) return;
     try {
@@ -457,6 +470,7 @@ export default function AllTransactionPage() {
               <p>ไม่พบรายการเติมเงิน</p>
             </div>
           ) : (
+            <>
             <div className="table-responsive">
               <table className="transaction-table">
                 <thead>
@@ -472,7 +486,11 @@ export default function AllTransactionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.map((tx) => (
+                  {(() => {
+                    const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+                    const startIndex = (currentPage - 1) * pageSize;
+                    const pageItems = filteredTransactions.slice(startIndex, startIndex + pageSize);
+                    return pageItems.map((tx) => (
                     <tr key={tx._id}>
                       <td>{formatDate(tx.transactionDate)}</td>
                       <td>
@@ -567,10 +585,74 @@ export default function AllTransactionPage() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>
+            {/* Pagination Controls */}
+            {filteredTransactions.length > pageSize && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                >
+                  « First
+                </button>
+                <button
+                  className="pagination-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                >
+                  ‹ Prev
+                </button>
+                <div className="page-numbers">
+                  {(() => {
+                    const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+                    const maxButtons = 7;
+                    let start = Math.max(1, currentPage - 3);
+                    let end = Math.min(totalPages, start + maxButtons - 1);
+                    start = Math.max(1, end - maxButtons + 1);
+                    const pages = [];
+                    for (let i = start; i <= end; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          className={`page-number ${i === currentPage ? 'active' : ''}`}
+                          onClick={() => setCurrentPage(i)}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                    return pages;
+                  })()}
+                </div>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  disabled={currentPage >= Math.ceil(filteredTransactions.length / pageSize)}
+                >
+                  Next ›
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(Math.max(1, Math.ceil(filteredTransactions.length / pageSize)))}
+                  disabled={currentPage >= Math.ceil(filteredTransactions.length / pageSize)}
+                >
+                  Last »
+                </button>
+                <div className="pagination-info">
+                  {(() => {
+                    const startIndex = (currentPage - 1) * pageSize;
+                    const endIndex = Math.min(startIndex + pageSize, filteredTransactions.length);
+                    return `แสดง ${startIndex + 1}–${endIndex} จาก ${filteredTransactions.length}`;
+                  })()}
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
 

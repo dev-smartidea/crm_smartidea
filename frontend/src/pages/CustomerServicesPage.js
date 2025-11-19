@@ -290,7 +290,8 @@ export default function CustomerServicesPage() {
           </div>
         )}
         {error && <div style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
-        {showCreate && (
+        {/* Create Service Modal - moved outside list-container for proper overlay */}
+        {false && showCreate && (
           <div className="svc-modal-overlay" onClick={() => setShowCreate(false)}>
             <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
               <h3 style={{ marginTop: 0 }}>เพิ่มบริการใหม่</h3>
@@ -406,8 +407,8 @@ export default function CustomerServicesPage() {
           </div>
         )}
 
-        {/* Modal แสดงรายละเอียดบริการ */}
-        {showDetail && selectedService && (
+        {/* Service Detail Modal - moved outside list-container for proper overlay */}
+        {false && showDetail && selectedService && (
           <div className="svc-modal-overlay" onClick={() => { if (!isEditingInDetail) setShowDetail(false); }}>
             <div className="svc-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
               <h3 style={{ marginTop: 0, marginBottom: 20 }}>รายละเอียดบริการ</h3>
@@ -691,6 +692,289 @@ export default function CustomerServicesPage() {
           </table>
         </div>
       </div>
+      {/* Create Service Modal - render outside to overlay sidebar/header */}
+      {showCreate && (
+        <div className="svc-modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>เพิ่มบริการใหม่</h3>
+            <form onSubmit={handleCreate} className="svc-form">
+              <label>
+                ประเภทบริการ
+                <select value={form.serviceType} onChange={e => setForm({ ...form, serviceType: e.target.value })} required>
+                  <option value="Google Ads">Google Ads</option>
+                  <option value="Facebook Ads">Facebook Ads</option>
+                </select>
+              </label>
+              <div className="svc-row-2">
+                <label>
+                  ช่องทางการได้มา
+                  <select value={form.acquisitionRole} onChange={e => setForm({ ...form, acquisitionRole: e.target.value })}>
+                    <option value="sale">ขายโดย sale</option>
+                    <option value="admin">ขายโดย admin</option>
+                  </select>
+                </label>
+                <label>
+                  ผู้ขาย/ผู้ดูแล
+                  <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
+                    <option value="นายก">นายก</option>
+                    <option value="นายข">นายข</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                Website / Facebook Page
+                <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="" />
+              </label>
+              <div className="svc-row-2">
+                <label>
+                  สิทธิการเป็นเจ้าของ
+                  <select value={form.ownership} onChange={e => setForm({ ...form, ownership: e.target.value })}>
+                    <option value="ลูกค้า">ลูกค้า</option>
+                    <option value="website ภายใต้บริษัท">website ภายใต้บริษัท</option>
+                  </select>
+                </label>
+                <label>
+                  ราคาบริการ (บาท)
+                  <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+                </label>
+              </div>
+              <div className="svc-row-2">
+                <label>
+                  วันที่เริ่มต้น
+                  <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+                </label>
+                <label>
+                  วันที่ครบกำหนด
+                  <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
+                  {form.startDate && form.dueDate && daysDiff !== '' && (
+                    <div style={{ fontSize: '0.95em', color: '#1a7f37', marginTop: 4 }}>
+                      รวม {daysDiff} วัน
+                    </div>
+                  )}
+                </label>
+              </div>
+              <label>
+                CID
+                <input type="text" value={form.cid} onChange={e => setForm({ ...form, cid: e.target.value })} placeholder="" />
+              </label>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>สถานะ</label>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="อยู่ระหว่างบริการ"
+                      checked={form.status === 'อยู่ระหว่างบริการ'}
+                      onChange={e => setForm({ ...form, status: e.target.value })}
+                    />
+                    <span>อยู่ระหว่างบริการ</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="เกินกำหนดมากกว่า 30 วัน"
+                      checked={form.status === 'เกินกำหนดมากกว่า 30 วัน'}
+                      onChange={e => setForm({ ...form, status: e.target.value })}
+                    />
+                    <span>เกินกำหนดมากกว่า 30 วัน</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      value="ครบกำหนด"
+                      checked={form.status === 'ครบกำหนด'}
+                      onChange={e => setForm({ ...form, status: e.target.value })}
+                    />
+                    <span>ครบกำหนด</span>
+                  </label>
+                </div>
+              </div>
+              <label>
+                note
+                <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} />
+              </label>
+              <div className="svc-actions">
+                <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreate(false)}>
+                  <XCircle /> ยกเลิก
+                </button>
+                <button type="submit" className="btn-modal btn-modal-save">
+                  บันทึก
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Service Detail Modal - render outside to overlay sidebar/header */}
+      {showDetail && selectedService && (
+        <div className="svc-modal-overlay" onClick={() => { if (!isEditingInDetail) setShowDetail(false); }}>
+          <div className="svc-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 20 }}>รายละเอียดบริการ</h3>
+            {!isEditingInDetail ? (
+              <>
+                <div style={{ marginBottom: 12 }}><strong>ประเภทบริการ:</strong> {selectedService.serviceType || selectedService.name}</div>
+                <div style={{ marginBottom: 12 }}><strong>ช่องทางการได้มา:</strong> {selectedService.acquisitionRole === 'admin' ? 'ขายโดย admin' : 'ขายโดย sale'}</div>
+                <div style={{ marginBottom: 12 }}><strong>ผู้ขาย/ผู้ดูแล:</strong> {selectedService.acquisitionPerson || '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>สิทธิการเป็นเจ้าของ:</strong> {selectedService.ownership || '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>Website / Facebook Page:</strong> {selectedService.pageUrl || '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>CID:</strong> {selectedService.cid || selectedService.customerIdField || '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>ราคาบริการ (บาท):</strong> {(typeof selectedService.price === 'number' || selectedService.price === 0) ? Number(selectedService.price).toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '-'}</div>
+                <div style={{ marginBottom: 12 }}>
+                  <strong>สถานะ:</strong>{' '}
+                  <span className={
+                    `badge-status ` + (
+                      selectedService.status === 'อยู่ระหว่างบริการ' ? 'inprogress' :
+                      selectedService.status === 'เกินกำหนดมากกว่า 30 วัน' ? 'overdue30' :
+                      selectedService.status === 'ครบกำหนด' ? 'due' :
+                      ''
+                    )
+                  }>
+                    {selectedService.status}
+                  </span>
+                </div>
+                <div style={{ marginBottom: 12 }}><strong>วันที่เริ่มต้น:</strong> {selectedService.startDate ? new Date(selectedService.startDate).toLocaleDateString('th-TH') : '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>วันที่ครบกำหนด:</strong> {selectedService.dueDate ? new Date(selectedService.dueDate).toLocaleDateString('th-TH') : '-'}</div>
+                <div style={{ marginBottom: 12 }}>
+                  <strong>จำนวนเดือน:</strong> {selectedService.startDate && selectedService.dueDate ? (() => {
+                    if (typeof selectedService.months === 'number') return `${selectedService.months} เดือน`;
+                    const s = new Date(selectedService.startDate);
+                    const e = new Date(selectedService.dueDate);
+                    const months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+                    return months >= 0 ? `${months} เดือน` : '-';
+                  })() : '-'}
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <strong>จำนวนวัน:</strong> {selectedService.startDate && selectedService.dueDate ? (() => {
+                    const s = new Date(selectedService.startDate);
+                    const e = new Date(selectedService.dueDate);
+                    const days = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+                    return days >= 0 ? `${days} วัน` : '-';
+                  })() : '-'}
+                </div>
+                <div style={{ marginBottom: 12 }}><strong>note:</strong> {selectedService.notes || '-'}</div>
+                <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn-modal btn-modal-save" onClick={startDetailEdit}>
+                    <PencilSquare /> แก้ไข
+                  </button>
+                  <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowDetail(false)}>
+                    ปิด
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form className="svc-form" onSubmit={(e) => { e.preventDefault(); saveDetailEdit(); }}>
+                <label>
+                  ประเภทบริการ
+                  <input type="text" value={detailForm.serviceType} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                </label>
+                <label>
+                  Website / Facebook Page
+                  <input type="text" value={detailForm.pageUrl} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                </label>
+                <label>
+                  CID
+                  <input type="text" value={detailForm.cid} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                </label>
+                <div className="svc-row-2">
+                  <label>
+                    ช่องทางการได้มา
+                    <select value={detailForm.acquisitionRole} onChange={e => setDetailForm({ ...detailForm, acquisitionRole: e.target.value })}>
+                      <option value="sale">ขายโดย sale</option>
+                      <option value="admin">ขายโดย admin</option>
+                    </select>
+                  </label>
+                  <label>
+                    ผู้ขาย/ผู้ดูแล
+                    <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
+                      <option value="นายก">นายก</option>
+                      <option value="นายข">นายข</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="svc-row-2">
+                  <label>
+                    สิทธิการเป็นเจ้าของ
+                    <select value={detailForm.ownership} onChange={e => setDetailForm({ ...detailForm, ownership: e.target.value })}>
+                      <option value="ลูกค้า">ลูกค้า</option>
+                      <option value="website ภายใต้บริษัท">website ภายใต้บริษัท</option>
+                    </select>
+                  </label>
+                  <label>
+                    ราคาบริการ (บาท)
+                    <input type="number" min="0" step="0.01" value={detailForm.price} onChange={e => setDetailForm({ ...detailForm, price: e.target.value })} />
+                  </label>
+                </div>
+                <div className="svc-row-2">
+                  <label>
+                    วันที่เริ่มต้น
+                    <input type="date" value={detailForm.startDate} onChange={e => setDetailForm({ ...detailForm, startDate: e.target.value })} />
+                  </label>
+                  <label>
+                    วันที่ครบกำหนด
+                    <input type="date" value={detailForm.dueDate} onChange={e => setDetailForm({ ...detailForm, dueDate: e.target.value })} />
+                    {detailForm.startDate && detailForm.dueDate && detailDaysDiff !== '' && (
+                      <div style={{ fontSize: '0.95em', color: '#1a7f37', marginTop: 4 }}>
+                        รวม {detailDaysDiff} วัน
+                      </div>
+                    )}
+                  </label>
+                </div>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>สถานะ</label>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'nowrap', overflowX: 'auto', alignItems: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input 
+                        type="radio" 
+                        name="detailStatus" 
+                        value="อยู่ระหว่างบริการ"
+                        checked={detailForm.status === 'อยู่ระหว่างบริการ'}
+                        onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
+                      />
+                      <span>อยู่ระหว่างบริการ</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input 
+                        type="radio" 
+                        name="detailStatus" 
+                        value="เกินกำหนดมากกว่า 30 วัน"
+                        checked={detailForm.status === 'เกินกำหนดมากกว่า 30 วัน'}
+                        onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
+                      />
+                      <span>เกินกำหนดมากกว่า 30 วัน</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <input 
+                        type="radio" 
+                        name="detailStatus" 
+                        value="ครบกำหนด"
+                        checked={detailForm.status === 'ครบกำหนด'}
+                        onChange={e => setDetailForm({ ...detailForm, status: e.target.value })}
+                      />
+                      <span>ครบกำหนด</span>
+                    </label>
+                  </div>
+                </div>
+                <label>
+                  note
+                  <textarea value={detailForm.notes} onChange={e => setDetailForm({ ...detailForm, notes: e.target.value })} rows={3} />
+                </label>
+                <div className="svc-actions">
+                  <button type="button" className="btn-modal btn-modal-cancel" onClick={cancelDetailEdit}>
+                    <XCircle /> ยกเลิก
+                  </button>
+                  <button type="submit" className="btn-modal btn-modal-save">
+                    บันทึก
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
