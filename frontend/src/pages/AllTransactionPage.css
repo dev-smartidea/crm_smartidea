@@ -559,11 +559,15 @@
 }
 
 .all-transaction-page .modal-footer {
-  padding: 20px 24px;
-  border-top: 1px solid #e5e7eb;
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 0;
+}
+
+.all-transaction-page .modal-footer .btn {
+  padding: 10px 25px;
+  font-weight: 500;
 }
 
 .all-transaction-page .btn {
@@ -580,12 +584,18 @@
 }
 
 .all-transaction-page .btn-secondary {
-  background: #e5e7eb;
-  color: #374151;
+  background: #e0e0e0;
+  color: #333;
+  border-radius: 10px;
 }
 
-.all-transaction-page .btn-secondary:hover {
-  background: #d1d5db;
+.all-transaction-page .btn-secondary:hover,
+.all-transaction-page .btn-secondary:focus,
+.all-transaction-page .btn-secondary:active {
+  background: #e0e0e0;
+  color: #333;
+  box-shadow: none;
+  outline: none;
   transform: translateY(-2px);
 }
 

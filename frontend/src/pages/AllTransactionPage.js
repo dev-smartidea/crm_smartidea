@@ -5,6 +5,7 @@ import './AllTransactionPage.css';
 import './DashboardPage.css'; // reuse service-badge styles
 import './TransactionHistoryPage.css'; // reuse slip upload button styles
 import './ImageGalleryPage.css'; // reuse combobox and search styles to match gallery
+import './CustomerServicesPage.css'; // reuse svc-modal styles for create form
 
 export default function AllTransactionPage() {
   const [transactions, setTransactions] = useState([]);
@@ -25,20 +26,120 @@ export default function AllTransactionPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null); // อัปโหลดสลิปรายแถว
   const [form, setForm] = useState({
+    customerId: '',
     serviceId: '',
     amount: '',
     transactionDate: '',
     notes: '',
     bank: 'KBANK',
-    slipImage: null
+    slipImage: null,
+    breakdowns: [
+      { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }
+    ]
   });
   const [slipPreview, setSlipPreview] = useState(null);
 
+  // คำนวณผลรวม breakdowns ในฟอร์มสร้างใหม่
+  const breakdownSum = (form.breakdowns || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+
+  // เมื่อเปลี่ยนลูกค้าในฟอร์ม ให้รีเซ็ตบริการ
+  useEffect(() => {
+    setForm(prev => ({ ...prev, serviceId: '' }));
+  }, [form.customerId]);
+
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
+
+  // ====== Breakdown Rows UI Handlers ======
+  const BREAKDOWN_CODE_OPTIONS = [
+    { value: '11', label: '11 : ค่าคลิก' },
+    { value: '12', label: '12 : Vat ค่าคลิก' },
+    { value: '13', label: '13 : Vat ค่าบริการ' },
+    { value: '14', label: '14 : ค่าบริการ Google' },
+    { value: '15', label: '15 : ค่าบริการบางส่วน' },
+    { value: '16', label: '16 : คูปอง Google' }
+  ];
+  const STATUS_OPTIONS = [
+    { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },
+    { value: 'ค่าคลิกที่ยังไม่ต้องเติม', label: 'ค่าคลิกที่ยังไม่ต้องเติม' }
+  ];
+
+  const addBreakdownRow = () => {
+    setForm(prev => ({
+      ...prev,
+      breakdowns: [...(prev.breakdowns || []), { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }]
+    }));
+  };
+
+  const removeBreakdownRow = (idx) => {
+    setForm(prev => {
+      const rows = [...(prev.breakdowns || [])];
+      const current = rows[idx];
+      const next = rows[idx + 1];
+      const shouldRemovePair = current && !current.isAutoVat && next && next.isAutoVat;
+      const newRows = rows.filter((_, i) => {
+        if (shouldRemovePair) return i !== idx && i !== idx + 1;
+        return i !== idx;
+      });
+      if (newRows.length === 0) {
+        newRows.push({ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
+      }
+      return { ...prev, breakdowns: newRows };
+    });
+  };
+
+  const updateBreakdown = (idx, key, value) => {
+    setForm(prev => ({
+      ...prev,
+      breakdowns: prev.breakdowns.map((row, i) => (i === idx ? { ...row, [key]: value } : row))
+    }));
+  };
+
+  const computeVatForRow = (idx) => {
+    setForm(prev => {
+      const rows = [...(prev.breakdowns || [])];
+      const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
+      
+      if (current.code === '12' || current.code === '13') {
+        alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
+        return prev;
+      }
+
+      let base = parseFloat(current.amount);
+      if (Number.isNaN(base) || base <= 0) {
+        alert('กรุณากรอกยอดเงินในช่องนี้ก่อนคำนวณ VAT');
+        return prev;
+      }
+
+      const vat = Math.round(base * 0.07 * 100) / 100;
+      
+      let vatCode = '12';
+      let vatStatus = current.statusNote;
+      
+      if (current.code === '11') {
+        vatCode = '12';
+      } else if (current.code === '14') {
+        vatCode = '13';
+      } else {
+        vatCode = '12';
+      }
+
+      const newVatRow = {
+        code: vatCode,
+        amount: vat.toFixed(2),
+        statusNote: vatStatus,
+        isAutoVat: true
+      };
+      
+      rows.splice(idx + 1, 0, newVatRow);
+      
+      return { ...prev, breakdowns: rows };
+    });
+  };
 
   // ดึงข้อมูลทั้งหมด
   const fetchAllData = async () => {
@@ -145,6 +246,13 @@ export default function AllTransactionPage() {
       if (form.slipImage) {
         formData.append('slipImage', form.slipImage);
       }
+      // แนบ breakdowns เป็น JSON string
+      const cleaned = (form.breakdowns || [])
+        .filter(r => r && r.amount !== '' && !Number.isNaN(parseFloat(r.amount)))
+        .map(r => ({ code: r.code, amount: parseFloat(r.amount), statusNote: r.statusNote }));
+      if (cleaned.length > 0) {
+        formData.append('breakdowns', JSON.stringify(cleaned));
+      }
 
       await axios.post(
         `${api}/api/services/${form.serviceId}/transactions`,
@@ -157,7 +265,6 @@ export default function AllTransactionPage() {
         }
       );
 
-      alert('เพิ่มรายการเติมเงินสำเร็จ');
       setShowCreateForm(false);
       resetForm();
       fetchAllData();
@@ -168,33 +275,37 @@ export default function AllTransactionPage() {
   };
 
   // ลบรายการ
-  const handleDelete = async () => {
+  const handleConfirmDelete = async () => {
     if (!transactionToDelete) return;
-    
+    setIsDeleting(true);
     try {
       await axios.delete(
         `${api}/api/transactions/${transactionToDelete._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
-      alert('ลบรายการสำเร็จ');
       setShowDeleteConfirm(false);
       setTransactionToDelete(null);
       fetchAllData();
     } catch (error) {
       console.error('Error deleting transaction:', error);
       alert('ไม่สามารถลบรายการได้');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const resetForm = () => {
     setForm({
+      customerId: '',
       serviceId: '',
       amount: '',
       transactionDate: '',
       notes: '',
       bank: 'KBANK',
-      slipImage: null
+      slipImage: null,
+      breakdowns: [
+        { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }
+      ]
     });
     setSlipPreview(null);
   };
@@ -207,6 +318,11 @@ export default function AllTransactionPage() {
       reader.onloadend = () => setSlipPreview(reader.result);
       reader.readAsDataURL(file);
     }
+  };
+
+  const removeSlipPreview = () => {
+    setForm({ ...form, slipImage: null });
+    setSlipPreview(null);
   };
 
   const formatDate = (dateString) => {
@@ -257,12 +373,12 @@ export default function AllTransactionPage() {
 
   const getBankName = (bank) => {
     const bankNames = {
-      'KBANK': 'กสิกรไทย',
-      'SCB': 'ไทยพาณิชย์',
-      'BBL': 'กรุงเทพ',
-      'KTB': 'กรุงไทย',
-      'TTB': 'ทหารไทยธนชาต',
-      'BAY': 'กรุงศรีอยุธยา'
+        'KBANK': 'KBANK',
+        'SCB': 'SCB',
+        'BBL': 'BBL',
+        'KTB': 'KTB',
+        'TTB': 'TTB',
+        'BAY': 'BAY'
     };
     return bankNames[bank] || bank;
   };
@@ -314,7 +430,7 @@ export default function AllTransactionPage() {
     if (currentPage > total) {
       setCurrentPage(total);
     }
-  }, [filteredTransactions]);
+  }, [filteredTransactions, currentPage]);
 
   const handleDeleteSlip = async () => {
     if (!viewSlip?.id) return;
@@ -353,8 +469,31 @@ export default function AllTransactionPage() {
     </div>
   );
 
+  const DeleteConfirmModal = () => (
+    <div className="modal-backdrop">
+      <div className="modal-content">
+        <div className="modal-header">
+          <ExclamationTriangleFill />
+          <h3>ยืนยันการลบ</h3>
+        </div>
+        <div className="modal-body">
+          คุณแน่ใจหรือไม่ว่าต้องการลบรายการเติมเงินนี้? การกระทำนี้ไม่สามารถย้อนกลับได้
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+            <XCircle /> ยกเลิก
+          </button>
+          <button className="btn btn-danger" onClick={handleConfirmDelete} disabled={isDeleting}>
+            {isDeleting ? 'กำลังลบ...' : 'ยืนยันการลบ'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="all-transaction-page">
+    <div className="all-transaction-page fade-up">
+      {showDeleteConfirm && <DeleteConfirmModal />}
       <div className="transaction-container">
         {/* Header - reuse gallery header styles */}
         <div className="gallery-header">
@@ -487,7 +626,6 @@ export default function AllTransactionPage() {
                 </thead>
                 <tbody>
                   {(() => {
-                    const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
                     const startIndex = (currentPage - 1) * pageSize;
                     const pageItems = filteredTransactions.slice(startIndex, startIndex + pageSize);
                     return pageItems.map((tx) => (
@@ -679,138 +817,193 @@ export default function AllTransactionPage() {
         )}
       </div>
 
-      {/* Create Form Modal */}
+      {/* Create Form Modal - outside container for proper overlay */}
       {showCreateForm && (
-        <div className="modal-backdrop" onClick={() => setShowCreateForm(false)}>
-          <div className="modal-content-large" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header-form">
-              <h3><Plus /> เพิ่มรายการเติมเงิน</h3>
-              <button className="btn-close" onClick={() => setShowCreateForm(false)}>
-                <XCircle />
-              </button>
-            </div>
-            <form onSubmit={handleCreate}>
-              <div className="modal-body-form">
-                <div className="form-group">
-                  <label>เลือกบริการ *</label>
-                  <select
-                    className="form-control"
-                    value={form.serviceId}
-                    onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
-                    required
-                  >
-                    <option value="">-- เลือกบริการ --</option>
-                    {services.map(service => (
+        <div className="svc-modal-overlay" onClick={() => setShowCreateForm(false)}>
+          <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>เพิ่มรายการโอนเงินใหม่</h3>
+            <form onSubmit={handleCreate} className="svc-form">
+              <label>
+                เลือกลูกค้า *
+                <select value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value })} required>
+                  <option value="">-- เลือกลูกค้า --</option>
+                  {customers.map(customer => (
+                    <option key={customer._id} value={customer._id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                เลือกบริการ *
+                <select value={form.serviceId} onChange={e => setForm({ ...form, serviceId: e.target.value })} required disabled={!form.customerId}>
+                  <option value="">-- เลือกบริการ --</option>
+                  {services
+                    .filter(service => service.customerId === form.customerId || service.customerId?._id === form.customerId)
+                    .map(service => (
                       <option key={service._id} value={service._id}>
-                        {service.name} ({customers.find(c => c._id === service.customerId)?.name})
+                        {service.name} - {service.customerIdField || service.cid || '-'} — {service.pageUrl || '-'}
                       </option>
                     ))}
-                  </select>
+                </select>
+              </label>
+              <label>
+                จำนวนเงิน (บาท)
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                  required
+                  placeholder="0.00"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
+                />
+              </label>
+              <label>
+                วันที่โอน
+                <input
+                  type="date"
+                  value={form.transactionDate}
+                  onChange={e => setForm({ ...form, transactionDate: e.target.value })}
+                  required
+                />
+              </label>
+              <label>
+                บัญชีธนาคาร
+                <select
+                  value={form.bank}
+                  onChange={e => setForm({ ...form, bank: e.target.value })}
+                >
+                  <option value="KBANK">KBANK (กสิกรไทย)</option>
+                  <option value="SCB">SCB (ไทยพาณิชย์)</option>
+                  <option value="BBL">BBL (กรุงเทพ)</option>
+                </select>
+              </label>
+              {/* Breakdown Rows */}
+              <div style={{ marginTop: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong>แยกสัดส่วนการโอนเงิน</strong>
                 </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>จำนวนเงิน (บาท) *</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={form.amount}
-                      onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                      placeholder="0.00"
-                      step="0.01"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>วันที่โอน *</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={form.transactionDate}
-                      onChange={(e) => setForm({ ...form, transactionDate: e.target.value })}
-                      required
-                    />
-                  </div>
+                <div style={{ fontSize: '0.9rem', color: breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? '#dc3545' : '#6c757d', marginTop: 4 }}>
+                  ยอดรวม: {breakdownSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท {form.amount ? `(ยอดทั้งหมด ${parseFloat(form.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท)` : ''}
                 </div>
-
-                <div className="form-group">
-                  <label>ธนาคาร</label>
-                  <select
-                    className="form-control"
-                    value={form.bank}
-                    onChange={(e) => setForm({ ...form, bank: e.target.value })}
-                  >
-                    <option value="KBANK">กสิกรไทย</option>
-                    <option value="SCB">ไทยพาณิชย์</option>
-                    <option value="BBL">กรุงเทพ</option>
-                    <option value="KTB">กรุงไทย</option>
-                    <option value="TTB">ทหารไทยธนชาต</option>
-                    <option value="BAY">กรุงศรีอยุธยา</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label>หมายเหตุ</label>
-                  <textarea
-                    className="form-control"
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    rows="3"
-                    placeholder="เพิ่มหมายเหตุ (ถ้ามี)"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>อัปโหลดสลิป</label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept="image/*"
-                    onChange={handleSlipChange}
-                  />
-                  {slipPreview && (
-                    <div className="slip-preview">
-                      <img src={slipPreview} alt="Preview" />
+                {form.breakdowns.map((row, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1.8fr 1fr auto', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                    {/* Add button moved to front as small + icon, appears only on last row */}
+                    <div>
+                      {idx === form.breakdowns.length - 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={addBreakdownRow}
+                          title="เพิ่มแถว"
+                          style={{ padding: '4px 10px', lineHeight: 1 }}
+                        >
+                          +
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
+                    <select value={row.code} onChange={e => updateBreakdown(idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
+                      {BREAKDOWN_CODE_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="ยอดเงิน"
+                        value={row.amount}
+                        onChange={e => updateBreakdown(idx, 'amount', e.target.value)}
+                        style={{ 
+                          flex: '1 1 auto',
+                          minWidth: 0,
+                          paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                        }}
+                        disabled={row.isAutoVat}
+                      />
+                      {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
+                      {row.code !== '12' && row.code !== '13' && (
+                        <button
+                          type="button"
+                          onClick={() => computeVatForRow(idx)}
+                          title="คำนวณ VAT 7%"
+                          style={{
+                            position: 'absolute',
+                            right: '4px',
+                            padding: '3px 7px',
+                            border: '1px solid #d3d8e2',
+                            background: '#f8f9fa',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            fontSize: '10px',
+                            color: '#334155',
+                            fontWeight: '500'
+                          }}
+                        >
+                          คำนวณ VAT
+                        </button>
+                      )}
+                    </div>
+                    <select value={row.statusNote} onChange={e => updateBreakdown(idx, 'statusNote', e.target.value)} style={{ minWidth: 0 }}>
+                      {STATUS_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <div style={{ display: 'flex', gap: '4px', minWidth: 0 }}>
+                      {form.breakdowns.length > 1 && (
+                        <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdownRow(idx)} style={{ whiteSpace: 'nowrap' }}>ลบ</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateForm(false)}>
+              {/* หมายเหตุอยู่หลังแยกสัดส่วนและก่อนอัปโหลดสลิป */}
+              <label>
+                หมายเหตุ
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm({ ...form, notes: e.target.value })}
+                  rows={3}
+                  placeholder="เช่น เลขที่อ้างอิง, หมายเหตุเพิ่มเติม"
+                />
+              </label>
+              <label>
+                อัปโหลดสลิปโอนเงิน
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSlipChange}
+                  style={{ marginTop: '8px' }}
+                />
+                {slipPreview && (
+                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                    <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #ddd' }} />
+                    <button
+                      type="button"
+                      onClick={removeSlipPreview}
+                      style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '18px' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </label>
+              <div className="svc-actions">
+                <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreateForm(false)}>
                   <XCircle /> ยกเลิก
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  <Plus /> บันทึก
+                <button
+                  type="submit"
+                  className="btn-modal btn-modal-save"
+                  disabled={breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2)}
+                  title={breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? 'ยอดรวมจากการแยกไม่ตรงกับยอดเงินหลัก' : ''}
+                >
+                  บันทึก
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div className="modal-header">
-              <ExclamationTriangleFill />
-              <h3>ยืนยันการลบ</h3>
-            </div>
-            <div className="modal-body">
-              คุณแน่ใจหรือไม่ว่าต้องการลบรายการเติมเงินนี้?
-              <br />
-              <strong>{transactionToDelete?.customer?.name}</strong> - {formatCurrency(transactionToDelete?.amount || 0)}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)}>
-                <XCircle /> ยกเลิก
-              </button>
-              <button className="btn btn-danger" onClick={handleDelete}>
-                <TrashFill /> ลบ
-              </button>
-            </div>
           </div>
         </div>
       )}
