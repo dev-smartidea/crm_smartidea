@@ -78,6 +78,41 @@ function getUserFromReq(req) {
   }
 }
 
+// GET /api/transactions - ดึงรายการโอนเงินทั้งหมด (สำหรับหน้า AllTransactionPage)
+router.get('/transactions', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    let transactions;
+    
+    if (user.role === 'admin') {
+      // Admin เห็นทุกรายการ
+      transactions = await Transaction.find()
+        .populate({
+          path: 'serviceId',
+          populate: { path: 'customerId', select: 'name phone' }
+        })
+        .sort({ transactionDate: -1 });
+    } else {
+      // User เห็นเฉพาะของตัวเอง
+      const services = await Service.find({ userId: user.id });
+      const serviceIds = services.map(s => s._id);
+      transactions = await Transaction.find({ serviceId: { $in: serviceIds } })
+        .populate({
+          path: 'serviceId',
+          populate: { path: 'customerId', select: 'name phone' }
+        })
+        .sort({ transactionDate: -1 });
+    }
+
+    res.json(transactions);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /api/services/:serviceId/transactions - ดึงรายการโอนเงินทั้งหมดของบริการนั้น
 router.get('/services/:serviceId/transactions', async (req, res) => {
   try {

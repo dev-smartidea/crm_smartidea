@@ -86,7 +86,7 @@ export default function DashboardLayout() {
                 {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
               </NavLink>
             </li>
-            <li><NavLink to="topup"><Wallet /> การเติมเงิน</NavLink></li>
+            <li><NavLink to="alltransactions"><Wallet /> การเติมเงิน</NavLink></li>
             <li><NavLink to="images"><Image /> รูปภาพ</NavLink></li>
             <li><NavLink to="profile"><PersonCircle /> โปรไฟล์</NavLink></li>
           </ul>

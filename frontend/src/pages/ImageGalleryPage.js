@@ -149,8 +149,8 @@ export default function ImageGalleryPage() {
     let customerId = selectedCustomerId;
     if (!customerId && customerQuery) {
       const match = customers.find(c => {
-        const shortId = (c._id || '').toString().slice(-6).toUpperCase();
-        const label = `${shortId} : ${c.name}`;
+        const code = (c.customerCode || (c._id || '').toString().slice(-6).toUpperCase());
+        const label = `${code} : ${c.name}`;
         return label.toLowerCase() === customerQuery.toLowerCase();
       });
       if (match) customerId = match._id;
@@ -301,14 +301,14 @@ export default function ImageGalleryPage() {
                   >ทั้งหมด</div>
                   {customers
                     .filter(c => {
-                      const shortId = (c._id || '').toString().slice(-6).toUpperCase();
-                      const label = `${shortId} : ${c.name}`;
+                      const code = (c.customerCode || (c._id || '').toString().slice(-6).toUpperCase());
+                      const label = `${code} : ${c.name}`;
                       return label.toLowerCase().includes(customerQuery.toLowerCase());
                     })
                     .slice(0, 50)
                     .map(c => {
-                      const shortId = (c._id || '').toString().slice(-6).toUpperCase();
-                      const label = `${shortId} : ${c.name}`;
+                      const code = (c.customerCode || (c._id || '').toString().slice(-6).toUpperCase());
+                      const label = `${code} : ${c.name}`;
                       return (
                         <div
                           key={c._id}
@@ -494,14 +494,14 @@ export default function ImageGalleryPage() {
                     <div className="combo-panel" onMouseLeave={() => setUploadShowCustomerDropdown(false)}>
                       {customers
                         .filter(c => {
-                          const shortId = (c._id || '').toString().slice(-6).toUpperCase();
-                          const label = `${shortId} : ${c.name}`;
+                          const code = (c.customerCode || (c._id || '').toString().slice(-6).toUpperCase());
+                          const label = `${code} : ${c.name}`;
                           return label.toLowerCase().includes(uploadCustomerQuery.toLowerCase());
                         })
                         .slice(0, 50)
                         .map(c => {
-                          const shortId = (c._id || '').toString().slice(-6).toUpperCase();
-                          const label = `${shortId} : ${c.name}`;
+                          const code = (c.customerCode || (c._id || '').toString().slice(-6).toUpperCase());
+                          const label = `${code} : ${c.name}`;
                           return (
                             <div
                               key={c._id}

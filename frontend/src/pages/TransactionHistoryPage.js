@@ -448,7 +448,7 @@ export default function TransactionHistoryPage() {
   };
 
   const SlipViewModal = () => (
-    <div className="modal-backdrop" onClick={() => setViewSlip(null)}>
+    <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }}>
       <div className="modal-content slip-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header" style={{ justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
@@ -479,7 +479,6 @@ export default function TransactionHistoryPage() {
     <div className="customer-list-page fade-up">
       <div className="list-container">
         {showDeleteConfirm && <DeleteConfirmModal />}
-        {viewSlip && <SlipViewModal />}
         <div className="page-header">
           <div className="header-content">
             <div className="header-title-group">
@@ -970,6 +969,9 @@ export default function TransactionHistoryPage() {
           </table>
         </div>
       </div>
+
+      {/* Slip View Modal - ย้ายออกมานอก list-container */}
+      {viewSlip && <SlipViewModal />}
     </div>
   );
 }

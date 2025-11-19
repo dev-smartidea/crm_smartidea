@@ -17,6 +17,30 @@ function getUserFromReq(req) {
   }
 }
 
+// Get all services (for admin or filter by user)
+router.get('/services', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    
+    let services;
+    if (user.role === 'admin') {
+      // Admin can see all services
+      services = await Service.find().populate('customerId', 'name phone');
+    } else {
+      // Regular user sees only their services
+      const customers = await Customer.find({ userId: user.id });
+      const customerIds = customers.map(c => c._id);
+      services = await Service.find({ customerId: { $in: customerIds } }).populate('customerId', 'name phone');
+    }
+    
+    res.json(services);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // List services of a customer (ensure ownership)
 router.get('/customers/:customerId/services', async (req, res) => {
   try {
