@@ -22,5 +22,7 @@ const transactionSchema = new mongoose.Schema({
 // Indexes to speed up typical queries (by service/user and recent first)
 transactionSchema.index({ serviceId: 1, transactionDate: -1 });
 transactionSchema.index({ userId: 1, transactionDate: -1 });
+transactionSchema.index({ customerId: 1, transactionDate: -1 });
+transactionSchema.index({ transactionDate: -1 }); // For sorting all transactions by date
 
 module.exports = mongoose.model('Transaction', transactionSchema);

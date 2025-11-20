@@ -78,35 +78,51 @@ function getUserFromReq(req) {
   }
 }
 
-// GET /api/transactions - ดึงรายการโอนเงินทั้งหมด (สำหรับหน้า AllTransactionPage)
+// GET /api/transactions - ดึงรายการโอนเงินทั้งหมด (สำหรับหน้า AllTransactionPage) พร้อม pagination
 router.get('/transactions', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    let transactions;
+    // รับ pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    let query;
     
     if (user.role === 'admin') {
       // Admin เห็นทุกรายการ
-      transactions = await Transaction.find()
-        .populate({
-          path: 'serviceId',
-          populate: { path: 'customerId', select: 'name phone' }
-        })
-        .sort({ transactionDate: -1 });
+      query = Transaction.find();
     } else {
       // User เห็นเฉพาะของตัวเอง
       const services = await Service.find({ userId: user.id });
       const serviceIds = services.map(s => s._id);
-      transactions = await Transaction.find({ serviceId: { $in: serviceIds } })
-        .populate({
-          path: 'serviceId',
-          populate: { path: 'customerId', select: 'name phone' }
-        })
-        .sort({ transactionDate: -1 });
+      query = Transaction.find({ serviceId: { $in: serviceIds } });
     }
 
-    res.json(transactions);
+    // นับจำนวนทั้งหมดก่อน pagination
+    const total = await Transaction.countDocuments(query.getQuery());
+
+    // ดึงข้อมูลแบบ paginated
+    const transactions = await query
+      .populate({
+        path: 'serviceId',
+        populate: { path: 'customerId', select: 'name phone' }
+      })
+      .sort({ transactionDate: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      transactions,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });

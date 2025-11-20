@@ -13,9 +13,11 @@ export default function AllTransactionPage() {
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Pagination
+  // Pagination (server-side)
   const pageSize = 20;
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   // ค้นหาแบบ combobox เหมือนหน้า "คลังรูปภาพ"
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
@@ -141,24 +143,24 @@ export default function AllTransactionPage() {
     });
   };
 
-  // ดึงข้อมูลทั้งหมด
-  const fetchAllData = async () => {
+  // ดึงข้อมูลทั้งหมด (พร้อม server-side pagination)
+  const fetchAllData = async (page = 1) => {
     try {
       setLoading(true);
       const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
       
-      // ดึงข้อมูลลูกค้า, บริการ และ transactions
+      // ดึงข้อมูลลูกค้า, บริการ และ transactions (พร้อม pagination)
       const [customersRes, servicesRes, transactionsRes] = await Promise.all([
         axios.get(`${api}/api/customers`, authHeaders),
         axios.get(`${api}/api/services`, authHeaders),
-        axios.get(`${api}/api/transactions`, authHeaders)
+        axios.get(`${api}/api/transactions?page=${page}&limit=${pageSize}`, authHeaders)
       ]);
       
       setCustomers(customersRes.data);
       setServices(servicesRes.data);
 
       // จัดรูปแบบข้อมูล transactions พร้อม customer และ service
-      const formattedTransactions = transactionsRes.data.map(tx => ({
+      const formattedTransactions = transactionsRes.data.transactions.map(tx => ({
         ...tx,
         service: tx.serviceId || {},
         // ใช้ customerId จาก service (populate) ให้เหมือนมุมมองใน TransactionHistoryPage
@@ -167,7 +169,9 @@ export default function AllTransactionPage() {
 
       setTransactions(formattedTransactions);
       setFilteredTransactions(formattedTransactions);
-      setCurrentPage(1);
+      setTotalRecords(transactionsRes.data.pagination.total);
+      setTotalPages(transactionsRes.data.pagination.totalPages);
+      setCurrentPage(page);
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('ไม่สามารถโหลดข้อมูลได้');
@@ -187,46 +191,19 @@ export default function AllTransactionPage() {
     setServiceQuery('');
   }, [selectedCustomerId]);
 
+  // เมื่อเปลี่ยนหน้า pagination ให้โหลดข้อมูลใหม่จาก server
+  useEffect(() => {
+    if (currentPage > 0) {
+      fetchAllData(currentPage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
+
   const handleSearch = (e) => {
     e.preventDefault();
-    // สร้างค่า customerId จากการเลือกหรือจากข้อความที่พิมพ์เหมือนหน้า คลังรูปภาพ
-    let customerId = selectedCustomerId;
-    if (!customerId && customerQuery) {
-      const match = customers.find(c => {
-        const code = (c.customerCode || (c._id || '').toString().slice(-6).toUpperCase());
-        const label = `${code} : ${c.name}`;
-        return label.toLowerCase() === customerQuery.toLowerCase() || c.name.toLowerCase() === customerQuery.toLowerCase();
-      });
-      if (match) customerId = match._id;
-    }
-
-    // สร้างค่า serviceName จากการเลือกหรือจากข้อความที่พิมพ์
-    let serviceName = serviceFilter;
-    if (!serviceName && serviceQuery) {
-      const list = services.filter(s => (s.customerId === customerId) || (s.customerId?._id === customerId));
-      const matchSvc = list.find(svc => {
-        const idText = (svc.customerIdField || '-');
-        const pageText = (svc.pageUrl || '-');
-        const label = `${svc.name} — ${idText} — ${pageText}`;
-        return label.toLowerCase() === serviceQuery.toLowerCase() || svc.name.toLowerCase() === serviceQuery.toLowerCase();
-      });
-      if (matchSvc) serviceName = matchSvc.name;
-    }
-
-    // กรองรายการธุรกรรมในหน้า
-    let filtered = [...transactions];
-    if (customerId) {
-      filtered = filtered.filter(tx => (
-        tx.customer?._id === customerId ||
-        tx.service?.customerId?._id === customerId ||
-        tx.service?.customerId === customerId
-      ));
-    }
-    if (serviceName) {
-      filtered = filtered.filter(tx => (tx.service?.name === serviceName));
-    }
-    setFilteredTransactions(filtered);
-    setCurrentPage(1);
+    // หมายเหตุ: การค้นหาแบบ client-side ยังคงไว้ สามารถปรับเป็น server-side filter ได้ภายหลัง
+    // ตอนนี้เก็บไว้เฉพาะ search state เพื่อแสดง UI
+    console.log('Search:', { selectedCustomerId, customerQuery, serviceFilter, serviceQuery });
   };
 
   // สร้างรายการเติมเงินใหม่
@@ -423,14 +400,6 @@ export default function AllTransactionPage() {
       else setViewSlip(null);
     }
   };
-
-  // Ensure current page stays within bounds when filtered list changes
-  useEffect(() => {
-    const total = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
-    if (currentPage > total) {
-      setCurrentPage(total);
-    }
-  }, [filteredTransactions, currentPage]);
 
   const handleDeleteSlip = async () => {
     if (!viewSlip?.id) return;
@@ -729,7 +698,7 @@ export default function AllTransactionPage() {
               </table>
             </div>
             {/* Pagination Controls */}
-            {filteredTransactions.length > pageSize && (
+            {totalRecords > pageSize && (
               <div className="pagination">
                 <button
                   className="pagination-btn"
@@ -747,7 +716,6 @@ export default function AllTransactionPage() {
                 </button>
                 <div className="page-numbers">
                   {(() => {
-                    const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
                     const maxButtons = 7;
                     let start = Math.max(1, currentPage - 3);
                     let end = Math.min(totalPages, start + maxButtons - 1);
@@ -770,22 +738,22 @@ export default function AllTransactionPage() {
                 <button
                   className="pagination-btn"
                   onClick={() => setCurrentPage(p => p + 1)}
-                  disabled={currentPage >= Math.ceil(filteredTransactions.length / pageSize)}
+                  disabled={currentPage >= totalPages}
                 >
                   Next ›
                 </button>
                 <button
                   className="pagination-btn"
-                  onClick={() => setCurrentPage(Math.max(1, Math.ceil(filteredTransactions.length / pageSize)))}
-                  disabled={currentPage >= Math.ceil(filteredTransactions.length / pageSize)}
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage >= totalPages}
                 >
                   Last »
                 </button>
                 <div className="pagination-info">
                   {(() => {
-                    const startIndex = (currentPage - 1) * pageSize;
-                    const endIndex = Math.min(startIndex + pageSize, filteredTransactions.length);
-                    return `แสดง ${startIndex + 1}–${endIndex} จาก ${filteredTransactions.length}`;
+                    const startIndex = (currentPage - 1) * pageSize + 1;
+                    const endIndex = Math.min(currentPage * pageSize, totalRecords);
+                    return `แสดง ${startIndex}–${endIndex} จาก ${totalRecords}`;
                   })()}
                 </div>
               </div>
