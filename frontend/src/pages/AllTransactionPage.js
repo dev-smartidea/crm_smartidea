@@ -473,9 +473,31 @@ export default function AllTransactionPage() {
               <p className="gallery-subtitle">รายการเติมเงินและการโอนเงินทั้งหมดในระบบ</p>
             </div>
           </div>
-          <button className="btn-header-upload" onClick={() => setShowCreateForm(true)}>
-            <Plus /> เพิ่มรายการ
-          </button>
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: '14px' }}>
+            {filteredTransactions.length > 0 && (
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="summary-card" style={{ minWidth: '160px', padding: '10px 14px' }}>
+                  <CashCoin size={20} />
+                  <div>
+                    <div className="summary-label" style={{ fontSize: '0.75rem' }}>ยอดรวมทั้งหมด</div>
+                    <div className="summary-value" style={{ fontSize: '0.95rem' }}>
+                      {formatCurrency(filteredTransactions.reduce((sum, tx) => sum + tx.amount, 0))}
+                    </div>
+                  </div>
+                </div>
+                <div className="summary-card" style={{ minWidth: '140px', padding: '10px 14px' }}>
+                  <Wallet size={20} />
+                  <div>
+                    <div className="summary-label" style={{ fontSize: '0.75rem' }}>จำนวนรายการ</div>
+                    <div className="summary-value" style={{ fontSize: '0.95rem' }}>{filteredTransactions.length} รายการ</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <button className="btn-header-upload" onClick={() => setShowCreateForm(true)}>
+              <Plus /> เพิ่มรายการ
+            </button>
+          </div>
         </div>
 
         {/* Search (Combobox style, identical to Image Gallery) */}
@@ -761,28 +783,6 @@ export default function AllTransactionPage() {
             </>
           )}
         </div>
-
-        {/* Summary */}
-        {filteredTransactions.length > 0 && (
-          <div className="summary-section">
-            <div className="summary-card">
-              <CashCoin size={24} />
-              <div>
-                <div className="summary-label">ยอดรวมทั้งหมด</div>
-                <div className="summary-value">
-                  {formatCurrency(filteredTransactions.reduce((sum, tx) => sum + tx.amount, 0))}
-                </div>
-              </div>
-            </div>
-            <div className="summary-card">
-              <Wallet size={24} />
-              <div>
-                <div className="summary-label">จำนวนรายการ</div>
-                <div className="summary-value">{filteredTransactions.length} รายการ</div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Create Form Modal - outside container for proper overlay */}
