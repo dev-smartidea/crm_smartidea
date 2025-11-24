@@ -163,7 +163,7 @@
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .customer-activities-page .loading {
@@ -187,6 +187,12 @@
   align-items: center;
   justify-content: center;
   z-index: 1050;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .customer-activities-page .modal-content {
@@ -197,6 +203,100 @@
   width: 90%;
   max-width: 400px;
   text-align: center;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Complete Confirmation Modal - same style as ProfilePage */
+.confirm-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1050;
+}
+
+.confirm-modal-content {
+  background: white;
+  padding: 25px 30px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.confirm-modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.confirm-modal-content p {
+  margin-bottom: 25px;
+  color: #666;
+  font-size: 1rem;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.confirm-modal-actions button {
+  padding: 10px 25px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirm-modal-actions .btn-cancel {
+  background-color: #f0f0f0;
+  color: #555;
+  border: 1px solid #ddd;
+}
+
+.confirm-modal-actions .btn-cancel:hover:not(:disabled) {
+  background-color: #e0e0e0;
+  transform: translateY(-2px);
+}
+
+.confirm-modal-actions .btn-confirm {
+  background-color: #28a745;
+  color: white;
+}
+
+.confirm-modal-actions .btn-confirm:hover:not(:disabled) {
+  background-color: #218838;
+  transform: translateY(-2px);
+}
+
+.confirm-modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .customer-activities-page .modal-header {
@@ -287,4 +387,20 @@
 .customer-activities-page .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.customer-activities-page .btn-primary {
+  background: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease;
+}
+
+.customer-activities-page .btn-primary:hover:not(:disabled) {
+  background: #0b5ed7;
+  transform: translateY(-2px);
 }

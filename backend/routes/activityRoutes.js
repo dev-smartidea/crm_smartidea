@@ -109,6 +109,26 @@ router.put('/activities/:id', async (req, res) => {
   }
 });
 
+// PUT mark activity as completed
+router.put('/activities/:id/complete', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const activity = await Activity.findById(id);
+    if (!activity) {
+      return res.status(404).json({ message: 'ไม่พบข้อมูลกิจกรรม' });
+    }
+    // Update status only if not already completed
+    if (activity.projectStatus !== 'เสร็จสิ้น') {
+      activity.projectStatus = 'เสร็จสิ้น';
+      await activity.save();
+    }
+    res.json(activity);
+  } catch (error) {
+    console.error('Error completing activity:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการอัปเดตสถานะกิจกรรม' });
+  }
+});
+
 // DELETE an activity
 router.delete('/activities/:id', async (req, res) => {
   try {

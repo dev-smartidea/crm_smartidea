@@ -1,7 +1,7 @@
 .activity-list {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
@@ -31,16 +31,24 @@
   color: #374151;
   font-size: 0.95rem;
   vertical-align: middle;
+  overflow: visible;
 }
 
 .activity-list tbody tr {
   transition: all 0.2s;
+  position: relative;
+  z-index: 1;
 }
 
 .activity-list tbody tr:hover {
   background-color: #f9fafb;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transform: scale(1.001);
+  z-index: 10;
+}
+
+.activity-list tbody tr.has-open-dropdown {
+  z-index: 9999 !important;
 }
 
 .activity-list tbody tr:last-child td {
@@ -89,13 +97,109 @@
   border: 1px solid #6ee7b7;
 }
 
-.activity-list .action-buttons {
+.activity-list .badge-status-completed {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #3730a3;
+  border: 1px solid #a5b4fc;
+  position: relative;
+}
+
+.activity-list .badge-status-completed::after {
+  content: '✔';
+  margin-left: 6px;
+  font-size: 0.75rem;
+  color: #2563eb;
+}
+
+/* Dropdown menu styles */
+.dropdown-container {
+  position: relative;
+  z-index: 1;
+}
+
+.dropdown-container:has(.dropdown-menu-custom) {
+  z-index: 9998;
+}
+
+/* New dropdown action menu */
+.activity-action-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.activity-action-menu .action-trigger {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  transition: background .15s, box-shadow .15s;
+}
+
+.activity-action-menu .action-trigger:hover {
+  background: #f3f4f6;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+
+.activity-action-menu .action-dropdown {
+  position: absolute;
+  top: 110%;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  min-width: 190px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.05);
+  padding: 6px 0;
+  z-index: 40;
+  animation: fadeScale .15s ease;
+}
+
+@keyframes fadeScale {
+  from { opacity: 0; transform: translateY(-4px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.activity-action-menu .dropdown-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 0.85rem;
+  padding: 9px 16px;
+  cursor: pointer;
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-weight: 500;
+  transition: background .12s, color .12s;
+}
+
+.activity-action-menu .dropdown-item:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.activity-action-menu .dropdown-item:disabled {
+  cursor: not-allowed;
+  color: #9ca3af;
+}
+
+.activity-action-menu .dropdown-danger {
+  color: #dc2626;
+}
+
+.activity-action-menu .dropdown-danger:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .activity-list .btn-edit,
-.activity-list .btn-delete {
+.activity-list .btn-delete,
+.activity-list .btn-complete {
   padding: 8px 18px;
   border: none;
   border-radius: 8px;
@@ -106,6 +210,23 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.activity-list .btn-complete {
+  background-color: #fff;
+  color: #0f766e;
+  border: 1.5px solid #0f766e;
+}
+
+.activity-list .btn-complete:hover:not(:disabled) {
+  background-color: #0f766e;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+}
+
+.activity-list .btn-complete:disabled {
+  cursor: not-allowed;
 }
 
 .activity-list .btn-edit {

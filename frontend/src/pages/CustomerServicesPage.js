@@ -265,14 +265,25 @@ export default function CustomerServicesPage() {
               <button 
                 className="btn-add-service" 
                 onClick={() => {
-                  if (activities.length === 0) {
+                  const maxServices = activities.length;
+                  const currentServices = services.length;
+                  if (maxServices === 0) {
                     alert('กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ');
+                    return;
+                  }
+                  if (currentServices >= maxServices) {
+                    alert(`จำนวนบริการครบตามจำนวนกิจกรรมแล้ว (กิจกรรม ${maxServices}, บริการ ${currentServices})`);
                     return;
                   }
                   setShowCreate(true);
                 }}
-                disabled={activities.length === 0}
-                style={{ opacity: activities.length === 0 ? 0.5 : 1 }}
+                disabled={activities.length === 0 || services.length >= activities.length}
+                style={{ opacity: (activities.length === 0 || services.length >= activities.length) ? 0.5 : 1 }}
+                title={activities.length === 0
+                  ? 'ต้องมีอย่างน้อย 1 กิจกรรม'
+                  : services.length >= activities.length
+                    ? `เพิ่มบริการไม่ได้ (กิจกรรม ${activities.length}, บริการ ${services.length})`
+                    : ''}
               >
                 <Plus /> เพิ่มบริการ
               </button>
@@ -287,6 +298,11 @@ export default function CustomerServicesPage() {
         {activities.length === 0 && (
           <div style={{ marginBottom: '15px', padding: '15px', background: '#fff3cd', borderRadius: 8, color: '#856404' }}>
             ⚠️ กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ กดปุ่ม "จัดการกิจกรรม" เพื่อเริ่มเพิ่มกิจกรรม
+          </div>
+        )}
+        {activities.length > 0 && services.length >= activities.length && (
+          <div style={{ marginBottom: '15px', padding: '15px', background: '#ffe5e5', borderRadius: 8, color: '#842029' }}>
+            ⛔ จำนวนบริการครบตามกิจกรรมแล้ว (กิจกรรม {activities.length}, บริการ {services.length}) — เพิ่มกิจกรรมใหม่เพื่อเพิ่มบริการต่อไป
           </div>
         )}
         {error && <div style={{ color: 'red', marginBottom: 10 }}>{error}</div>}

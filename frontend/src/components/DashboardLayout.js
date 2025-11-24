@@ -51,7 +51,9 @@ export default function DashboardLayout() {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/activities`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setActivitiesCount(res.data.length);
+        // นับเฉพาะกิจกรรมที่ยังไม่เสร็จสิ้น
+        const pendingActivities = res.data.filter(activity => activity.projectStatus !== 'เสร็จสิ้น');
+        setActivitiesCount(pendingActivities.length);
       } catch {}
     };
     fetchActivitiesCount();

@@ -82,7 +82,6 @@ const CustomerActivitiesPage = () => {
             headers: { Authorization: `Bearer ${token}` }
           }
         );
-        alert('อัปเดตกิจกรรมสำเร็จ');
       } else {
         // Create new activity
         await axios.post(
@@ -209,6 +208,20 @@ const CustomerActivitiesPage = () => {
               activities={activities}
               onEdit={handleEditActivity}
               onDelete={handleDeleteActivity}
+              onComplete={async (id) => {
+                try {
+                  const token = localStorage.getItem('token');
+                  await axios.put(
+                    `${process.env.REACT_APP_API_URL}/api/activities/${id}/complete`,
+                    {},
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
+                  fetchActivities();
+                } catch (error) {
+                  console.error('Error completing activity:', error);
+                  alert('ไม่สามารถอัปเดตสถานะกิจกรรมได้');
+                }
+              }}
             />
           )}
         </div>
