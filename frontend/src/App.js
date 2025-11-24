@@ -4,7 +4,6 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AddCustomerPage from './pages/AddCustomerPage';
 import CustomerListPage from './pages/CustomerListPage';
-import CustomerDetailPage from './pages/CustomerDetailPage'; // ยังเก็บไว้เผื่อใช้ภายหลัง
 import CustomerServicesPage from './pages/CustomerServicesPage';
 import CustomerActivitiesPage from './pages/CustomerActivitiesPage';
 import AllActivitiesPage from './pages/AllActivitiesPage';
@@ -64,7 +63,6 @@ function App() {
           <Route path="notifications" element={<NotificationPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
           <Route path="alltransactions" element={<AllTransactionPage />} />
-          <Route path="customer/:id" element={<CustomerDetailPage />} />
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/activities" element={<CustomerActivitiesPage />} />
