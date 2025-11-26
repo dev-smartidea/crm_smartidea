@@ -11,6 +11,9 @@ import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import DashboardLayout from './components/DashboardLayout';
 import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AccountDashboardPage from './pages/AccountDashboardPage';
+import AccountTransactionsPage from './pages/AccountTransactionsPage';
+import AccountDashboardLayout from './components/AccountDashboardLayout';
 import UserDetailPage from './pages/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import NotificationPage from './pages/NotificationPage';
@@ -62,7 +65,7 @@ function App() {
           <Route path="list" element={<CustomerListPage />} />
           <Route path="notifications" element={<NotificationPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
-          <Route path="alltransactions" element={<AllTransactionPage />} />
+          <Route path="alltransactions" element={<AccountTransactionsPage />} />
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/activities" element={<CustomerActivitiesPage />} />
@@ -71,12 +74,26 @@ function App() {
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
+
         <Route
           path="/dashboard/admin"
           element={
             token && getRoleFromToken() === 'admin' ? <AdminDashboardPage /> : <Navigate to="/dashboard" />
           }
         />
+
+        <Route
+          path="/dashboard/account"
+          element={
+            token && getRoleFromToken() === 'account' ? <AccountDashboardLayout /> : <Navigate to="/dashboard" />
+          }
+        >
+          <Route index element={<AccountDashboardPage />} />
+          <Route path="notifications" element={<NotificationPage />} />
+          <Route path="alltransactions" element={<AccountTransactionsPage />} />
+          <Route path="images" element={<ImageGalleryPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+        </Route>
 
         <Route
           path="/user/:id"

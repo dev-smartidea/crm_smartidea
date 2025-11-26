@@ -42,9 +42,11 @@ function LoginPage({ onLoginSuccess }) {
           onLoginSuccess();
         }
         
-        // Navigate without alert to prevent blocking
+        // Navigate by role
         if (role === 'admin') {
           navigate('/dashboard/admin');
+        } else if (role === 'account') {
+          navigate('/dashboard/account');
         } else {
           navigate('/dashboard');
         }
