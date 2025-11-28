@@ -65,7 +65,11 @@ function App() {
           <Route path="list" element={<CustomerListPage />} />
           <Route path="notifications" element={<NotificationPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
-          <Route path="alltransactions" element={<AccountTransactionsPage />} />
+          <Route path="alltransactions" element={
+            token && getRoleFromToken() === 'account'
+              ? <AccountTransactionsPage />
+              : <AllTransactionPage />
+          } />
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/activities" element={<CustomerActivitiesPage />} />

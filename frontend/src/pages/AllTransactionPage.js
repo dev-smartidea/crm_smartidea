@@ -188,7 +188,7 @@ export default function AllTransactionPage() {
   // เมื่อเปลี่ยนลูกค้าใน combobox ให้รีเซ็ตบริการ
   useEffect(() => {
     setServiceFilter('');
-    setServiceQuery('');
+    // setServiceQuery(''); // Removed duplicate reset, already handled in combobox onMouseDown
   }, [selectedCustomerId]);
 
   // เมื่อเปลี่ยนหน้า pagination ให้โหลดข้อมูลใหม่จาก server
