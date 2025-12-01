@@ -9,6 +9,41 @@ import './TransactionHistoryPage.css'; // slip upload custom styles
 import './DashboardPage.css'; // reuse .badge-bank styles to match Dashboard
 
 export default function TransactionHistoryPage() {
+    // Pagination state
+    const [pageSize, setPageSize] = useState(6); // 6 per page by default
+    const [currentPage, setCurrentPage] = useState(1);
+    const [searchText, setSearchText] = useState('');
+    const [filteredTransactions, setFilteredTransactions] = useState([]);
+    const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredTransactions.length / pageSize);
+    // Whenever transactions or searchText changes, update filteredTransactions
+    useEffect(() => {
+      if (!searchText) {
+        setFilteredTransactions(transactions);
+      } else {
+        // ตัวอย่าง: filter จากชื่อลูกค้า/หมายเหตุ/ธนาคาร/บริการ (แก้ไขตาม field จริง)
+        setFilteredTransactions(transactions.filter(tx => {
+          const lower = searchText.toLowerCase();
+          return (
+            (tx.customerName && tx.customerName.toLowerCase().includes(lower)) ||
+            (tx.notes && tx.notes.toLowerCase().includes(lower)) ||
+            (tx.bank && tx.bank.toLowerCase().includes(lower)) ||
+            (tx.serviceName && tx.serviceName.toLowerCase().includes(lower))
+          );
+        }));
+      }
+      setCurrentPage(1); // reset page when filter changes
+    }, [transactions, searchText]);
+    // Handler for search box
+    const handleSearchChange = (e) => {
+      setSearchText(e.target.value);
+    };
+
+    // Handler for changing page size
+    const handlePageSizeChange = (e) => {
+      const val = e.target.value;
+      setPageSize(val === 'all' ? 'all' : parseInt(val, 10));
+      setCurrentPage(1); // reset to first page
+    };
   const { serviceId } = useParams(); // service id from URL
   const [service, setService] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -866,9 +901,10 @@ export default function TransactionHistoryPage() {
             <tbody>
               {loading ? (
                 <tr><td colSpan="6" className="text-center p-5">กำลังโหลด...</td></tr>
-              ) : transactions.length > 0 ? (
-                transactions.map(tx => (
-                  <tr key={tx._id}>
+              ) : filteredTransactions.length > 0 ? (
+                (pageSize === 'all' ? filteredTransactions : filteredTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize))
+                  .map(tx => (
+                    <tr key={tx._id}>
                     <td>
                       {tx.transactionDate ? new Date(tx.transactionDate).toLocaleDateString('th-TH') : '-'}
                     </td>
@@ -971,6 +1007,53 @@ export default function TransactionHistoryPage() {
             </tbody>
           </table>
         </div>
+        {/* Pagination Controls */}
+        {pageSize !== 'all' && filteredTransactions.length > pageSize && (
+          <div className="pagination" style={{ margin: '20px 0', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <button className="pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
+              « First
+            </button>
+            <button className="pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
+              ‹ Prev
+            </button>
+            <span style={{ margin: '0 8px' }}>หน้า {currentPage} / {totalPages}</span>
+            <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}>
+              Next ›
+            </button>
+            <button className="pagination-btn" onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages}>
+              Last »
+            </button>
+          </div>
+        )}
+                  {/* Page size selector */}
+                  <div style={{ marginBottom: 12 }}>
+                    <label>แสดงผล: </label>
+                    <select value={pageSize} onChange={handlePageSizeChange} style={{ width: 140, marginLeft: 8 }}>
+                      <option value={6}>6 รายการ/หน้า</option>
+                      <option value={12}>12 รายการ/หน้า</option>
+                      <option value="all">แสดงทั้งหมด</option>
+                    </select>
+                  </div>
+
+                  {/* Search box */}
+                  <div style={{ marginBottom: 12 }}>
+                    <input
+                      type="text"
+                      value={searchText}
+                      onChange={handleSearchChange}
+                      placeholder="ค้นหาชื่อลูกค้า/หมายเหตุ/ธนาคาร/บริการ"
+                      style={{ width: 260, padding: 6 }}
+                    />
+                  </div>
+            {/* Page size selector */}
+            <div style={{ marginBottom: 12 }}>
+              <label>แสดงผล: </label>
+              <select value={pageSize} onChange={handlePageSizeChange} style={{ width: 140, marginLeft: 8 }}>
+                <option value={6}>6 รายการ/หน้า</option>
+                <option value={12}>12 รายการ/หน้า</option>
+                <option value="all">แสดงทั้งหมด</option>
+              </select>
+            </div>
       </div>
 
       {/* Create Transaction Modal - render outside to overlay sidebar/header */}
