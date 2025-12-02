@@ -2,13 +2,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './ProfilePage.css';
-import './ImageGalleryPage.css'; // reuse gradient blue button style
+import '../shared/ImageGalleryPage.css'; // reuse gradient blue button style
 import { PersonVcard, Envelope, Telephone, ShieldLock, PencilSquare, XCircle } from 'react-bootstrap-icons';
 
 const API_HOST = process.env.REACT_APP_API_URL || '';
 
 function getAvatarUrl(avatar) {
-  if (!avatar) return require('../img/blank-profile.png');
+  if (!avatar) return require('../../img/blank-profile.png');
   if (typeof avatar === 'string' && avatar.startsWith('/uploads/avatars/')) {
     return `${API_HOST}${avatar}`;
   }
@@ -135,7 +135,7 @@ const ProfilePage = () => {
                 src={avatarPreview}
                 alt="Avatar"
                 className="profile-avatar"
-                onError={e => { e.target.onerror = null; e.target.src = require('../img/blank-profile.png'); }}
+                onError={e => { e.target.onerror = null; e.target.src = require('../../img/blank-profile.png'); }}
               />
               <button className="edit-avatar-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
                 <PencilSquare size={16} />

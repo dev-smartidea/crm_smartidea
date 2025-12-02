@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { EyeFill, CheckCircle, TrashFill, ThreeDotsVertical } from 'react-bootstrap-icons';
 import './ActivityList.css';
-import '../pages/CustomerListPage.css'; // reuse dropdown styles
+import '../pages/user/CustomerListPage.css'; // reuse dropdown styles
 
 const ActivityList = ({ activities, onEdit, onDelete, onComplete }) => {
   // Track a single open dropdown menu by activity id

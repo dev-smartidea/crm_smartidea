@@ -59,10 +59,10 @@ const UserDetailPage = ({ user, onBack }) => {
         <h2 style={{ textAlign: 'center', marginBottom: 32, color: '#007bff', fontWeight: 700 }}>รายละเอียดผู้ใช้</h2>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
           <img
-            src={user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' ? user.avatar : require('../img/blank-profile.png')}
+            src={user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '' ? user.avatar : require('../../img/blank-profile.png')}
             alt="avatar"
             style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', background: '#eee', marginRight: 28, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}
-            onError={e => { e.target.onerror = null; e.target.src = require('../img/blank-profile.png'); }}
+            onError={e => { e.target.onerror = null; e.target.src = require('../../img/blank-profile.png'); }}
           />
           <div>
             <p style={{ margin: 0, fontWeight: 700, fontSize: '1.25rem', color: '#222' }}>{user.name}</p>

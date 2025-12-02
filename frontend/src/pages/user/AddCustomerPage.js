@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { PersonPlusFill, TelephoneFill, Globe, BriefcaseFill, CheckCircleFill, ArrowCounterclockwise, Building, CreditCard, EnvelopeFill, TagFill, ExclamationTriangleFill } from 'react-bootstrap-icons';
 import './AddCustomerPage.css';
-import './ImageGalleryPage.css'; // reuse gradient blue button style
+import '../shared/ImageGalleryPage.css'; // reuse gradient blue button style
 
 export default function AddCustomerPage() {
   const customerTypeOptions = ['บุคคลธรรมดา', 'บริษัทจำกัด', 'หจก.'];

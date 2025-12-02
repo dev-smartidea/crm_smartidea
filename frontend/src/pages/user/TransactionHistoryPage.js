@@ -2,11 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { CashCoin, Plus, TrashFill, PencilSquare, ArrowLeftCircle, ThreeDotsVertical, XCircle, Eye, Upload } from 'react-bootstrap-icons';
-import '../pages/CustomerListPage.css'; // reuse table styles
-import '../pages/CustomerServicesPage.css';
-import './ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
+import './CustomerListPage.css'; // reuse table styles
+import './CustomerServicesPage.css';
+import '../shared/ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
 import './TransactionHistoryPage.css'; // slip upload custom styles
-import './DashboardPage.css'; // reuse .badge-bank styles to match Dashboard
+import '../shared/DashboardPage.css'; // reuse .badge-bank styles to match Dashboard
 
 export default function TransactionHistoryPage() {
     const { serviceId } = useParams();

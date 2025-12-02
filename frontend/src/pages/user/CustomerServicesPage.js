@@ -4,7 +4,7 @@ import axios from 'axios';
 import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircle, EyeFill, ThreeDotsVertical, XCircle, ExclamationTriangleFill } from 'react-bootstrap-icons';
 import './CustomerListPage.css'; // reuse table styles
 import './CustomerServicesPage.css';
-import './ImageGalleryPage.css'; // reuse btn-header-upload style for gradient blue button
+import '../shared/ImageGalleryPage.css'; // reuse btn-header-upload style for gradient blue button
 
 export default function CustomerServicesPage() {
   const { id } = useParams(); // customer id

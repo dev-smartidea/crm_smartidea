@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
-import './DashboardPage.css'; // reuse service-badge styles
+import '../shared/DashboardPage.css'; // reuse service-badge styles
 import './TransactionHistoryPage.css'; // reuse slip upload button styles
-import './ImageGalleryPage.css'; // reuse combobox and search styles to match gallery
+import '../shared/ImageGalleryPage.css'; // reuse combobox and search styles to match gallery
 import './CustomerServicesPage.css'; // reuse svc-modal styles for create form
 
 export default function AllTransactionPage() {

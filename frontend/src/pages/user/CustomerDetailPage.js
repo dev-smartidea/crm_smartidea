@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { PersonVcardFill, TelephoneFill, Globe, BoxSeam, CalendarPlus, ArrowLeftCircleFill, TagFill, Building, BriefcaseFill, EnvelopeFill, CreditCard, PencilSquare } from 'react-bootstrap-icons';
 import './CustomerDetailPage.css';
-import './ImageGalleryPage.css'; // reuse gradient blue button style
+import '../shared/ImageGalleryPage.css'; // reuse gradient blue button style
 
 export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState(null);

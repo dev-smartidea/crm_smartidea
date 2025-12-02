@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { CheckCircle, XCircle, Google, Facebook } from 'react-bootstrap-icons';
-import './DashboardPage.css';
+import '../shared/DashboardPage.css';
 
 export default function AccountTransactionsPage() {
   const [items, setItems] = useState([]);

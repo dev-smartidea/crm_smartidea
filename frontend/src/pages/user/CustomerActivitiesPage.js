@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ClipboardCheckFill, Plus, ArrowLeftCircle, ExclamationTriangleFill, XCircle } from 'react-bootstrap-icons';
-import ActivityForm from '../components/ActivityForm';
-import ActivityList from '../components/ActivityList';
+import ActivityForm from '../../components/ActivityForm';
+import ActivityList from '../../components/ActivityList';
 import './CustomerActivitiesPage.css';
 
 const CustomerActivitiesPage = () => {
