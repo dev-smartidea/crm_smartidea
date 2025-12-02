@@ -3,7 +3,7 @@ import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Image, Wallet } from 'react-bootstrap-icons';
+import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Image, Wallet, CheckCircleFill } from 'react-bootstrap-icons';
 
 export default function AccountDashboardLayout() {
   const navigate = useNavigate();
@@ -53,14 +53,14 @@ export default function AccountDashboardLayout() {
         <aside className="sidebar">
           <ul className="nav-menu"> 
             <li><NavLink to="/dashboard/account" end><HouseDoor /> Dashboard</NavLink></li>
-            <li><NavLink to="alltransactions"><Wallet /> รายการการเติมเงิน</NavLink></li>
+            <li><NavLink to="alltransactions"><Wallet /> รายการรอพิจารณา</NavLink></li>
+            <li><NavLink to="approved"><CheckCircleFill /> รายการที่อนุมัติแล้ว</NavLink></li>
             <li>
               <NavLink to="notifications" className="notification-link">
                 <Bell /> การแจ้งเตือน
                 {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
               </NavLink>
             </li>
-            {/* <li><NavLink to="alltransactions"><Wallet /> การเติมเงิน</NavLink></li> */}
             <li><NavLink to="images"><Image /> รูปภาพ</NavLink></li>
             <li><NavLink to="profile"><PersonCircle /> โปรไฟล์</NavLink></li>
           </ul>

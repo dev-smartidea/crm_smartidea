@@ -88,17 +88,23 @@ router.get('/transactions', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
+    const submissionStatus = req.query.submissionStatus;
 
     let query;
     
-    if (user.role === 'admin') {
-      // Admin เห็นทุกรายการ
+    if (user.role === 'admin' || user.role === 'account') {
+      // Admin และ Account เห็นทุกรายการ
       query = Transaction.find();
     } else {
       // User เห็นเฉพาะของตัวเอง
       const services = await Service.find({ userId: user.id });
       const serviceIds = services.map(s => s._id);
       query = Transaction.find({ serviceId: { $in: serviceIds } });
+    }
+
+    // ถ้ามีการกรอง submissionStatus
+    if (submissionStatus) {
+      query = query.where({ submissionStatus });
     }
 
     // นับจำนวนทั้งหมดก่อน pagination
@@ -126,6 +132,92 @@ router.get('/transactions', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /api/transactions/:id/submit - ส่งรายการให้ทีมบัญชี
+router.put('/transactions/:id/submit', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // ดึงรายการตามสิทธิ์
+    const tx = user.role === 'admin'
+      ? await Transaction.findById(req.params.id)
+      : await Transaction.findOne({ _id: req.params.id, userId: user.id });
+
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    // อัปเดตสถานะการส่ง
+    tx.submissionStatus = 'submitted';
+    tx.submittedBy = user.id;
+    tx.submittedAt = new Date();
+    await tx.save();
+
+    // คืนค่าพร้อม populate service และ customer ให้ frontend ใช้ข้อมูลสอดคล้องกับ list API
+    const populated = await Transaction.findById(tx._id)
+      .populate({
+        path: 'serviceId',
+        populate: { path: 'customerId', select: 'name phone' }
+      });
+    res.json(populated);
+  } catch (err) {
+    console.error('Submit transaction failed:', err);
+    res.status(500).json({ error: 'Submit failed', detail: err.message });
+  }
+});
+
+// PUT /api/transactions/:id/approve - อนุมัติรายการ (เฉพาะ account/admin)
+router.put('/transactions/:id/approve', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (user.role !== 'account' && user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Only account/admin can approve' });
+    }
+
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    tx.submissionStatus = 'approved';
+    await tx.save();
+
+    const populated = await Transaction.findById(tx._id)
+      .populate({
+        path: 'serviceId',
+        populate: { path: 'customerId', select: 'name phone' }
+      });
+    res.json(populated);
+  } catch (err) {
+    console.error('Approve transaction failed:', err);
+    res.status(500).json({ error: 'Approve failed', detail: err.message });
+  }
+});
+
+// PUT /api/transactions/:id/reject - ปฏิเสธรายการ (เฉพาะ account/admin)
+router.put('/transactions/:id/reject', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (user.role !== 'account' && user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Only account/admin can reject' });
+    }
+
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    tx.submissionStatus = 'rejected';
+    await tx.save();
+
+    const populated = await Transaction.findById(tx._id)
+      .populate({
+        path: 'serviceId',
+        populate: { path: 'customerId', select: 'name phone' }
+      });
+    res.json(populated);
+  } catch (err) {
+    console.error('Reject transaction failed:', err);
+    res.status(500).json({ error: 'Reject failed', detail: err.message });
   }
 });
 

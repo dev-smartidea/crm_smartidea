@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload } from 'react-bootstrap-icons';
+import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
 import './DashboardPage.css'; // reuse service-badge styles
 import './TransactionHistoryPage.css'; // reuse slip upload button styles
@@ -13,11 +13,9 @@ export default function AllTransactionPage() {
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Pagination (server-side)
+  // Pagination (client-side)
   const pageSize = 6;
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
   // ค้นหาแบบ combobox เหมือนหน้า "คลังรูปภาพ"
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
@@ -31,6 +29,7 @@ export default function AllTransactionPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null); // อัปโหลดสลิปรายแถว
+  const [submittingId, setSubmittingId] = useState(null); // ส่งรายการให้บัญชี
   const [form, setForm] = useState({
     customerId: '',
     serviceId: '',
@@ -170,8 +169,6 @@ export default function AllTransactionPage() {
 
       setTransactions(formattedTransactions);
       setFilteredTransactions(formattedTransactions);
-      setTotalRecords(formattedTransactions.length);
-      setTotalPages(Math.ceil(formattedTransactions.length / pageSize));
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('ไม่สามารถโหลดข้อมูลได้');
@@ -420,6 +417,31 @@ export default function AllTransactionPage() {
       setViewSlip(null);
     } catch (err) {
       alert('ลบสลิปไม่สำเร็จ');
+    }
+  };
+
+  // ส่งรายการไปให้ทีมบัญชี (placeholder ถ้า backend ยังไม่มี endpoint จะโชว์ข้อความแจ้ง)
+  const handleSubmitTransaction = async (txId) => {
+    try {
+      setSubmittingId(txId);
+      const res = await axios.put(
+        `${api}/api/transactions/${txId}/submit`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const updatedRaw = res.data || {};
+      const updated = {
+        ...updatedRaw,
+        service: updatedRaw.serviceId || {},
+        customer: updatedRaw.serviceId?.customerId || {}
+      };
+      setTransactions(transactions.map(t => (t._id === txId ? updated : t)));
+      setFilteredTransactions(filteredTransactions.map(t => (t._id === txId ? updated : t)));
+      alert('ส่งรายการไปยังทีมบัญชีแล้ว');
+    } catch (err) {
+      alert('ยังไม่สามารถส่งรายการได้ (backend ยังไม่รองรับ)');
+    } finally {
+      setSubmittingId(null);
     }
   };
 
@@ -713,15 +735,31 @@ export default function AllTransactionPage() {
                         </div>
                       </td>
                       <td>
-                        <button
-                          className="btn-delete-small"
-                          onClick={() => {
-                            setTransactionToDelete(tx);
-                            setShowDeleteConfirm(true);
-                          }}
-                        >
-                          <TrashFill />
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {tx.submissionStatus === 'submitted' ? (
+                            <span className="badge" style={{ background: '#e6f4ff', color: '#0b6ef6', padding: '6px 10px', borderRadius: '6px', border: '1px solid #b9d8ff' }}>ส่งแล้ว</span>
+                          ) : (
+                            <button
+                              className="btn-submit-small"
+                              onClick={() => handleSubmitTransaction(tx._id)}
+                              disabled={submittingId === tx._id}
+                              title={submittingId === tx._id ? 'กำลังส่ง...' : 'ส่งให้บัญชี'}
+                              style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d3d8e2', background: '#f8f9fa', color: '#334155' }}
+                            >
+                              {submittingId === tx._id ? <span className="spinner" /> : <Send />}
+                              <span style={{ marginLeft: 6 }}>ส่ง</span>
+                            </button>
+                          )}
+                          <button
+                            className="btn-delete-small"
+                            onClick={() => {
+                              setTransactionToDelete(tx);
+                              setShowDeleteConfirm(true);
+                            }}
+                          >
+                            <TrashFill />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     ));

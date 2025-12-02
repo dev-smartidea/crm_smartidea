@@ -16,7 +16,11 @@ const transactionSchema = new mongoose.Schema({
     amount: { type: Number, required: true }, // ยอดเงินของรายการย่อย
     statusNote: { type: String, enum: ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'], required: true }, // สถานะ/หมายเหตุ
     isAutoVat: { type: Boolean, default: false } // ระบุว่ารายการนี้ถูกสร้างอัตโนมัติจากการคำนวณ VAT หรือไม่
-  }]
+  }],
+  // สถานะการส่งให้ทีมบัญชี
+  submissionStatus: { type: String, enum: ['none', 'submitted', 'approved', 'rejected'], default: 'none' },
+  submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  submittedAt: { type: Date }
 }, { timestamps: true });
 
 // Indexes to speed up typical queries (by service/user and recent first)
@@ -24,5 +28,6 @@ transactionSchema.index({ serviceId: 1, transactionDate: -1 });
 transactionSchema.index({ userId: 1, transactionDate: -1 });
 transactionSchema.index({ customerId: 1, transactionDate: -1 });
 transactionSchema.index({ transactionDate: -1 }); // For sorting all transactions by date
+transactionSchema.index({ submissionStatus: 1, transactionDate: -1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

@@ -13,6 +13,7 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AccountDashboardPage from './pages/AccountDashboardPage';
 import AccountTransactionsPage from './pages/AccountTransactionsPage';
+import ApprovedTransactionsPage from './pages/ApprovedTransactionsPage';
 import AccountDashboardLayout from './components/AccountDashboardLayout';
 import UserDetailPage from './pages/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
@@ -95,6 +96,7 @@ function App() {
           <Route index element={<AccountDashboardPage />} />
           <Route path="notifications" element={<NotificationPage />} />
           <Route path="alltransactions" element={<AccountTransactionsPage />} />
+          <Route path="approved" element={<ApprovedTransactionsPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>

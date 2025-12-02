@@ -1,76 +1,46 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { CheckCircle, XCircle, Google, Facebook } from 'react-bootstrap-icons';
+import { CheckCircleFill, Google, Facebook } from 'react-bootstrap-icons';
 import './DashboardPage.css';
 
-export default function AccountTransactionsPage() {
+export default function ApprovedTransactionsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
-  const fetchSubmitted = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${api}/api/transactions?submissionStatus=submitted&limit=200`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const formatted = (res.data.transactions || []).map(tx => ({
-        ...tx,
-        service: tx.serviceId || {},
-        customer: tx.serviceId?.customerId || {}
-      }));
-      setItems(formatted);
-    } catch (e) {
-      console.error('Load submitted queue failed:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchSubmitted();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleApprove = async (txId) => {
-    try {
-      setProcessingId(txId);
-      await axios.put(`${api}/api/transactions/${txId}/approve`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      alert('อนุมัติรายการสำเร็จ');
-      fetchSubmitted(); // รีโหลดรายการ
-    } catch (e) {
-      alert('อนุมัติไม่สำเร็จ');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleReject = async (txId) => {
-    try {
-      setProcessingId(txId);
-      await axios.put(`${api}/api/transactions/${txId}/reject`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      alert('ปฏิเสธรายการสำเร็จ');
-      fetchSubmitted(); // รีโหลดรายการ
-    } catch (e) {
-      alert('ปฏิเสธไม่สำเร็จ');
-    } finally {
-      setProcessingId(null);
-    }
-  };
+    const fetchApproved = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get(`${api}/api/transactions?submissionStatus=approved&limit=200`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const formatted = (res.data.transactions || []).map(tx => ({
+          ...tx,
+          service: tx.serviceId || {},
+          customer: tx.serviceId?.customerId || {}
+        }));
+        setItems(formatted);
+      } catch (e) {
+        console.error('Load approved transactions failed:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchApproved();
+  }, [api, token]);
 
   if (loading) return <div style={{ padding: '2rem' }}>กำลังโหลด...</div>;
 
   return (
     <div style={{ padding: '1.5rem' }}>
-      <h2 style={{ marginTop: 0 }}>รายการที่ส่งมาบัญชี</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+        <CheckCircleFill size={24} color="#22c55e" />
+        <h2 style={{ margin: 0 }}>รายการที่อนุมัติแล้ว</h2>
+      </div>
       {items.length === 0 ? (
-        <p>ยังไม่มีรายการที่ส่งมา</p>
+        <p>ยังไม่มีรายการที่อนุมัติ</p>
       ) : (
         <div className="table-responsive">
           <table className="transaction-table" style={{ width: '100%' }}>
@@ -82,7 +52,7 @@ export default function AccountTransactionsPage() {
                 <th>จำนวนเงิน</th>
                 <th>ธนาคาร</th>
                 <th>หมายเหตุ</th>
-                <th>จัดการ</th>
+                <th>สถานะ</th>
               </tr>
             </thead>
             <tbody>
@@ -136,42 +106,16 @@ export default function AccountTransactionsPage() {
                     </div>
                   </td>
                   <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => handleApprove(tx._id)}
-                        disabled={processingId === tx._id}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #22c55e',
-                          background: '#f0fdf4',
-                          color: '#16a34a',
-                          cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <CheckCircle /> อนุมัติ
-                      </button>
-                      <button
-                        onClick={() => handleReject(tx._id)}
-                        disabled={processingId === tx._id}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #ef4444',
-                          background: '#fef2f2',
-                          color: '#dc2626',
-                          cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <XCircle /> ปฏิเสธ
-                      </button>
-                    </div>
+                    <span style={{
+                      padding: '4px 12px',
+                      borderRadius: '12px',
+                      background: '#f0fdf4',
+                      color: '#16a34a',
+                      border: '1px solid #22c55e',
+                      fontSize: '0.875rem'
+                    }}>
+                      อนุมัติแล้ว
+                    </span>
                   </td>
                 </tr>
               ))}

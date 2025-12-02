@@ -9,6 +9,10 @@ import './TransactionHistoryPage.css'; // slip upload custom styles
 import './DashboardPage.css'; // reuse .badge-bank styles to match Dashboard
 
 export default function TransactionHistoryPage() {
+    const { serviceId } = useParams();
+    const [service, setService] = useState(null);
+    const [transactions, setTransactions] = useState([]);
+    
     // Pagination state
     const [pageSize, setPageSize] = useState(6); // 6 per page by default
     const [currentPage, setCurrentPage] = useState(1);
@@ -44,9 +48,7 @@ export default function TransactionHistoryPage() {
       setPageSize(val === 'all' ? 'all' : parseInt(val, 10));
       setCurrentPage(1); // reset to first page
     };
-  const { serviceId } = useParams(); // service id from URL
-  const [service, setService] = useState(null);
-  const [transactions, setTransactions] = useState([]);
+  // Removed duplicate declarations of serviceId, service, transactions
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
