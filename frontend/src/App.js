@@ -20,6 +20,7 @@ import ProfilePage from './pages/user/ProfilePage';
 import NotificationPage from './pages/shared/NotificationPage';
 import ImageGalleryPage from './pages/shared/ImageGalleryPage';
 import AllTransactionPage from './pages/user/AllTransactionPage';
+import SubmittedTransactionsPage from './pages/user/SubmittedTransactionsPage';
 import axios from 'axios';
 
 function App() {
@@ -76,6 +77,7 @@ function App() {
           <Route path="customers/:customerId/activities" element={<CustomerActivitiesPage />} />
           <Route path="activities" element={<AllActivitiesPage />} />
           <Route path="services/:serviceId/transactions" element={<TransactionHistoryPage />} />
+          <Route path="submitted-transactions" element={<SubmittedTransactionsPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
