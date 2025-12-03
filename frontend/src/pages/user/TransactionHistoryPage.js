@@ -14,11 +14,10 @@ export default function TransactionHistoryPage() {
     const [transactions, setTransactions] = useState([]);
     
     // Pagination state
-    const [pageSize, setPageSize] = useState(6); // 6 per page by default
+    const pageSize = 6;
     const [currentPage, setCurrentPage] = useState(1);
     const [searchText, setSearchText] = useState('');
     const [filteredTransactions, setFilteredTransactions] = useState([]);
-    const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredTransactions.length / pageSize);
     // Whenever transactions or searchText changes, update filteredTransactions
     useEffect(() => {
       if (!searchText) {
@@ -40,13 +39,6 @@ export default function TransactionHistoryPage() {
     // Handler for search box
     const handleSearchChange = (e) => {
       setSearchText(e.target.value);
-    };
-
-    // Handler for changing page size
-    const handlePageSizeChange = (e) => {
-      const val = e.target.value;
-      setPageSize(val === 'all' ? 'all' : parseInt(val, 10));
-      setCurrentPage(1); // reset to first page
     };
   // Removed duplicate declarations of serviceId, service, transactions
   const [loading, setLoading] = useState(true);
@@ -904,7 +896,7 @@ export default function TransactionHistoryPage() {
               {loading ? (
                 <tr><td colSpan="6" className="text-center p-5">กำลังโหลด...</td></tr>
               ) : filteredTransactions.length > 0 ? (
-                (pageSize === 'all' ? filteredTransactions : filteredTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize))
+                filteredTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize)
                   .map(tx => (
                     <tr key={tx._id}>
                     <td>
@@ -1010,52 +1002,70 @@ export default function TransactionHistoryPage() {
           </table>
         </div>
         {/* Pagination Controls */}
-        {pageSize !== 'all' && filteredTransactions.length > pageSize && (
-          <div className="pagination" style={{ margin: '20px 0', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-            <button className="pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
-              « First
-            </button>
-            <button className="pagination-btn" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
-              ‹ Prev
-            </button>
-            <span style={{ margin: '0 8px' }}>หน้า {currentPage} / {totalPages}</span>
-            <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}>
-              Next ›
-            </button>
-            <button className="pagination-btn" onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages}>
-              Last »
-            </button>
-          </div>
-        )}
-                  {/* Page size selector */}
-                  <div style={{ marginBottom: 12 }}>
-                    <label>แสดงผล: </label>
-                    <select value={pageSize} onChange={handlePageSizeChange} style={{ width: 140, marginLeft: 8 }}>
-                      <option value={6}>6 รายการ/หน้า</option>
-                      <option value={12}>12 รายการ/หน้า</option>
-                      <option value="all">แสดงทั้งหมด</option>
-                    </select>
-                  </div>
-
-                  {/* Search box */}
-                  <div style={{ marginBottom: 12 }}>
-                    <input
-                      type="text"
-                      value={searchText}
-                      onChange={handleSearchChange}
-                      placeholder="ค้นหาชื่อลูกค้า/หมายเหตุ/ธนาคาร/บริการ"
-                      style={{ width: 260, padding: 6 }}
-                    />
-                  </div>
-            {/* Page size selector */}
-            <div style={{ marginBottom: 12 }}>
-              <label>แสดงผล: </label>
-              <select value={pageSize} onChange={handlePageSizeChange} style={{ width: 140, marginLeft: 8 }}>
-                <option value={6}>6 รายการ/หน้า</option>
-                <option value={12}>12 รายการ/หน้า</option>
-                <option value="all">แสดงทั้งหมด</option>
-              </select>
+        {(() => {
+          const filteredTotal = filteredTransactions.length;
+          const filteredTotalPages = Math.ceil(filteredTotal / pageSize);
+          return filteredTotal > pageSize && (
+            <div className="pagination">
+              <button
+                className="pagination-btn"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+              >
+                « First
+              </button>
+              <button
+                className="pagination-btn"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                ‹ Prev
+              </button>
+              <div className="page-numbers">
+                {(() => {
+                  const maxButtons = 7;
+                  let start = Math.max(1, currentPage - 3);
+                  let end = Math.min(filteredTotalPages, start + maxButtons - 1);
+                  start = Math.max(1, end - maxButtons + 1);
+                  const pages = [];
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <button
+                        key={i}
+                        className={`page-number ${i === currentPage ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(i)}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+                  return pages;
+                })()}
+              </div>
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={currentPage >= filteredTotalPages}
+              >
+                Next ›
+              </button>
+              <button
+                className="pagination-btn"
+                onClick={() => setCurrentPage(filteredTotalPages)}
+                disabled={currentPage >= filteredTotalPages}
+              >
+                Last »
+              </button>
+              <div className="pagination-info">
+                {(() => {
+                  const startIndex = (currentPage - 1) * pageSize + 1;
+                  const endIndex = Math.min(currentPage * pageSize, filteredTotal);
+                  return `แสดง ${startIndex}–${endIndex} จาก ${filteredTotal}`;
+                })()}
+              </div>
             </div>
+          );
+        })()}
       </div>
 
       {/* Create Transaction Modal - render outside to overlay sidebar/header */}

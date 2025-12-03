@@ -116,6 +116,7 @@ router.get('/transactions', async (req, res) => {
         path: 'serviceId',
         populate: { path: 'customerId', select: 'name phone' }
       })
+      .populate('submittedBy', 'name email')
       .sort({ transactionDate: -1 })
       .skip(skip)
       .limit(limit);
@@ -159,7 +160,8 @@ router.put('/transactions/:id/submit', async (req, res) => {
       .populate({
         path: 'serviceId',
         populate: { path: 'customerId', select: 'name phone' }
-      });
+      })
+      .populate('submittedBy', 'name email');
     res.json(populated);
   } catch (err) {
     console.error('Submit transaction failed:', err);
@@ -186,7 +188,8 @@ router.put('/transactions/:id/approve', async (req, res) => {
       .populate({
         path: 'serviceId',
         populate: { path: 'customerId', select: 'name phone' }
-      });
+      })
+      .populate('submittedBy', 'name email');
     res.json(populated);
   } catch (err) {
     console.error('Approve transaction failed:', err);
@@ -213,7 +216,8 @@ router.put('/transactions/:id/reject', async (req, res) => {
       .populate({
         path: 'serviceId',
         populate: { path: 'customerId', select: 'name phone' }
-      });
+      })
+      .populate('submittedBy', 'name email');
     res.json(populated);
   } catch (err) {
     console.error('Reject transaction failed:', err);

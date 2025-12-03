@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { CheckCircle, XCircle, Google, Facebook } from 'react-bootstrap-icons';
+import { CheckCircle, XCircle, Google, Facebook, Wallet, CashCoin, Eye, Upload } from 'react-bootstrap-icons';
 import '../shared/DashboardPage.css';
+import '../user/AllTransactionPage.css';
+import '../shared/ImageGalleryPage.css';
+import '../user/TransactionHistoryPage.css';
 
 export default function AccountTransactionsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [viewSlip, setViewSlip] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
@@ -64,119 +69,330 @@ export default function AccountTransactionsPage() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>กำลังโหลด...</div>;
+  const triggerUploadFor = (txId) => {
+    const el = document.getElementById(`slip-input-${txId}`);
+    if (el) el.click();
+  };
+
+  const handleInlineSlipChange = async (txId, file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      return;
+    }
+    try {
+      setUploadingId(txId);
+      const formData = new FormData();
+      formData.append('slipImage', file);
+
+      const res = await axios.put(`${api}/api/transactions/${txId}`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchSubmitted(); // รีโหลดรายการ
+      return res.data;
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || 'อัปโหลดสลิปไม่สำเร็จ';
+      alert(msg);
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleModalUploadChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (file && viewSlip?.id) {
+      const updatedTx = await handleInlineSlipChange(viewSlip.id, file);
+      if (updatedTx && updatedTx.slipImage) setViewSlip({ id: viewSlip.id, url: updatedTx.slipImage });
+      else setViewSlip(null);
+    }
+  };
+
+  const handleDeleteSlip = async () => {
+    if (!viewSlip?.id) return;
+    try {
+      await axios.delete(`${api}/api/transactions/${viewSlip.id}/slip`, { headers: { Authorization: `Bearer ${token}` } });
+      fetchSubmitted(); // รีโหลดรายการ
+      setViewSlip(null);
+    } catch (err) {
+      alert('ลบสลิปไม่สำเร็จ');
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(amount);
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('th-TH');
+  };
+
+  const getBankBadgeClass = (bank) => {
+    const bankMap = {
+      'KBANK': 'badge-bank-kbank',
+      'SCB': 'badge-bank-scb',
+      'BBL': 'badge-bank-bbl',
+      'KTB': 'badge-bank-ktb',
+      'TTB': 'badge-bank-ttb',
+      'BAY': 'badge-bank-bay'
+    };
+    return bankMap[bank] || 'badge-bank';
+  };
+
+  const getBankName = (bank) => {
+    const bankNames = {
+        'KBANK': 'KBANK',
+        'SCB': 'SCB',
+        'BBL': 'BBL',
+        'KTB': 'KTB',
+        'TTB': 'TTB',
+        'BAY': 'BAY'
+    };
+    return bankNames[bank] || bank;
+  };
+
+  const totalAmount = items.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="all-transaction-page fade-up">
+        <div className="transaction-container">
+          <div className="loading-state">
+            <div className="spinner"></div>
+            <p>กำลังโหลดข้อมูล...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '1.5rem' }}>
-      <h2 style={{ marginTop: 0 }}>รายการที่ส่งมาบัญชี</h2>
-      {items.length === 0 ? (
-        <p>ยังไม่มีรายการที่ส่งมา</p>
-      ) : (
-        <div className="table-responsive">
-          <table className="transaction-table" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th>วันที่โอน</th>
-                <th>ลูกค้า</th>
-                <th>บริการ</th>
-                <th>จำนวนเงิน</th>
-                <th>ธนาคาร</th>
-                <th>หมายเหตุ</th>
-                <th>จัดการ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(tx => (
-                <tr key={tx._id}>
-                  <td>{new Date(tx.transactionDate).toLocaleDateString('th-TH')}</td>
-                  <td>{tx.customer?.name || '-'}</td>
-                  <td>
-                    {tx.service?.customerIdField && tx.service?.name ? (
-                      <span className={`service-badge ${
-                        tx.service.name === 'Facebook Ads' ? 'facebook' :
-                        tx.service.name === 'Google Ads' ? 'google' :
-                        'other'
-                      }`}>
-                        {tx.service.name === 'Facebook Ads' && <Facebook className="service-icon" />}
-                        {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
-                        <span className="service-id-text">{tx.service.customerIdField}</span>
-                      </span>
-                    ) : (
-                      <span className="text-muted">-</span>
-                    )}
-                  </td>
-                  <td>{new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(tx.amount)}</td>
-                  <td>{tx.bank}</td>
-                  <td>
-                    <div style={{ maxWidth: '320px' }}>
-                      {tx.notes && (
-                        <div style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          marginBottom: tx.breakdowns && tx.breakdowns.length ? 6 : 0
-                        }}>
-                          {tx.notes}
+    <div className="all-transaction-page fade-up">
+      <div className="transaction-container">
+        {/* Header - reuse gallery header styles */}
+        <div className="gallery-header">
+          <div className="gallery-header-title">
+            <Wallet className="gallery-icon" />
+            <div>
+              <h2>รายการที่ส่งมาบัญชี</h2>
+              <p className="gallery-subtitle">รายการเติมเงินที่รอการพิจารณาอนุมัติ</p>
+            </div>
+          </div>
+          {items.length > 0 && (
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div className="summary-card" style={{ minWidth: '160px', padding: '10px 14px' }}>
+                <CashCoin size={20} />
+                <div>
+                  <div className="summary-label" style={{ fontSize: '0.75rem' }}>ยอดรวมรอพิจารณา</div>
+                  <div className="summary-value" style={{ fontSize: '0.95rem' }}>
+                    {formatCurrency(totalAmount)}
+                  </div>
+                </div>
+              </div>
+              <div className="summary-card" style={{ minWidth: '140px', padding: '10px 14px' }}>
+                <Wallet size={20} />
+                <div>
+                  <div className="summary-label" style={{ fontSize: '0.75rem' }}>จำนวนรายการ</div>
+                  <div className="summary-value" style={{ fontSize: '0.95rem' }}>{items.length} รายการ</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Transactions Table */}
+        <div className="transactions-section">
+          {items.length === 0 ? (
+            <div className="no-data">
+              <Wallet size={48} />
+              <p>ยังไม่มีรายการที่ส่งมา</p>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="transaction-table">
+                <thead>
+                  <tr>
+                    <th>วันที่โอน</th>
+                    <th>ลูกค้า</th>
+                    <th>บริการ</th>
+                    <th>จำนวนเงิน</th>
+                    <th>ธนาคาร</th>
+                    <th>สลิป</th>
+                    <th>หมายเหตุ</th>
+                    <th>ผู้ส่ง</th>
+                    <th>จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(tx => (
+                    <tr key={tx._id}>
+                      <td>{formatDate(tx.transactionDate)}</td>
+                      <td>
+                        <div className="customer-info">
+                          <span className="customer-name">{tx.customer?.name || '-'}</span>
                         </div>
-                      )}
-                      {tx.breakdowns && tx.breakdowns.length > 0 && (
-                        <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                          {tx.breakdowns.map((bd, idx) => (
-                            <div key={idx} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                              <span style={{ fontWeight: 600 }}>{bd.code}</span>
-                              <span>:</span>
-                              <span>{bd.amount?.toLocaleString('th-TH')}</span>
-                              <span>บาท</span>
-                              {bd.statusNote && <span style={{ opacity: 0.8 }}>— {bd.statusNote}</span>}
+                      </td>
+                      <td>
+                        {tx.service?.customerIdField && tx.service?.name ? (
+                          <span className={`service-badge ${
+                            tx.service.name === 'Facebook Ads' ? 'facebook' :
+                            tx.service.name === 'Google Ads' ? 'google' :
+                            'other'
+                          }`}>
+                            {tx.service.name === 'Facebook Ads' && <Facebook className="service-icon" />}
+                            {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
+                            <span className="service-id-text">{tx.service.customerIdField}</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="amount">{formatCurrency(tx.amount)}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${getBankBadgeClass(tx.bank)}`}>
+                          {getBankName(tx.bank)}
+                        </span>
+                      </td>
+                      <td>
+                        {tx.slipImage ? (
+                          <button
+                            className="btn-slip-view"
+                            onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
+                            title="ดูรายละเอียดสลิปโอนเงิน"
+                          >
+                            <Eye /> ดูสลิป
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              className="btn-slip-upload"
+                              onClick={() => triggerUploadFor(tx._id)}
+                              disabled={uploadingId === tx._id}
+                              title={uploadingId === tx._id ? 'กำลังอัปโหลดไฟล์สลิป...' : 'อัปโหลดสลิปโอนเงิน'}
+                            >
+                              {uploadingId === tx._id ? <span className="spinner" /> : <Upload />}
+                              {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
+                            </button>
+                            <input
+                              id={`slip-input-${tx._id}`}
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
+                            />
+                          </>
+                        )}
+                      </td>
+                      <td>
+                        <div className="notes-cell">
+                          {tx.notes && <div className="note-text">{tx.notes}</div>}
+                          {tx.breakdowns && tx.breakdowns.length > 0 && (
+                            <div className="breakdowns">
+                              {tx.breakdowns.map((bd, idx) => (
+                                <div key={idx} className="breakdown-item">
+                                  <span className="bd-code">{bd.code}</span>
+                                  <span className="bd-sep"> :</span>{' '}
+                                  <span className="bd-amount">{bd.amount?.toLocaleString('th-TH')} บาท</span>
+                                  {bd.statusNote && <span className="bd-status"> — {bd.statusNote}</span>}
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
+                          {!tx.notes && (!tx.breakdowns || tx.breakdowns.length === 0) && '-'}
                         </div>
-                      )}
-                      {!tx.notes && (!tx.breakdowns || tx.breakdowns.length === 0) && '-'}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => handleApprove(tx._id)}
-                        disabled={processingId === tx._id}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #22c55e',
-                          background: '#f0fdf4',
-                          color: '#16a34a',
-                          cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <CheckCircle /> อนุมัติ
-                      </button>
-                      <button
-                        onClick={() => handleReject(tx._id)}
-                        disabled={processingId === tx._id}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #ef4444',
-                          background: '#fef2f2',
-                          color: '#dc2626',
-                          cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <XCircle /> ปฏิเสธ
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.875rem' }}>
+                          <div style={{ fontWeight: '500', color: '#1e293b' }}>
+                            {tx.submittedBy?.name || '-'}
+                          </div>
+                          {tx.submittedAt && (
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                              {new Date(tx.submittedAt).toLocaleDateString('th-TH', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            onClick={() => handleApprove(tx._id)}
+                            disabled={processingId === tx._id}
+                            className="btn-submit-small"
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              border: '1px solid #22c55e',
+                              background: '#f0fdf4',
+                              color: '#16a34a',
+                              cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '0.875rem'
+                            }}
+                          >
+                            <CheckCircle /> อนุมัติ
+                          </button>
+                          <button
+                            onClick={() => handleReject(tx._id)}
+                            disabled={processingId === tx._id}
+                            className="btn-delete-small"
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              border: '1px solid #ef4444',
+                              background: '#fef2f2',
+                              color: '#dc2626',
+                              cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '0.875rem'
+                            }}
+                          >
+                            <XCircle /> ปฏิเสธ
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Slip Preview Modal */}
+      {viewSlip && (
+        <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }}>
+          <div className="modal-content slip-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
+              <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+                <XCircle />
+              </button>
+            </div>
+            <div className="modal-body slip-modal-body">
+              <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+            </div>
+            <div className="modal-footer slip-modal-footer">
+              <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
+              <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()}>
+                <Upload /> อัปโหลดภาพใหม่
+              </button>
+              <button className="btn-action-delete" onClick={handleDeleteSlip}>
+                ลบสลิป
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
