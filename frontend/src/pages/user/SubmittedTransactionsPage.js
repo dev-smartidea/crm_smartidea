@@ -273,7 +273,7 @@ export default function SubmittedTransactionsPage() {
                               {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
                               <span className="service-id-text">{tx.service.customerIdField}</span>
                             </span>
-                          ) : activeTab === 'submitted' ? (
+                          ) : (
                             <>
                               <button
                                 className="btn-slip-upload"
@@ -292,10 +292,6 @@ export default function SubmittedTransactionsPage() {
                                 onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
                               />
                             </>
-                          ) : (
-                            <span className="badge" style={{ background: '#f1f5f9', color: '#64748b', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                              ไม่มีสลิป
-                            </span>
                           )}
                         </td>
                         <td>
@@ -315,7 +311,7 @@ export default function SubmittedTransactionsPage() {
                             >
                               <Eye /> ดูสลิป
                             </button>
-                          ) : activeTab === 'submitted' ? (
+                          ) : (
                             <>
                               <button
                                 className="btn-slip-upload"
@@ -334,8 +330,6 @@ export default function SubmittedTransactionsPage() {
                                 onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
                               />
                             </>
-                          ) : (
-                            <span className="text-muted">-</span>
                           )}
                         </td>
                         <td>
