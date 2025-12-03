@@ -462,17 +462,35 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
 
     let transaction;
     if (user.role === 'admin') {
-      transaction = await Transaction.findByIdAndUpdate(req.params.id, update, { new: true });
+      transaction = await Transaction.findByIdAndUpdate(req.params.id, update, { new: true })
+        .populate({
+          path: 'serviceId',
+          select: 'name customerId',
+          populate: { path: 'customerId', select: 'name' }
+        });
     } else {
       transaction = await Transaction.findOneAndUpdate(
         { _id: req.params.id, userId: user.id },
         update,
         { new: true }
-      );
+      )
+        .populate({
+          path: 'serviceId',
+          select: 'name customerId',
+          populate: { path: 'customerId', select: 'name' }
+        });
     }
 
     if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
-    res.json(transaction);
+    
+    // จัดรูปแบบข้อมูลให้ตรงกับที่ frontend ต้องการ
+    const formatted = {
+      ...transaction.toObject(),
+      customerName: transaction.serviceId?.customerId?.name || '-',
+      serviceName: transaction.serviceId?.name || '-'
+    };
+    
+    res.json(formatted);
   } catch (err) {
     res.status(400).json({ error: 'Update failed', detail: err.message });
   }
