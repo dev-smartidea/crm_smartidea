@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Wallet, CashCoin, Google, Facebook, Eye, CheckCircleFill, XCircleFill, ClockFill, Upload } from 'react-bootstrap-icons';
+import { Wallet, CashCoin, Google, Facebook, Eye, CheckCircleFill, XCircleFill, ClockFill, Upload, PencilSquare, TrashFill, ExclamationTriangleFill, XCircle } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
 import '../shared/DashboardPage.css';
 import '../shared/ImageGalleryPage.css';
+import EditTransactionModal from '../../components/EditTransactionModal';
 
 export default function SubmittedTransactionsPage() {
   const [activeTab, setActiveTab] = useState('submitted'); // submitted, approved, rejected
@@ -11,6 +12,11 @@ export default function SubmittedTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  const [editTx, setEditTx] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [transactionToCancel, setTransactionToCancel] = useState(null);
   const pageSize = 6;
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -81,6 +87,46 @@ export default function SubmittedTransactionsPage() {
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('th-TH');
+  };
+
+  const askDelete = (txId) => {
+    setTransactionToDelete(txId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!transactionToDelete) return;
+    try {
+      await axios.delete(`${api}/api/transactions/${transactionToDelete}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTransactions(prev => prev.filter(t => t._id !== transactionToDelete));
+      setShowDeleteConfirm(false);
+      setTransactionToDelete(null);
+    } catch (err) {
+      alert('ลบไม่สำเร็จ');
+    }
+  };
+
+  const askCancel = (txId) => {
+    setTransactionToCancel(txId);
+    setShowCancelConfirm(true);
+  };
+
+  const confirmCancel = async () => {
+    if (!transactionToCancel) return;
+    try {
+      // Update transaction to remove submissionStatus (back to draft)
+      await axios.put(`${api}/api/transactions/${transactionToCancel}`, 
+        { submissionStatus: null },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setTransactions(prev => prev.filter(t => t._id !== transactionToCancel));
+      setShowCancelConfirm(false);
+      setTransactionToCancel(null);
+    } catch (err) {
+      alert('ยกเลิกไม่สำเร็จ');
+    }
   };
 
   const getBankBadgeClass = (bank) => {
@@ -356,10 +402,24 @@ export default function SubmittedTransactionsPage() {
                         </td>
                         <td>
                           {activeTab === 'submitted' && (
-                            <span className="badge" style={{ background: '#e6f4ff', color: '#0b6ef6', padding: '6px 10px', borderRadius: '6px', border: '1px solid #b9d8ff' }}>
-                              <ClockFill size={14} style={{ marginRight: '4px' }} />
-                              รอพิจารณา
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span className="badge" style={{ background: '#e6f4ff', color: '#0b6ef6', padding: '6px 10px', borderRadius: '6px', border: '1px solid #b9d8ff' }}>
+                                <ClockFill size={14} style={{ marginRight: '4px' }} />
+                                รอพิจารณา
+                              </span>
+                              <button
+                                className="btn-cancel"
+                                title="ยกเลิกการส่ง"
+                                onClick={() => askCancel(tx._id)}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                                  background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 8,
+                                  padding: '6px 10px', cursor: 'pointer'
+                                }}
+                              >
+                                <XCircle size={16} /> ยกเลิก
+                              </button>
+                            </div>
                           )}
                           {activeTab === 'approved' && (
                             <span className="badge" style={{ background: '#f0fdf4', color: '#16a34a', padding: '6px 10px', borderRadius: '6px', border: '1px solid #86efac' }}>
@@ -368,10 +428,36 @@ export default function SubmittedTransactionsPage() {
                             </span>
                           )}
                           {activeTab === 'rejected' && (
-                            <span className="badge" style={{ background: '#fef2f2', color: '#dc2626', padding: '6px 10px', borderRadius: '6px', border: '1px solid #fecaca' }}>
-                              <XCircleFill size={14} style={{ marginRight: '4px' }} />
-                              ปฏิเสธ
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span className="badge" style={{ background: '#fef2f2', color: '#dc2626', padding: '6px 10px', borderRadius: '6px', border: '1px solid #fecaca' }}>
+                                <XCircleFill size={14} style={{ marginRight: '4px' }} />
+                                ปฏิเสธ
+                              </span>
+                              <button
+                                className="btn-edit"
+                                title="แก้ไขรายการ"
+                                onClick={() => setEditTx(tx)}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                                  background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8,
+                                  padding: '6px 10px', cursor: 'pointer'
+                                }}
+                              >
+                                <PencilSquare size={16} /> แก้ไข
+                              </button>
+                              <button
+                                className="btn-delete"
+                                title="ลบรายการ"
+                                onClick={() => askDelete(tx._id)}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                                  background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8,
+                                  padding: '6px 10px', cursor: 'pointer'
+                                }}
+                              >
+                                <TrashFill size={16} /> ลบ
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -465,6 +551,76 @@ export default function SubmittedTransactionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <div className="modal-header">
+              <ExclamationTriangleFill />
+              <h3>ยืนยันการยกเลิก</h3>
+            </div>
+            <div className="modal-body">
+              คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการส่งรายการนี้? รายการจะกลับไปอยู่ในหน้ารายการทั้งหมด
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowCancelConfirm(false)}>
+                <XCircle /> ยกเลิก
+              </button>
+              <button className="btn btn-danger" onClick={confirmCancel}>
+                ยืนยันยกเลิกการส่ง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <div className="modal-header">
+              <ExclamationTriangleFill />
+              <h3>ยืนยันการลบ</h3>
+            </div>
+            <div className="modal-body">
+              คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้? การกระทำนี้ไม่สามารถย้อนกลับได้
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)}>
+                <XCircle /> ยกเลิก
+              </button>
+              <button className="btn btn-danger" onClick={confirmDelete}>
+                ยืนยันลบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {editTx && (
+        <EditTransactionModal
+          open={!!editTx}
+          onClose={() => setEditTx(null)}
+          transaction={editTx}
+          token={token}
+          api={api}
+          onSaved={(updated) => {
+            setTransactions(prev => prev.map(t => (
+              t._id === updated._id ? {
+                ...updated,
+                service: updated.serviceId || {},
+                customer: updated.serviceId?.customerId || {}
+              } : t
+            )));
+          }}
+          onResubmitted={(updated) => {
+            // Remove from rejected list when resubmitted
+            setTransactions(prev => prev.filter(t => t._id !== updated._id));
+          }}
+        />
       )}
     </div>
   );

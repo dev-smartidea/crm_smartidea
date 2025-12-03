@@ -1,8 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const Customer = require('../models/Customer');
+const Service = require('../models/Service');
+const Transaction = require('../models/Transaction');
+const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
+const Image = require('../models/Image');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 
 router.get('/', async (req, res) => {
   try {
@@ -113,10 +119,56 @@ router.get('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    // Optional: Add check to ensure user can only delete their own customer
-    await Customer.findByIdAndDelete(req.params.id);
-    res.json({ message: '✅ ลบลูกค้าสำเร็จ' });
+    const customerId = req.params.id;
+    
+    // 1. ค้นหา Services ทั้งหมดของลูกค้า
+    const services = await Service.find({ customerId });
+    const serviceIds = services.map(s => s._id);
+    
+    // 2. ลบ Transactions ที่เกี่ยวข้องกับ Services เหล่านี้
+    if (serviceIds.length > 0) {
+      const transactions = await Transaction.find({ serviceId: { $in: serviceIds } });
+      
+      // ลบไฟล์สลิปของ Transactions
+      for (const tx of transactions) {
+        if (tx.slipImage) {
+          const slipPath = path.join(__dirname, '..', tx.slipImage);
+          if (fs.existsSync(slipPath)) {
+            fs.unlinkSync(slipPath);
+          }
+        }
+      }
+      
+      await Transaction.deleteMany({ serviceId: { $in: serviceIds } });
+    }
+    
+    // 3. ลบ Activities ที่เกี่ยวข้องกับลูกค้า
+    await Activity.deleteMany({ customerId });
+    
+    // 4. ลบ Notifications ที่เกี่ยวข้องกับลูกค้า
+    await Notification.deleteMany({ relatedCustomerId: customerId });
+    
+    // 5. ลบ Images ที่เกี่ยวข้องกับลูกค้าและไฟล์จริง
+    const images = await Image.find({ customerId });
+    for (const img of images) {
+      if (img.url) {
+        const imgPath = path.join(__dirname, '..', img.url);
+        if (fs.existsSync(imgPath)) {
+          fs.unlinkSync(imgPath);
+        }
+      }
+    }
+    await Image.deleteMany({ customerId });
+    
+    // 6. ลบ Services ทั้งหมดของลูกค้า
+    await Service.deleteMany({ customerId });
+    
+    // 7. ลบลูกค้า
+    await Customer.findByIdAndDelete(customerId);
+    
+    res.json({ message: '✅ ลบลูกค้าและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ' });
   } catch (err) {
+    console.error('Delete customer error:', err);
     res.status(400).json({ error: err.message });
   }
 });

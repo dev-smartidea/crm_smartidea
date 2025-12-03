@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send } from 'react-bootstrap-icons';
+import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send, PencilSquare } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
 import '../shared/DashboardPage.css'; // reuse service-badge styles
 import './TransactionHistoryPage.css'; // reuse slip upload button styles
 import '../shared/ImageGalleryPage.css'; // reuse combobox and search styles to match gallery
 import './CustomerServicesPage.css'; // reuse svc-modal styles for create form
+import EditTransactionModal from '../../components/EditTransactionModal';
 
 export default function AllTransactionPage() {
   const [transactions, setTransactions] = useState([]);
@@ -30,6 +31,7 @@ export default function AllTransactionPage() {
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null); // อัปโหลดสลิปรายแถว
   const [submittingId, setSubmittingId] = useState(null); // ส่งรายการให้บัญชี
+  const [editTx, setEditTx] = useState(null); // รายการที่กำลังแก้ไข
   const [form, setForm] = useState({
     customerId: '',
     serviceId: '',
@@ -160,13 +162,27 @@ export default function AllTransactionPage() {
 
       // จัดรูปแบบข้อมูล transactions พร้อม customer และ service
       const allTransactions = transactionsRes.data.transactions || transactionsRes.data;
-      const formattedTransactions = allTransactions.map(tx => ({
-        ...tx,
-        service: tx.serviceId || {},
-        // ใช้ customerId จาก service (populate) ให้เหมือนมุมมองใน TransactionHistoryPage
-        customer: tx.serviceId?.customerId || {}
-      }));
+      console.log('All transactions from API:', allTransactions.length);
+      console.log('Sample transaction:', allTransactions[0]);
+      
+      const formattedTransactions = allTransactions
+        .filter(tx => {
+          // แสดงเฉพาะรายการที่ยังไม่ส่ง (null/undefined/none) หรือถูกปฏิเสธ (rejected)
+          // ไม่แสดง: submitted (รอการอนุมัติ) และ approved (อนุมัติแล้ว)
+          const shouldShow = !tx.submissionStatus || tx.submissionStatus === 'none' || tx.submissionStatus === 'rejected';
+          if (!shouldShow) {
+            console.log('Filtered out:', tx._id, 'status:', tx.submissionStatus);
+          }
+          return shouldShow;
+        })
+        .map(tx => ({
+          ...tx,
+          service: tx.serviceId || {},
+          // ใช้ customerId จาก service (populate) ให้เหมือนมุมมองใน TransactionHistoryPage
+          customer: tx.serviceId?.customerId || {}
+        }));
 
+      console.log('Formatted transactions to show:', formattedTransactions.length);
       setTransactions(formattedTransactions);
       setFilteredTransactions(formattedTransactions);
     } catch (error) {
@@ -192,7 +208,10 @@ export default function AllTransactionPage() {
     e.preventDefault();
     
     // กรองข้อมูล client-side ตาม selectedCustomerId และ serviceFilter
-    let filtered = [...transactions];
+    // แสดงเฉพาะรายการที่ยังไม่ส่ง หรือถูกปฏิเสธ
+    let filtered = transactions.filter(tx => {
+      return !tx.submissionStatus || tx.submissionStatus === 'none' || tx.submissionStatus === 'rejected';
+    });
     
     // กรองตามลูกค้า
     if (selectedCustomerId) {
@@ -238,7 +257,7 @@ export default function AllTransactionPage() {
         formData.append('breakdowns', JSON.stringify(cleaned));
       }
 
-      await axios.post(
+      const res = await axios.post(
         `${api}/api/services/${form.serviceId}/transactions`,
         formData,
         {
@@ -251,7 +270,8 @@ export default function AllTransactionPage() {
 
       setShowCreateForm(false);
       resetForm();
-      fetchAllData();
+      // Refresh ข้อมูลทั้งหมดเพื่อให้แน่ใจว่ารายการใหม่แสดงผล
+      await fetchAllData();
     } catch (error) {
       console.error('Error creating transaction:', error);
       alert('ไม่สามารถเพิ่มรายการได้');
@@ -651,8 +671,10 @@ export default function AllTransactionPage() {
                   {(() => {
                     const startIndex = (currentPage - 1) * pageSize;
                     const pageItems = filteredTransactions.slice(startIndex, startIndex + pageSize);
-                    return pageItems.map((tx) => (
-                    <tr key={tx._id}>
+                    return pageItems.map((tx) => {
+                      const isRejected = tx.submissionStatus === 'rejected';
+                      return (
+                    <tr key={tx._id} className={isRejected ? 'rejected-transaction' : ''}>
                       <td>{formatDate(tx.transactionDate)}</td>
                       <td>
                         <div className="customer-info">
@@ -736,6 +758,14 @@ export default function AllTransactionPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            className="btn-edit-small"
+                            onClick={() => setEditTx(tx)}
+                            title="แก้ไขรายการ"
+                            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d3d8e2', background: '#f8f9fa', color: '#334155' }}
+                          >
+                            <PencilSquare />
+                          </button>
                           {tx.submissionStatus === 'submitted' ? (
                             <span className="badge" style={{ background: '#e6f4ff', color: '#0b6ef6', padding: '6px 10px', borderRadius: '6px', border: '1px solid #b9d8ff' }}>ส่งแล้ว</span>
                           ) : (
@@ -762,7 +792,8 @@ export default function AllTransactionPage() {
                         </div>
                       </td>
                     </tr>
-                    ));
+                    );
+                    });
                   })()}
                 </tbody>
               </table>
@@ -1030,6 +1061,38 @@ export default function AllTransactionPage() {
 
       {/* View Slip Modal */}
       {viewSlip && <SlipViewModal />}
+
+      {/* Edit Transaction Modal */}
+      {editTx && (
+        <EditTransactionModal
+          open={!!editTx}
+          onClose={() => setEditTx(null)}
+          transaction={editTx}
+          token={token}
+          api={api}
+          onSaved={(updated) => {
+            // Update transaction in the list
+            setTransactions(prev => prev.map(t => (
+              t._id === updated._id ? {
+                ...updated,
+                service: updated.serviceId || {},
+                customer: updated.serviceId?.customerId || {}
+              } : t
+            )));
+            setFilteredTransactions(prev => prev.map(t => (
+              t._id === updated._id ? {
+                ...updated,
+                service: updated.serviceId || {},
+                customer: updated.serviceId?.customerId || {}
+              } : t
+            )));
+          }}
+          onResubmitted={(updated) => {
+            // Remove from list when resubmitted (goes to submitted status)
+            fetchAllData();
+          }}
+        />
+      )}
     </div>
   );
 }

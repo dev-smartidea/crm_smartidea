@@ -677,3 +677,11 @@
     width: 100%;
   }
 }
+
+/* Rejected transaction highlight */
+.rejected-transaction {
+  background-color: #ffe5e5 !important;
+}
+.rejected-transaction:hover {
+  background-color: #ffd5d5 !important;
+}
