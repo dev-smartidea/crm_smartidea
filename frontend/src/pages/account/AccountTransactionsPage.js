@@ -12,6 +12,11 @@ export default function AccountTransactionsPage() {
   const [processingId, setProcessingId] = useState(null);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  
+  // Pagination
+  const pageSize = 6;
+  const [currentPage, setCurrentPage] = useState(1);
+  
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
@@ -152,6 +157,12 @@ export default function AccountTransactionsPage() {
 
   const totalAmount = items.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
+  // Pagination
+  const totalPages = Math.ceil(items.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pageItems = items.slice(startIndex, endIndex);
+
   if (loading) {
     return (
       <div className="all-transaction-page fade-up">
@@ -222,7 +233,7 @@ export default function AccountTransactionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(tx => (
+                  {pageItems.map(tx => (
                     <tr key={tx._id}>
                       <td>{formatDate(tx.transactionDate)}</td>
                       <td>
@@ -367,7 +378,29 @@ export default function AccountTransactionsPage() {
               </table>
             </div>
           )}
-        </div>
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  ← ก่อนหน้า
+                </button>
+                <div className="pagination-info">
+                  หน้า {currentPage} จาก {totalPages}
+                </div>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  ถัดไป →
+                </button>
+              </div>
+            )}
+          </div>
+        
       </div>
 
       {/* Slip Preview Modal */}

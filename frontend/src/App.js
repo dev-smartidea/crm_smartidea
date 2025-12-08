@@ -15,6 +15,7 @@ import AccountDashboardPage from './pages/shared/AccountDashboardPage';
 import AccountTransactionsPage from './pages/account/AccountTransactionsPage';
 import ApprovedTransactionsPage from './pages/account/ApprovedTransactionsPage';
 import AccountDashboardLayout from './components/AccountDashboardLayout';
+import AccountCardsPage from './pages/account/AccountCardsPage';
 import UserDetailPage from './pages/user/UserDetailPage';
 import ProfilePage from './pages/user/ProfilePage';
 import NotificationPage from './pages/shared/NotificationPage';
@@ -59,7 +60,11 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            token ? <DashboardLayout /> : <Navigate to="/login" />
+            token
+              ? (getRoleFromToken() === 'account'
+                  ? <Navigate to="/dashboard/account" />
+                  : <DashboardLayout />)
+              : <Navigate to="/login" />
           }
         >
           <Route index element={<DashboardPage />} />
@@ -97,6 +102,7 @@ function App() {
         >
           <Route index element={<AccountDashboardPage />} />
           <Route path="notifications" element={<NotificationPage />} />
+          <Route path="cards" element={<AccountCardsPage />} />
           <Route path="alltransactions" element={<AccountTransactionsPage />} />
           <Route path="approved" element={<ApprovedTransactionsPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
