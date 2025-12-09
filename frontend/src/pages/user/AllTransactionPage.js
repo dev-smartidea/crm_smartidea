@@ -257,7 +257,7 @@ export default function AllTransactionPage() {
         formData.append('breakdowns', JSON.stringify(cleaned));
       }
 
-      const res = await axios.post(
+      await axios.post(
         `${api}/api/services/${form.serviceId}/transactions`,
         formData,
         {

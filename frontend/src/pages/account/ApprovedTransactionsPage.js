@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { CheckCircleFill, Google, Facebook, Search, CashCoin, Wallet } from 'react-bootstrap-icons';
+import { CheckCircleFill, Google, Facebook, Search, CashCoin, Wallet, Eye, Upload, XCircle } from 'react-bootstrap-icons';
 import './ApprovedTransactionsPage.css';
 import '../shared/DashboardPage.css';
 import '../shared/ImageGalleryPage.css';
@@ -10,6 +10,8 @@ export default function ApprovedTransactionsPage() {
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewSlip, setViewSlip] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
   
   // Pagination
   const pageSize = 6;
@@ -25,6 +27,55 @@ export default function ApprovedTransactionsPage() {
   
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
+
+  const triggerUploadFor = (txId) => {
+    const el = document.getElementById(`slip-input-${txId}`);
+    if (el) el.click();
+  };
+
+  const handleInlineSlipChange = async (txId, file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      return;
+    }
+    try {
+      setUploadingId(txId);
+      const formData = new FormData();
+      formData.append('slipImage', file);
+
+      const res = await axios.put(`${api}/api/transactions/${txId}`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchAllData();
+      return res.data;
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || 'อัปโหลดสลิปไม่สำเร็จ';
+      alert(msg);
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleModalUploadChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (file && viewSlip?.id) {
+      const updatedTx = await handleInlineSlipChange(viewSlip.id, file);
+      if (updatedTx && updatedTx.slipImage) setViewSlip({ id: viewSlip.id, url: updatedTx.slipImage });
+      else setViewSlip(null);
+    }
+  };
+
+  const handleDeleteSlip = async () => {
+    if (!viewSlip?.id) return;
+    try {
+      await axios.delete(`${api}/api/transactions/${viewSlip.id}/slip`, { headers: { Authorization: `Bearer ${token}` } });
+      fetchAllData();
+      setViewSlip(null);
+    } catch (err) {
+      alert('ลบสลิปไม่สำเร็จ');
+    }
+  };
 
   const fetchAllData = useCallback(async () => {
     try {
@@ -264,7 +315,9 @@ export default function ApprovedTransactionsPage() {
                     <th>บริการ</th>
                     <th>จำนวนเงิน</th>
                     <th>ธนาคาร</th>
+                    <th>สลิป</th>
                     <th>หมายเหตุ</th>
+                    <th>ผู้ส่ง</th>
                     <th>สถานะ</th>
                   </tr>
                 </thead>
@@ -295,6 +348,36 @@ export default function ApprovedTransactionsPage() {
                         </span>
                       </td>
                       <td>
+                        {tx.slipImage ? (
+                          <button
+                            className="btn-slip-view"
+                            onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
+                            title="ดูรายละเอียดสลิปโอนเงิน"
+                          >
+                            <Eye /> ดูสลิป
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              className="btn-slip-upload"
+                              onClick={() => triggerUploadFor(tx._id)}
+                              disabled={uploadingId === tx._id}
+                              title={uploadingId === tx._id ? 'กำลังอัปโหลดไฟล์สลิป...' : 'อัปโหลดสลิปโอนเงิน'}
+                            >
+                              {uploadingId === tx._id ? <span className="spinner" /> : <Upload />}
+                              {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
+                            </button>
+                            <input
+                              id={`slip-input-${tx._id}`}
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
+                            />
+                          </>
+                        )}
+                      </td>
+                      <td>
                         <div className="notes-cell">
                           {tx.notes && (
                             <div className="notes-text">{tx.notes}</div>
@@ -313,6 +396,24 @@ export default function ApprovedTransactionsPage() {
                             </div>
                           )}
                           {!tx.notes && (!tx.breakdowns || tx.breakdowns.length === 0) && '-'}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.875rem' }}>
+                          <div style={{ fontWeight: '500', color: '#1e293b' }}>
+                            {tx.submittedBy?.name || '-'}
+                          </div>
+                          {tx.submittedAt && (
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                              {new Date(tx.submittedAt).toLocaleDateString('th-TH', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -349,6 +450,32 @@ export default function ApprovedTransactionsPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Slip Modal */}
+        {viewSlip && (
+          <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }}>
+            <div className="modal-content slip-modal" onClick={e => e.stopPropagation()}>
+              <div className="modal-header" style={{ justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
+                <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+                  <XCircle />
+                </button>
+              </div>
+              <div className="modal-body slip-modal-body">
+                <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+              </div>
+              <div className="modal-footer slip-modal-footer">
+                <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
+                <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()}>
+                  <Upload /> อัปโหลดภาพใหม่
+                </button>
+                <button className="btn-action-delete" onClick={handleDeleteSlip}>
+                  ลบสลิป
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

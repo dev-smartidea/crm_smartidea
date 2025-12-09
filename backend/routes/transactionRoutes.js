@@ -461,7 +461,7 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     }
 
     let transaction;
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'account') {
       transaction = await Transaction.findByIdAndUpdate(req.params.id, update, { new: true })
         .populate({
           path: 'serviceId',

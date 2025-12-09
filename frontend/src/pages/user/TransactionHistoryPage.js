@@ -16,30 +16,16 @@ export default function TransactionHistoryPage() {
     // Pagination state
     const pageSize = 6;
     const [currentPage, setCurrentPage] = useState(1);
-    const [searchText, setSearchText] = useState('');
     const [filteredTransactions, setFilteredTransactions] = useState([]);
-    // Whenever transactions or searchText changes, update filteredTransactions
+    // Whenever transactions changes, update filteredTransactions
     useEffect(() => {
-      if (!searchText) {
+      if (!transactions || transactions.length === 0) {
         setFilteredTransactions(transactions);
       } else {
-        // ตัวอย่าง: filter จากชื่อลูกค้า/หมายเหตุ/ธนาคาร/บริการ (แก้ไขตาม field จริง)
-        setFilteredTransactions(transactions.filter(tx => {
-          const lower = searchText.toLowerCase();
-          return (
-            (tx.customerName && tx.customerName.toLowerCase().includes(lower)) ||
-            (tx.notes && tx.notes.toLowerCase().includes(lower)) ||
-            (tx.bank && tx.bank.toLowerCase().includes(lower)) ||
-            (tx.serviceName && tx.serviceName.toLowerCase().includes(lower))
-          );
-        }));
+        setFilteredTransactions(transactions);
       }
       setCurrentPage(1); // reset page when filter changes
-    }, [transactions, searchText]);
-    // Handler for search box
-    const handleSearchChange = (e) => {
-      setSearchText(e.target.value);
-    };
+    }, [transactions]);
   // Removed duplicate declarations of serviceId, service, transactions
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
