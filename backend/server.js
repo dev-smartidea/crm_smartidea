@@ -54,6 +54,10 @@ app.use('/api', notificationRoutes); // เส้นทางจะเป็น 
 const imageRoutes = require('./routes/imageRoutes');
 app.use('/api', imageRoutes); // เส้นทางจะเป็น /api/images
 
+// ✅ Card (prepaid) routes
+const cardRoutes = require('./routes/cardRoutes');
+app.use('/api', cardRoutes); // เส้นทางจะเป็น /api/cards
+
 // ✅ Activity routes (กิจกรรม)
 const activityRoutes = require('./routes/activityRoutes');
 app.use('/api', activityRoutes); // เส้นทางจะเป็น /api/customers/:customerId/activities, /api/activities/:id
