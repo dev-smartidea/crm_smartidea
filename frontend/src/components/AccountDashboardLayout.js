@@ -62,7 +62,6 @@ export default function AccountDashboardLayout() {
                 {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
               </NavLink>
             </li>
-            <li><NavLink to="images"><Image /> รูปภาพ</NavLink></li>
             <li><NavLink to="profile"><PersonCircle /> โปรไฟล์</NavLink></li>
           </ul>
           <div className="logout-section">
