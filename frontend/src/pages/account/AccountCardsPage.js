@@ -43,6 +43,7 @@ export default function AccountCardsPage() {
         const res = await axios.get(`${api}/api/cards`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
+        console.log('Fetched cards:', res.data);
         setCards(res.data || []);
         setError('');
       } catch (err) {
@@ -158,36 +159,43 @@ export default function AccountCardsPage() {
   };
 
   const openEditCard = (card) => {
+    console.log('Opening edit for card:', card, 'channels:', card.channels);
+    setError(''); // Clear error first
     setEditCardForm({
-      displayName: card.displayName,
-      last4: card.last4,
-      status: card.status,
-      channels: card.channels || []
+      displayName: card.displayName || '',
+      last4: card.last4 || '',
+      status: card.status || 'active',
+      channels: (card.channels && card.channels.length > 0) ? card.channels : []
     });
     setShowEditCard(card._id);
-    setError('');
   };
+
+  useEffect(() => {
+    if (showEditCard && editCardForm.channels && editCardForm.channels.length > 0) {
+      console.log('Edit form channels:', editCardForm.channels);
+    }
+  }, [showEditCard, editCardForm.channels]);
 
   const toggleEditChannel = (channel) => {
     setEditCardForm(prev => {
       const exists = prev.channels.includes(channel);
       const channels = exists ? prev.channels.filter(c => c !== channel) : [...prev.channels, channel];
+      console.log('Toggle channel, now channels:', channels);
       return { ...prev, channels };
     });
   };
 
   const submitEditCard = async () => {
+    console.log('submitEditCard - editCardForm:', editCardForm);
     if (!editCardForm.displayName.trim() || !editCardForm.last4.trim()) {
       setError('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
-    if (!editCardForm.channels || editCardForm.channels.length === 0) {
-      setError('เลือกแพลตฟอร์มอย่างน้อย 1 รายการ');
-      return;
-    }
+    const channelsArray = Array.isArray(editCardForm.channels) ? editCardForm.channels : [];
+    // อนุญาตให้ไม่เลือกแพลตฟอร์มได้ (จะไปแสดงว่า "ไม่ได้ระบุแพลตฟอร์ม")
     setSubmitting(true);
     try {
-      await axios.put(`${api}/api/cards/${showEditCard}`, editCardForm, {
+      await axios.put(`${api}/api/cards/${showEditCard}`, { ...editCardForm, channels: channelsArray }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setShowEditCard(null);
@@ -428,29 +436,33 @@ export default function AccountCardsPage() {
               <div className="field">
                 <span className="field-label">แพลตฟอร์มที่ใช้ <span className="req">*</span></span>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  {['Google Ads', 'Facebook Ads'].map(ch => (
-                    <button
-                      key={ch}
-                      type="button"
-                      onClick={() => toggleEditChannel(ch)}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '10px 12px',
-                        borderRadius: '10px',
-                        border: editCardForm.channels.includes(ch) ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                        background: editCardForm.channels.includes(ch) ? '#eff6ff' : '#fff',
-                        color: '#0f172a',
-                        cursor: 'pointer',
-                        boxShadow: editCardForm.channels.includes(ch) ? '0 6px 14px rgba(37,99,235,0.18)' : 'none'
-                      }}
-                    >
-                      {ch === 'Google Ads' && <Google />}
-                      {ch === 'Facebook Ads' && <Facebook />}
-                      <span>{ch}</span>
-                    </button>
-                  ))}
+                  {['Google Ads', 'Facebook Ads'].map(ch => {
+                    const isSelected = Array.isArray(editCardForm.channels) && editCardForm.channels.includes(ch);
+                    console.log(`Button ${ch}: isSelected=${isSelected}, channels=`, editCardForm.channels);
+                    return (
+                      <button
+                        key={ch}
+                        type="button"
+                        onClick={() => toggleEditChannel(ch)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: isSelected ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                          background: isSelected ? '#eff6ff' : '#fff',
+                          color: '#0f172a',
+                          cursor: 'pointer',
+                          boxShadow: isSelected ? '0 6px 14px rgba(37,99,235,0.18)' : 'none'
+                        }}
+                      >
+                        {ch === 'Google Ads' && <Google />}
+                        {ch === 'Facebook Ads' && <Facebook />}
+                        <span>{ch}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               {error && <div className="inline-error">⚠️ {error}</div>}
