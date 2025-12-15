@@ -334,20 +334,22 @@ export default function AccountTransactionsPage() {
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button
                             onClick={() => handleApprove(tx._id)}
-                            disabled={processingId === tx._id}
+                            disabled={processingId === tx._id || !tx.slipImage}
                             className="btn-submit-small"
                             style={{
                               padding: '6px 12px',
                               borderRadius: '6px',
                               border: '1px solid #22c55e',
-                              background: '#f0fdf4',
-                              color: '#16a34a',
-                              cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
+                              background: !tx.slipImage ? '#e5e7eb' : '#f0fdf4',
+                              color: !tx.slipImage ? '#9ca3af' : '#16a34a',
+                              cursor: (processingId === tx._id || !tx.slipImage) ? 'not-allowed' : 'pointer',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '6px',
-                              fontSize: '0.875rem'
+                              fontSize: '0.875rem',
+                              opacity: !tx.slipImage ? 0.5 : 1
                             }}
+                            title={!tx.slipImage ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
                           >
                             <CheckCircle /> อนุมัติ
                           </button>

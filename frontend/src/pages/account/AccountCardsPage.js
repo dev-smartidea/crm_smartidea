@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { CreditCard2BackFill, Google, Facebook, DashCircle, PlusCircle } from 'react-bootstrap-icons';
+import { CreditCard2BackFill, Google, Facebook, DashCircle, PlusCircle, Trash2 } from 'react-bootstrap-icons';
+import './AccountCardsPage.css';
 
-const channelBadge = {
-  'Google Ads': { background: '#e8f0fe', color: '#1a73e8', icon: <Google style={{ marginRight: 6 }} /> },
-  'Facebook Ads': { background: '#e8f1ff', color: '#1877f2', icon: <Facebook style={{ marginRight: 6 }} /> }
+const CHANNEL_OPTIONS = ['Google Ads', 'Facebook Ads', 'Other'];
+
+const channelMeta = {
+  'Google Ads': { label: 'Google Ads', icon: <Google />, tone: 'google' },
+  'Facebook Ads': { label: 'Facebook Ads', icon: <Facebook />, tone: 'facebook' },
+  Other: { label: 'Other', icon: null, tone: 'other' }
 };
 
 export default function AccountCardsPage() {
@@ -16,26 +20,36 @@ export default function AccountCardsPage() {
   const [formChannel, setFormChannel] = useState('Google Ads');
   const [formReference, setFormReference] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [newCardForm, setNewCardForm] = useState({ displayName: '', last4: '', status: 'active' });
   const api = process.env.REACT_APP_API_URL;
 
-  const fetchCards = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${api}/api/cards`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      setCards(res.data || []);
-      setError('');
-    } catch (err) {
-      setError('โหลดข้อมูลบัตรไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const totals = useMemo(() => ({
+    totalCards: cards.length,
+    totalBalance: cards.reduce((sum, c) => sum + (c.balance || 0), 0),
+    google: cards.filter(c => c.channels?.includes('Google Ads')).length,
+    facebook: cards.filter(c => c.channels?.includes('Facebook Ads')).length
+  }), [cards]);
 
   useEffect(() => {
+    const fetchCards = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get(`${api}/api/cards`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        setCards(res.data || []);
+        setError('');
+      } catch (err) {
+        setError('โหลดข้อมูลบัตรไม่สำเร็จ');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCards();
-  }, []);
+  }, [api]);
 
   const openAction = (cardId, type) => {
     setActionCard({ cardId, type });
@@ -69,11 +83,14 @@ export default function AccountCardsPage() {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
-      await fetchCards();
       setActionCard(null);
       setFormAmount('');
       setFormReference('');
       setError('');
+      const res = await axios.get(`${api}/api/cards`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setCards(res.data || []);
     } catch (err) {
       setError(err.response?.data?.error || 'ดำเนินการไม่สำเร็จ');
     } finally {
@@ -81,177 +98,296 @@ export default function AccountCardsPage() {
     }
   };
 
-  return (
-    <div className="all-transaction-page">
-      <div className="transaction-container">
-        <div className="page-header">
-          <div className="header-content">
-            <div className="header-title-group">
-              <div className="page-header-icon">
-                <CreditCard2BackFill />
-              </div>
-              <div>
-                <h1>บัตร</h1>
-                <p className="subtitle">รายการบัตรที่ใช้ตัดเงินและแพลตฟอร์มที่ผูกไว้</p>
-              </div>
-            </div>
-          </div>
-        </div>
+  const submitAddCard = async () => {
+    if (!newCardForm.displayName.trim() || !newCardForm.last4.trim()) {
+      setError('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await axios.post(`${api}/api/cards`, newCardForm, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setShowAddCard(false);
+      setNewCardForm({ displayName: '', last4: '', status: 'active' });
+      setError('');
+      const res = await axios.get(`${api}/api/cards`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setCards(res.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'เพิ่มบัตรไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-        <div style={{ padding: '24px' }}>
-          {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
-          {loading ? (
-            <div>กำลังโหลด...</div>
-          ) : (
-            <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+  const submitDeleteCard = async (cardId) => {
+    setSubmitting(true);
+    try {
+      await axios.delete(`${api}/api/cards/${cardId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setShowDeleteConfirm(null);
+      setError('');
+      const res = await axios.get(`${api}/api/cards`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setCards(res.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'ลบบัตรไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="cards-shell">
+      <div className="cards-hero">
+        <div className="cards-hero-icon"><CreditCard2BackFill /></div>
+        <div>
+          <h1 className="cards-title">บัตร</h1>
+          <p className="cards-subtitle">จัดการบัตรตัดยอดและแพลตฟอร์มที่เชื่อมต่อ</p>
+        </div>
+        <button className="cards-hero-btn" onClick={() => { setShowAddCard(true); setError(''); }}>
+          <PlusCircle /> เพิ่มบัตร
+        </button>
+      </div>
+
+      <div className="cards-surface">
+        {error && <div className="cards-error">{error}</div>}
+
+        {loading ? (
+          <div className="cards-loading">
+            <div className="cards-loading-spinner" />
+            <div>กำลังโหลดข้อมูล...</div>
+          </div>
+        ) : (
+          <>
+            <div className="cards-summary-grid">
+              <SummaryCard label="จำนวนบัตรทั้งหมด" value={totals.totalCards} tone="a" note="บัตร" />
+              <SummaryCard label="ยอดคงเหลือรวม" value={totals.totalBalance.toLocaleString()} tone="b" note="บาท" />
+              <SummaryCard label="Google Ads" value={totals.google} tone="c" note="บัตร" />
+              <SummaryCard label="Facebook Ads" value={totals.facebook} tone="d" note="บัตร" />
+            </div>
+
+            <div className="cards-grid">
               {cards.map(card => (
-                <div key={card._id} style={{
-                  border: '1px solid #e5e7eb',
-                  borderRadius: 12,
-                  padding: '16px',
-                  background: '#fff',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                    <div style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      background: '#f0f4ff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: 12,
-                      color: '#1a237e',
-                      fontWeight: 700
-                    }}>
-                      {card.last4}
+                <div key={card._id} className="card-panel">
+                  <div className="card-top">
+                    <div className="card-chip">{card.last4}</div>
+                    <div className="card-headings">
+                      <div className="card-label">{card.displayName || `บัตรลงท้าย ${card.last4}`}</div>
+                      <span className={`pill ${card.status === 'active' ? 'pill-live' : 'pill-off'}`}>
+                        {card.status === 'active' ? 'พร้อมใช้งาน' : 'ปิดใช้งาน'}
+                      </span>
                     </div>
-                    <div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#111827' }}>{card.displayName || `บัตรลงท้าย ${card.last4}`}</div>
-                      <div style={{ color: '#6b7280', fontSize: 13 }}>สถานะ: {card.status === 'active' ? 'ใช้งาน' : 'ปิดใช้งาน'}</div>
-                      <div style={{ color: '#111827', fontWeight: 700 }}>ยอดคงเหลือ: {card.balance?.toLocaleString()} ฿</div>
-                    </div>
+                    <div className="card-dots" />
                   </div>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                    {card.channels?.length > 0 ? card.channels.map(ch => (
-                      <span key={ch} style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '6px 10px',
-                        borderRadius: 999,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        background: channelBadge[ch]?.background || '#f3f4f6',
-                        color: channelBadge[ch]?.color || '#6b7280'
-                      }}>
-                        {channelBadge[ch]?.icon}
-                        {ch}
-                      </span>
-                    )) : (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '6px 10px',
-                        borderRadius: 999,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        background: '#f3f4f6',
-                        color: '#6b7280'
-                      }}>
-                        ไม่ได้ระบุแพลตฟอร์ม
-                      </span>
+                  <div className="card-balance-row">
+                    <div>
+                      <p className="muted">ยอดคงเหลือ</p>
+                      <div className="value-xxl">{card.balance?.toLocaleString() || '0'} <span className="muted">฿</span></div>
+                    </div>
+                    <div className="balance-crest" />
+                  </div>
+
+                  <div className="card-channels">
+                    {card.channels?.length ? (
+                      card.channels.map(ch => (
+                        <span key={ch} className={`chip ${channelMeta[ch]?.tone || 'other'}`}>
+                          {channelMeta[ch]?.icon && <span className="chip-icon">{channelMeta[ch].icon}</span>}
+                          {channelMeta[ch]?.label || ch}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="chip muted">ไม่ได้ระบุแพลตฟอร์ม</span>
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn-action-upload" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => openAction(card._id, 'topup')}>
+                  <div className="card-actions">
+                    <button className="ghost-btn" onClick={() => openAction(card._id, 'charge')}>
+                      <DashCircle /> ตัดยอด
+                    </button>
+                    <button className="solid-btn" onClick={() => openAction(card._id, 'topup')}>
                       <PlusCircle /> เติมเงิน
                     </button>
-                    <button className="btn-action-delete" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecdd3' }} onClick={() => openAction(card._id, 'charge')}>
-                      <DashCircle /> ตัดยอด
+                    <button className="danger-btn" onClick={() => { setShowDeleteConfirm(card._id); setError(''); }} title="ลบบัตร">
+                      <Trash2 />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-          )}
+          </>
+        )}
+      </div>
 
-          {actionCard && (
-            <div className="modal-backdrop" onClick={() => setActionCard(null)} style={{ zIndex: 9999 }}>
-              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
-                <div className="modal-header" style={{ justifyContent: 'space-between' }}>
-                  <h3 style={{ margin: 0 }}>
-                    {actionCard.type === 'topup' ? 'เติมเงินเข้าบัตร' : 'ตัดยอดจากบัตร'}
-                  </h3>
-                  <button onClick={() => setActionCard(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
-                </div>
+      {showAddCard && (
+        <div className="modal-backdrop" onClick={() => setShowAddCard(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-icon topup">
+                <PlusCircle />
+              </div>
+              <div>
+                <div className="modal-title">เพิ่มบัตรใหม่</div>
+                <div className="modal-hint">กรอกข้อมูลบัตรของคุณ</div>
+              </div>
+              <button className="modal-close" onClick={() => setShowAddCard(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <label className="field">
+                <span className="field-label">ชื่อบัตร <span className="req">*</span></span>
+                <input
+                  type="text"
+                  placeholder="เช่น บัตรหลัก"
+                  className="field-input"
+                  value={newCardForm.displayName}
+                  onChange={e => setNewCardForm({ ...newCardForm, displayName: e.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">ตัวเลข 4 หลักท้าย <span className="req">*</span></span>
+                <input
+                  type="text"
+                  maxLength="4"
+                  placeholder="1234"
+                  className="field-input"
+                  value={newCardForm.last4}
+                  onChange={e => setNewCardForm({ ...newCardForm, last4: e.target.value.replace(/\D/g, '') })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">สถานะ</span>
+                <select
+                  className="field-input"
+                  value={newCardForm.status}
+                  onChange={e => setNewCardForm({ ...newCardForm, status: e.target.value })}
+                >
+                  <option value="active">พร้อมใช้งาน</option>
+                  <option value="inactive">ปิดใช้งาน</option>
+                </select>
+              </label>
+              {error && <div className="inline-error">⚠️ {error}</div>}
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-btn" onClick={() => setShowAddCard(false)}>ยกเลิก</button>
+              <button className="solid-btn topup" disabled={submitting} onClick={submitAddCard}>
+                {submitting ? 'กำลังเพิ่ม...' : 'เพิ่มบัตร'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-                <div className="modal-body" style={{ display: 'grid', gap: 12 }}>
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span style={{ color: '#374151', fontWeight: 600 }}>จำนวนเงิน (บาท)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formAmount}
-                      onChange={e => setFormAmount(e.target.value)}
-                      style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db' }}
-                    />
+      {showDeleteConfirm && (
+        <div className="modal-backdrop" onClick={() => setShowDeleteConfirm(null)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-icon charge">
+                <Trash2 />
+              </div>
+              <div>
+                <div className="modal-title">ยืนยันการลบบัตร</div>
+                <div className="modal-hint">คุณแน่ใจหรือไม่ว่าต้องการลบบัตรนี้</div>
+              </div>
+              <button className="modal-close" onClick={() => setShowDeleteConfirm(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {error && <div className="inline-error">⚠️ {error}</div>}
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-btn" onClick={() => setShowDeleteConfirm(null)}>ยกเลิก</button>
+              <button className="danger-btn" disabled={submitting} onClick={() => submitDeleteCard(showDeleteConfirm)}>
+                {submitting ? 'กำลังลบ...' : 'ลบบัตร'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {actionCard && (
+        <div className="modal-backdrop" onClick={() => setActionCard(null)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className={`modal-icon ${actionCard.type}`}>
+                {actionCard.type === 'topup' ? <PlusCircle /> : <DashCircle />}
+              </div>
+              <div>
+                <div className="modal-title">{actionCard.type === 'topup' ? 'เติมเงินเข้าบัตร' : 'ตัดยอดจากบัตร'}</div>
+                <div className="modal-hint">กรอกจำนวนเงินและยืนยันการทำรายการ</div>
+              </div>
+              <button className="modal-close" onClick={() => setActionCard(null)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <label className="field">
+                <span className="field-label">จำนวนเงิน (บาท) <span className="req">*</span></span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0.00"
+                  className="field-input"
+                  value={formAmount}
+                  onChange={e => setFormAmount(e.target.value)}
+                />
+              </label>
+
+              {actionCard.type === 'charge' && (
+                <>
+                  <label className="field">
+                    <span className="field-label">ช่องทาง <span className="req">*</span></span>
+                    <select
+                      className="field-input"
+                      value={formChannel}
+                      onChange={e => setFormChannel(e.target.value)}
+                    >
+                      {CHANNEL_OPTIONS.map(opt => <option key={opt}>{opt}</option>)}
+                    </select>
                   </label>
 
-                  {actionCard.type === 'charge' && (
-                    <>
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={{ color: '#374151', fontWeight: 600 }}>ช่องทาง</span>
-                        <select
-                          value={formChannel}
-                          onChange={e => setFormChannel(e.target.value)}
-                          style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db' }}
-                        >
-                          <option>Google Ads</option>
-                          <option>Facebook Ads</option>
-                          <option>Other</option>
-                        </select>
-                      </label>
+                  <label className="field">
+                    <span className="field-label">อ้างอิง (ถ้ามี)</span>
+                    <input
+                      placeholder="Campaign / Billing / Note"
+                      className="field-input"
+                      value={formReference}
+                      onChange={e => setFormReference(e.target.value)}
+                    />
+                  </label>
+                </>
+              )}
 
-                      <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <span style={{ color: '#374151', fontWeight: 600 }}>อ้างอิง (เช่น Campaign/Billing)</span>
-                        <input
-                          value={formReference}
-                          onChange={e => setFormReference(e.target.value)}
-                          style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db' }}
-                        />
-                      </label>
-                    </>
-                  )}
-
-                  {error && <div style={{ color: 'red', fontWeight: 600 }}>{error}</div>}
-                </div>
-
-                <div className="modal-footer">
-                  <button
-                    className="btn-action-upload"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, opacity: submitting ? 0.7 : 1 }}
-                    disabled={submitting}
-                    onClick={submitAction}
-                  >
-                    {actionCard.type === 'topup' ? <PlusCircle /> : <DashCircle />} {actionCard.type === 'topup' ? 'ยืนยันเติมเงิน' : 'ยืนยันตัดยอด'}
-                  </button>
-                  <button
-                    className="btn-action-delete"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => setActionCard(null)}
-                  >
-                    ยกเลิก
-                  </button>
-                </div>
-              </div>
+              {error && (
+                <div className="inline-error">⚠️ {error}</div>
+              )}
             </div>
-          )}
 
+            <div className="modal-actions">
+              <button className="ghost-btn" onClick={() => setActionCard(null)}>ยกเลิก</button>
+              <button
+                className={`solid-btn ${actionCard.type}`}
+                disabled={submitting}
+                onClick={submitAction}
+              >
+                {submitting ? 'กำลังดำเนินการ...' : 'ยืนยัน' }
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, note, tone }) {
+  return (
+    <div className={`summary-tile tone-${tone}`}>
+      <div className="summary-label">{label}</div>
+      <div className="summary-value">{value}</div>
+      <div className="summary-note">{note}</div>
     </div>
   );
 }

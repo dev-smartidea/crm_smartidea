@@ -60,32 +60,27 @@ router.get('/cards', async (req, res) => {
 
 // POST /api/cards/topup - credit balance
 router.post('/cards/topup', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const user = getUserFromReq(req);
     if (!requireAccountOrAdmin(user)) {
-      await session.abortTransaction();
       return res.status(403).json({ error: 'Forbidden' });
     }
 
     const { cardId, amount, note } = req.body;
     const numericAmount = Number(amount || 0);
     if (!cardId || numericAmount <= 0) {
-      await session.abortTransaction();
       return res.status(400).json({ error: 'Invalid cardId or amount' });
     }
 
-    const card = await Card.findById(cardId).session(session);
+    const card = await Card.findById(cardId);
     if (!card) {
-      await session.abortTransaction();
       return res.status(404).json({ error: 'Card not found' });
     }
 
     card.balance += numericAmount;
-    await card.save({ session });
+    await card.save();
 
-    const ledger = await CardLedger.create([{
+    const ledger = await CardLedger.create({
       cardId,
       type: 'topup',
       amount: numericAmount,
@@ -95,52 +90,42 @@ router.post('/cards/topup', async (req, res) => {
       note,
       balanceAfter: card.balance,
       createdBy: user.id
-    }], { session });
+    });
 
-    await session.commitTransaction();
-    res.json({ card, ledger: ledger[0] });
+    res.json({ card, ledger });
   } catch (err) {
-    await session.abortTransaction();
     console.error('Topup failed:', err);
     res.status(500).json({ error: 'Topup failed', detail: err.message });
-  } finally {
-    session.endSession();
   }
 });
 
 // POST /api/cards/charge - debit balance for ads spend
 router.post('/cards/charge', async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const user = getUserFromReq(req);
     if (!requireAccountOrAdmin(user)) {
-      await session.abortTransaction();
       return res.status(403).json({ error: 'Forbidden' });
     }
 
     const { cardId, amount, channel, reference, note } = req.body;
     const numericAmount = Number(amount || 0);
     if (!cardId || numericAmount <= 0) {
-      await session.abortTransaction();
       return res.status(400).json({ error: 'Invalid cardId or amount' });
     }
 
-    const card = await Card.findById(cardId).session(session);
+    const card = await Card.findById(cardId);
     if (!card) {
-      await session.abortTransaction();
       return res.status(404).json({ error: 'Card not found' });
     }
 
     if (card.balance < numericAmount) {
-      await session.abortTransaction();
       return res.status(400).json({ error: 'ยอดคงเหลือไม่พอ' });
     }
 
     card.balance -= numericAmount;
-    await card.save({ session });
+    await card.save();
 
-    const ledger = await CardLedger.create([{
+    const ledger = await CardLedger.create({
       cardId,
       type: 'charge',
       amount: numericAmount,
@@ -150,16 +135,66 @@ router.post('/cards/charge', async (req, res) => {
       note,
       balanceAfter: card.balance,
       createdBy: user.id
-    }], { session });
+    });
 
-    await session.commitTransaction();
-    res.json({ card, ledger: ledger[0] });
+    res.json({ card, ledger });
   } catch (err) {
-    await session.abortTransaction();
     console.error('Charge failed:', err);
     res.status(500).json({ error: 'Charge failed', detail: err.message });
-  } finally {
-    session.endSession();
+  }
+});
+
+// POST /api/cards - create new card
+router.post('/cards', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!requireAccountOrAdmin(user)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { displayName, last4, status, channels } = req.body;
+
+    if (!displayName || !last4) {
+      return res.status(400).json({ error: 'displayName and last4 are required' });
+    }
+
+    // Check if card with same last4 already exists
+    const existing = await Card.findOne({ last4 });
+    if (existing) {
+      return res.status(400).json({ error: 'Card with this last4 already exists' });
+    }
+
+    const newCard = new Card({
+      displayName,
+      last4,
+      status: status || 'active',
+      channels: channels || [],
+      balance: 0,
+      createdBy: user.id
+    });
+
+    await newCard.save();
+    res.status(201).json(newCard);
+  } catch (err) {
+    console.error('Create card failed:', err);
+    res.status(500).json({ error: 'Failed to create card', detail: err.message });
+  }
+});
+
+// DELETE /api/cards/:id - delete card
+router.delete('/cards/:id', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!requireAccountOrAdmin(user)) return res.status(403).json({ error: 'Forbidden' });
+
+    const card = await Card.findByIdAndDelete(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Card not found' });
+
+    // Optionally delete associated ledger entries
+    await CardLedger.deleteMany({ cardId: req.params.id });
+
+    res.json({ message: 'Card deleted successfully', card });
+  } catch (err) {
+    console.error('Delete card failed:', err);
+    res.status(500).json({ error: 'Failed to delete card', detail: err.message });
   }
 });
 

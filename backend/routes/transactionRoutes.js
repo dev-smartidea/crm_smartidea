@@ -502,8 +502,8 @@ router.delete('/transactions/:id/slip', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    // ดึงรายการตามสิทธิ์
-    const tx = user.role === 'admin'
+    // ดึงรายการตามสิทธิ์ (admin และ account สามารถลบได้ทุกรายการ, user ลบได้เฉพาะรายการตัวเอง)
+    const tx = (user.role === 'admin' || user.role === 'account')
       ? await Transaction.findById(req.params.id)
       : await Transaction.findOne({ _id: req.params.id, userId: user.id });
 
