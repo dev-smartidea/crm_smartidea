@@ -179,6 +179,36 @@ router.post('/cards', async (req, res) => {
   }
 });
 
+// PUT /api/cards/:id - update card
+router.put('/cards/:id', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!requireAccountOrAdmin(user)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { displayName, last4, status, channels } = req.body;
+
+    const card = await Card.findById(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Card not found' });
+
+    // Update fields if provided
+    if (displayName !== undefined) card.displayName = displayName;
+    if (last4 !== undefined && last4 !== card.last4) {
+      // Check if new last4 already exists
+      const existing = await Card.findOne({ last4, _id: { $ne: req.params.id } });
+      if (existing) return res.status(400).json({ error: 'Card with this last4 already exists' });
+      card.last4 = last4;
+    }
+    if (status !== undefined) card.status = status;
+    if (channels !== undefined) card.channels = channels;
+
+    await card.save();
+    res.json(card);
+  } catch (err) {
+    console.error('Update card failed:', err);
+    res.status(500).json({ error: 'Failed to update card', detail: err.message });
+  }
+});
+
 // DELETE /api/cards/:id - delete card
 router.delete('/cards/:id', async (req, res) => {
   try {

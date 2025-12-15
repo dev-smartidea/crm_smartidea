@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { CreditCard2BackFill, Google, Facebook, DashCircle, PlusCircle, Trash2 } from 'react-bootstrap-icons';
+import { CreditCard2BackFill, Google, Facebook, DashCircle, PlusCircle, Trash2, Eye } from 'react-bootstrap-icons';
 import './AccountCardsPage.css';
 
 const CHANNEL_OPTIONS = ['Google Ads', 'Facebook Ads', 'Other'];
@@ -12,6 +13,7 @@ const channelMeta = {
 };
 
 export default function AccountCardsPage() {
+  const navigate = useNavigate();
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,7 +24,9 @@ export default function AccountCardsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [newCardForm, setNewCardForm] = useState({ displayName: '', last4: '', status: 'active' });
+  const [newCardForm, setNewCardForm] = useState({ displayName: '', last4: '', status: 'active', channels: [] });
+  const [showEditCard, setShowEditCard] = useState(null);
+  const [editCardForm, setEditCardForm] = useState({ displayName: '', last4: '', status: 'active', channels: [] });
   const api = process.env.REACT_APP_API_URL;
 
   const totals = useMemo(() => ({
@@ -98,9 +102,21 @@ export default function AccountCardsPage() {
     }
   };
 
+  const toggleChannel = (channel) => {
+    setNewCardForm(prev => {
+      const exists = prev.channels.includes(channel);
+      const channels = exists ? prev.channels.filter(c => c !== channel) : [...prev.channels, channel];
+      return { ...prev, channels };
+    });
+  };
+
   const submitAddCard = async () => {
     if (!newCardForm.displayName.trim() || !newCardForm.last4.trim()) {
       setError('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    if (!newCardForm.channels || newCardForm.channels.length === 0) {
+      setError('เลือกแพลตฟอร์มอย่างน้อย 1 รายการ');
       return;
     }
     setSubmitting(true);
@@ -109,7 +125,7 @@ export default function AccountCardsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setShowAddCard(false);
-      setNewCardForm({ displayName: '', last4: '', status: 'active' });
+      setNewCardForm({ displayName: '', last4: '', status: 'active', channels: [] });
       setError('');
       const res = await axios.get(`${api}/api/cards`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -136,6 +152,53 @@ export default function AccountCardsPage() {
       setCards(res.data || []);
     } catch (err) {
       setError(err.response?.data?.error || 'ลบบัตรไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditCard = (card) => {
+    setEditCardForm({
+      displayName: card.displayName,
+      last4: card.last4,
+      status: card.status,
+      channels: card.channels || []
+    });
+    setShowEditCard(card._id);
+    setError('');
+  };
+
+  const toggleEditChannel = (channel) => {
+    setEditCardForm(prev => {
+      const exists = prev.channels.includes(channel);
+      const channels = exists ? prev.channels.filter(c => c !== channel) : [...prev.channels, channel];
+      return { ...prev, channels };
+    });
+  };
+
+  const submitEditCard = async () => {
+    if (!editCardForm.displayName.trim() || !editCardForm.last4.trim()) {
+      setError('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    if (!editCardForm.channels || editCardForm.channels.length === 0) {
+      setError('เลือกแพลตฟอร์มอย่างน้อย 1 รายการ');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await axios.put(`${api}/api/cards/${showEditCard}`, editCardForm, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setShowEditCard(null);
+      setEditCardForm({ displayName: '', last4: '', status: 'active', channels: [] });
+      setError('');
+      const res = await axios.get(`${api}/api/cards`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setCards(res.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'แก้ไขบัตรไม่สำเร็จ');
     } finally {
       setSubmitting(false);
     }
@@ -207,6 +270,12 @@ export default function AccountCardsPage() {
                   </div>
 
                   <div className="card-actions">
+                    <button className="ghost-btn" onClick={() => navigate(`/dashboard/account/cards/${card._id}/ledger`)}>
+                      <Eye /> ประวัติ
+                    </button>
+                    <button className="ghost-btn" onClick={() => openEditCard(card)}>
+                      ✏️ แก้ไข
+                    </button>
                     <button className="ghost-btn" onClick={() => openAction(card._id, 'charge')}>
                       <DashCircle /> ตัดยอด
                     </button>
@@ -270,12 +339,126 @@ export default function AccountCardsPage() {
                   <option value="inactive">ปิดใช้งาน</option>
                 </select>
               </label>
+              <div className="field">
+                <span className="field-label">แพลตฟอร์มที่ใช้ <span className="req">*</span></span>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {['Google Ads', 'Facebook Ads'].map(ch => (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => toggleChannel(ch)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: newCardForm.channels.includes(ch) ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                        background: newCardForm.channels.includes(ch) ? '#eff6ff' : '#fff',
+                        color: '#0f172a',
+                        cursor: 'pointer',
+                        boxShadow: newCardForm.channels.includes(ch) ? '0 6px 14px rgba(37,99,235,0.18)' : 'none'
+                      }}
+                    >
+                      {ch === 'Google Ads' && <Google />}
+                      {ch === 'Facebook Ads' && <Facebook />}
+                      <span>{ch}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               {error && <div className="inline-error">⚠️ {error}</div>}
             </div>
             <div className="modal-actions">
               <button className="ghost-btn" onClick={() => setShowAddCard(false)}>ยกเลิก</button>
               <button className="solid-btn topup" disabled={submitting} onClick={submitAddCard}>
                 {submitting ? 'กำลังเพิ่ม...' : 'เพิ่มบัตร'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditCard && (
+        <div className="modal-backdrop" onClick={() => setShowEditCard(null)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-icon topup">
+                ✏️
+              </div>
+              <div>
+                <div className="modal-title">แก้ไขบัตร</div>
+                <div className="modal-hint">อัปเดตข้อมูลบัตรของคุณ</div>
+              </div>
+              <button className="modal-close" onClick={() => setShowEditCard(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <label className="field">
+                <span className="field-label">ชื่อบัตร <span className="req">*</span></span>
+                <input
+                  type="text"
+                  placeholder="เช่น บัตรหลัก"
+                  className="field-input"
+                  value={editCardForm.displayName}
+                  onChange={e => setEditCardForm({ ...editCardForm, displayName: e.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">ตัวเลข 4 หลักท้าย <span className="req">*</span></span>
+                <input
+                  type="text"
+                  maxLength="4"
+                  placeholder="1234"
+                  className="field-input"
+                  value={editCardForm.last4}
+                  onChange={e => setEditCardForm({ ...editCardForm, last4: e.target.value.replace(/\D/g, '') })}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">สถานะ</span>
+                <select
+                  className="field-input"
+                  value={editCardForm.status}
+                  onChange={e => setEditCardForm({ ...editCardForm, status: e.target.value })}
+                >
+                  <option value="active">พร้อมใช้งาน</option>
+                  <option value="inactive">ปิดใช้งาน</option>
+                </select>
+              </label>
+              <div className="field">
+                <span className="field-label">แพลตฟอร์มที่ใช้ <span className="req">*</span></span>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {['Google Ads', 'Facebook Ads'].map(ch => (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => toggleEditChannel(ch)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: editCardForm.channels.includes(ch) ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                        background: editCardForm.channels.includes(ch) ? '#eff6ff' : '#fff',
+                        color: '#0f172a',
+                        cursor: 'pointer',
+                        boxShadow: editCardForm.channels.includes(ch) ? '0 6px 14px rgba(37,99,235,0.18)' : 'none'
+                      }}
+                    >
+                      {ch === 'Google Ads' && <Google />}
+                      {ch === 'Facebook Ads' && <Facebook />}
+                      <span>{ch}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {error && <div className="inline-error">⚠️ {error}</div>}
+            </div>
+            <div className="modal-actions">
+              <button className="ghost-btn" onClick={() => setShowEditCard(null)}>ยกเลิก</button>
+              <button className="solid-btn topup" disabled={submitting} onClick={submitEditCard}>
+                {submitting ? 'กำลังบันทึก...' : 'บันทึก'}
               </button>
             </div>
           </div>
