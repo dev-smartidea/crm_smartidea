@@ -17,6 +17,26 @@ export default function AccountCardLedgerPage() {
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
+  const downloadCsv = async () => {
+    try {
+      const url = `${api}/api/cards/${cardId}/ledger/export`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (!res.ok) {
+        throw new Error('ดาวน์โหลดไฟล์ไม่สำเร็จ');
+      }
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      const filename = `card_ledger_${card?.last4 || cardId}.csv`;
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      alert(e.message || 'ดาวน์โหลดไฟล์ไม่สำเร็จ');
+    }
+  };
+
   const summary = useMemo(() => {
     const credit = ledger.filter(l => l.direction === 'credit').reduce((s, l) => s + (l.amount || 0), 0);
     const debit = ledger.filter(l => l.direction === 'debit').reduce((s, l) => s + (l.amount || 0), 0);
@@ -110,6 +130,13 @@ export default function AccountCardLedgerPage() {
               onClick={() => navigate('/dashboard/account/cards')}
             >
               <ArrowLeft /> กลับหน้าบัตร
+            </button>
+            <button
+              className="btn-slip-upload"
+              style={{ padding: '10px 14px', minWidth: '140px' }}
+              onClick={downloadCsv}
+            >
+              📥 ดาวน์โหลด CSV
             </button>
           </div>
         </div>

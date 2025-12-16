@@ -249,4 +249,49 @@ router.get('/cards/:id/ledger', async (req, res) => {
   }
 });
 
+// GET /api/cards/:id/ledger/export?format=csv - export ledger as CSV
+router.get('/cards/:id/ledger/export', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!requireAccountOrAdmin(user)) return res.status(403).json({ error: 'Forbidden' });
+
+    const card = await Card.findById(req.params.id);
+    if (!card) return res.status(404).json({ error: 'Card not found' });
+
+    const ledger = await CardLedger.find({ cardId: req.params.id }).sort({ createdAt: -1 }).populate('createdBy', 'name email');
+
+    // Build CSV content
+    const header = ['Date','Type','Direction','Amount','Channel','Reference','Note','BalanceAfter','CreatedByName','CreatedByEmail'];
+    const rows = ledger.map(l => [
+      new Date(l.createdAt).toISOString(),
+      l.type || '',
+      l.direction || '',
+      Number(l.amount || 0),
+      l.channel || '',
+      l.reference || '',
+      l.note || '',
+      Number(l.balanceAfter || 0),
+      l.createdBy?.name || '',
+      l.createdBy?.email || ''
+    ]);
+
+    function escapeCsv(val) {
+      const s = String(val ?? '');
+      if (s.includes(',') || s.includes('\n') || s.includes('"')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
+
+    const csv = [header.join(','), ...rows.map(r => r.map(escapeCsv).join(','))].join('\n');
+    const filename = `card_ledger_${card.last4 || card._id}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.status(200).send(csv);
+  } catch (err) {
+    console.error('Export ledger failed:', err);
+    res.status(500).json({ error: 'Export failed', detail: err.message });
+  }
+});
+
 module.exports = router;
