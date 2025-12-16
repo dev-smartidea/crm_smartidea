@@ -348,6 +348,14 @@ body {
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
 }
 
+.ghost-btn:disabled {
+  cursor: not-allowed;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+  background: #f1f5f9;
+  box-shadow: none;
+}
+
 .solid-btn {
   background: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
   color: #fff;
@@ -361,6 +369,15 @@ body {
 .solid-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+}
+
+.solid-btn:disabled,
+.solid-btn:disabled:hover {
+  cursor: not-allowed;
+  background: #e5e7eb !important;
+  color: #9ca3af;
+  box-shadow: none;
+  transform: none;
 }
 
 .danger-btn {

@@ -284,10 +284,20 @@ export default function AccountCardsPage() {
                     <button className="ghost-btn" onClick={() => openEditCard(card)}>
                       ✏️ แก้ไข
                     </button>
-                    <button className="ghost-btn" onClick={() => openAction(card._id, 'charge')}>
+                    <button
+                      className="ghost-btn"
+                      onClick={() => openAction(card._id, 'charge')}
+                      disabled={card.status !== 'active'}
+                      title={card.status !== 'active' ? 'บัตรถูกปิดใช้งาน' : 'ตัดยอด'}
+                    >
                       <DashCircle /> ตัดยอด
                     </button>
-                    <button className="solid-btn" onClick={() => openAction(card._id, 'topup')}>
+                    <button
+                      className="solid-btn"
+                      onClick={() => openAction(card._id, 'topup')}
+                      disabled={card.status !== 'active'}
+                      title={card.status !== 'active' ? 'บัตรถูกปิดใช้งาน' : 'เติมเงิน'}
+                    >
                       <PlusCircle /> เติมเงิน
                     </button>
                     <button className="danger-btn" onClick={() => { setShowDeleteConfirm(card._id); setError(''); }} title="ลบบัตร">
