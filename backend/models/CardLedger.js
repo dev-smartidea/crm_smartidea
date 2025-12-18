@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const cardLedgerSchema = new mongoose.Schema({
   cardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card', required: true },
+  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
   type: { type: String, enum: ['topup', 'charge', 'adjust'], required: true },
   amount: { type: Number, required: true }, // positive number
   direction: { type: String, enum: ['credit', 'debit'], required: true },

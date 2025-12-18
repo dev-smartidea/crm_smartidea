@@ -21,6 +21,9 @@ export default function AccountCardsPage() {
   const [formAmount, setFormAmount] = useState('');
   const [formChannel, setFormChannel] = useState('Google Ads');
   const [formReference, setFormReference] = useState('');
+  const [formServiceId, setFormServiceId] = useState('');
+  const [formNote, setFormNote] = useState('');
+  const [serviceOptions, setServiceOptions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
@@ -35,6 +38,12 @@ export default function AccountCardsPage() {
     google: cards.filter(c => c.channels?.includes('Google Ads')).length,
     facebook: cards.filter(c => c.channels?.includes('Facebook Ads')).length
   }), [cards]);
+
+  // Filter services by selected channel
+  const filteredServices = useMemo(() => {
+    if (!formChannel) return serviceOptions;
+    return serviceOptions.filter(s => s.serviceType === formChannel);
+  }, [serviceOptions, formChannel]);
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -56,11 +65,29 @@ export default function AccountCardsPage() {
     fetchCards();
   }, [api]);
 
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const res = await axios.get(`${api}/api/services`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        const list = Array.isArray(res.data) ? res.data : (res.data.services || []);
+        setServiceOptions(list);
+      } catch (e) {
+        // keep options empty on error
+        setServiceOptions([]);
+      }
+    };
+    fetchServices();
+  }, [api]);
+
   const openAction = (cardId, type) => {
     setActionCard({ cardId, type });
     setFormAmount('');
     setFormChannel('Google Ads');
     setFormReference('');
+    setFormServiceId('');
+    setFormNote('');
     setError('');
   };
 
@@ -83,7 +110,9 @@ export default function AccountCardsPage() {
           cardId: actionCard.cardId,
           amount: amountNum,
           channel: formChannel,
-          reference: formReference
+          reference: formReference,
+          note: formNote,
+          serviceId: formServiceId || undefined
         }, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
@@ -554,12 +583,38 @@ export default function AccountCardsPage() {
                   </label>
 
                   <label className="field">
+                    <span className="field-label">บริการที่ใช้</span>
+                    <select
+                      className="field-input"
+                      value={formServiceId}
+                      onChange={e => setFormServiceId(e.target.value)}
+                    >
+                      <option value="">— ไม่ได้ระบุบริการ —</option>
+                      {filteredServices.map(s => (
+                        <option key={s._id} value={s._id}>
+                          {s.name || 'บริการ'}{s.customerIdField ? ` • ${s.customerIdField}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="field">
                     <span className="field-label">อ้างอิง (ถ้ามี)</span>
                     <input
                       placeholder="Campaign / Billing / Note"
                       className="field-input"
                       value={formReference}
                       onChange={e => setFormReference(e.target.value)}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span className="field-label">หมายเหตุ</span>
+                    <input
+                      placeholder="รายละเอียดเพิ่มเติม"
+                      className="field-input"
+                      value={formNote}
+                      onChange={e => setFormNote(e.target.value)}
                     />
                   </label>
                 </>

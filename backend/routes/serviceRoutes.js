@@ -25,8 +25,8 @@ router.get('/services', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     
     let services;
-    if (user.role === 'admin') {
-      // Admin can see all services
+    if (user.role === 'admin' || user.role === 'account') {
+      // Admin and account roles can see all services
       services = await Service.find().populate('customerId', 'name phone');
     } else {
       // Regular user sees only their services

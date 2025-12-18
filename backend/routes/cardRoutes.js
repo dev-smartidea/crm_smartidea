@@ -107,7 +107,7 @@ router.post('/cards/charge', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { cardId, amount, channel, reference, note } = req.body;
+    const { cardId, amount, channel, reference, note, serviceId } = req.body;
     const numericAmount = Number(amount || 0);
     if (!cardId || numericAmount <= 0) {
       return res.status(400).json({ error: 'Invalid cardId or amount' });
@@ -133,6 +133,7 @@ router.post('/cards/charge', async (req, res) => {
       channel: channel === 'Google Ads' || channel === 'Facebook Ads' ? channel : 'Other',
       reference,
       note,
+      serviceId: serviceId || undefined,
       balanceAfter: card.balance,
       createdBy: user.id
     });
@@ -240,7 +241,8 @@ router.get('/cards/:id/ledger', async (req, res) => {
     const ledger = await CardLedger.find({ cardId: req.params.id })
       .sort({ createdAt: -1 })
       .limit(50)
-      .populate('createdBy', 'name email');
+      .populate('createdBy', 'name email')
+      .populate('serviceId', 'name customerId');
 
     res.json({ card, ledger });
   } catch (err) {
