@@ -95,7 +95,10 @@ export default function CustomerDetailPage() {
                   )}
                 </div>
               </div>
-              <div style={{ marginLeft: 'auto' }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
+                <Link to="/dashboard/list" className="btn-header-upload" style={{ textDecoration: 'none' }}>
+                  <ArrowLeftCircleFill /> กลับ
+                </Link>
                 <button
                   type="button"
                   className="btn-header-upload"
@@ -224,12 +227,6 @@ export default function CustomerDetailPage() {
         ) : (
           <div className="error-container">ไม่พบข้อมูลลูกค้า</div>
         )}
-        <div className="back-button-container">
-          <Link to="/dashboard/list" className="btn btn-back">
-            <ArrowLeftCircleFill />
-            กลับไปที่หน้ารายชื่อ
-          </Link>
-        </div>
       </div>
     </div>
   );

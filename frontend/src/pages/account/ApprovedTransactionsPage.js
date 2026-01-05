@@ -20,10 +20,10 @@ export default function ApprovedTransactionsPage() {
   // ค้นหา
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
-  const [serviceQuery, setServiceQuery] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [serviceQuery, setServiceQuery] = useState('');
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
-  const [serviceFilter, setServiceFilter] = useState('');
   
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -116,19 +116,31 @@ export default function ApprovedTransactionsPage() {
     }
     
     // กรองตามบริการ
-    if (serviceFilter) {
-      result = result.filter(tx => 
-        tx.serviceName && tx.serviceName.toLowerCase().includes(serviceFilter.toLowerCase())
-      );
+    if (selectedServiceId) {
+      result = result.filter(tx => tx.serviceId?._id === selectedServiceId);
     }
     
     setFilteredTransactions(result);
     setCurrentPage(1);
-  }, [transactions, selectedCustomerId, serviceFilter]);
+  }, [transactions, selectedCustomerId, selectedServiceId]);
+
+  // ฟังก์ชันล้างค่าการค้นหา
+  const handleClearFilters = () => {
+    setSelectedCustomerId('');
+    setCustomerQuery('');
+    setSelectedServiceId('');
+    setServiceQuery('');
+  };
 
   useEffect(() => {
     handleSearch();
   }, [handleSearch]);
+
+  // เคลียร์บริการเมื่อเปลี่ยนลูกค้า
+  useEffect(() => {
+    setSelectedServiceId('');
+    setServiceQuery('');
+  }, [selectedCustomerId]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / pageSize);
@@ -136,14 +148,51 @@ export default function ApprovedTransactionsPage() {
   const endIndex = startIndex + pageSize;
   const pageItems = filteredTransactions.slice(startIndex, endIndex);
 
-  // Filter customers และ services
-  const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(customerQuery.toLowerCase())
+  // Filter services และ customers ที่มีใน transactions
+  // ถ้าเลือกลูกค้าแล้ว จะแสดงเฉพาะบริการของลูกค้านั้น
+  const uniqueServices = transactions
+    .filter(tx => {
+      if (!selectedCustomerId) return true; // ถ้าไม่ได้เลือกลูกค้า แสดงทั้งหมด
+      return tx.serviceId?.customerId?._id === selectedCustomerId;
+    })
+    .filter(tx => tx.serviceId?._id && tx.serviceName)
+    .reduce((acc, tx) => {
+      const serviceId = tx.serviceId._id;
+      if (!acc.find(s => s.id === serviceId)) {
+        acc.push({
+          id: serviceId,
+          name: tx.serviceName,
+          customerIdField: tx.serviceId.customerIdField || '',
+          displayText: tx.serviceId.customerIdField 
+            ? `${tx.serviceName} : ${tx.serviceId.customerIdField}`
+            : tx.serviceName
+        });
+      }
+      return acc;
+    }, [])
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  
+  const filteredServices = uniqueServices.filter(s =>
+    s.displayText.toLowerCase().includes(serviceQuery.toLowerCase())
   );
 
-  const uniqueServices = [...new Set(transactions.map(tx => tx.serviceName).filter(Boolean))];
-  const filteredServices = uniqueServices.filter(s =>
-    s.toLowerCase().includes(serviceQuery.toLowerCase())
+  // ลูกค้าที่มีใน transactions เท่านั้น
+  const uniqueCustomers = transactions
+    .filter(tx => tx.serviceId?.customerId?._id && tx.customerName)
+    .reduce((acc, tx) => {
+      const customerId = tx.serviceId.customerId._id;
+      if (!acc.find(c => c._id === customerId)) {
+        acc.push({
+          _id: customerId,
+          name: tx.customerName
+        });
+      }
+      return acc;
+    }, [])
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'));
+
+  const filteredCustomers = uniqueCustomers.filter(c =>
+    c.name.toLowerCase().includes(customerQuery.toLowerCase())
   );
 
   const formatDate = (dateString) => {
@@ -273,7 +322,7 @@ export default function ApprovedTransactionsPage() {
                     <div
                       className="combobox-option"
                       onClick={() => {
-                        setServiceFilter('');
+                        setSelectedServiceId('');
                         setServiceQuery('');
                       }}
                     >
@@ -281,20 +330,45 @@ export default function ApprovedTransactionsPage() {
                     </div>
                     {filteredServices.map(s => (
                       <div
-                        key={s}
+                        key={s.id}
                         className="combobox-option"
                         onClick={() => {
-                          setServiceFilter(s);
-                          setServiceQuery(s);
+                          setSelectedServiceId(s.id);
+                          setServiceQuery(s.displayText);
                         }}
                       >
-                        {s}
+                        {s.displayText}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             </div>
+
+            {/* ปุ่มล้างค่าการค้นหา */}
+            {(selectedCustomerId || selectedServiceId) && (
+              <div className="filter-group" style={{ alignSelf: 'flex-end' }}>
+                <button
+                  className="btn-clear-filters"
+                  onClick={handleClearFilters}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#64748b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.target.style.backgroundColor = '#475569'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = '#64748b'}
+                >
+                  ล้างตัวกรอง
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

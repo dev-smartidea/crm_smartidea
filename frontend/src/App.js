@@ -4,6 +4,7 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import AddCustomerPage from './pages/user/AddCustomerPage';
 import CustomerListPage from './pages/user/CustomerListPage';
+import CustomerDetailPage from './pages/user/CustomerDetailPage';
 import CustomerServicesPage from './pages/user/CustomerServicesPage';
 import CustomerActivitiesPage from './pages/user/CustomerActivitiesPage';
 import AllActivitiesPage from './pages/user/AllActivitiesPage';
@@ -72,6 +73,7 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="add" element={<AddCustomerPage />} />
           <Route path="list" element={<CustomerListPage />} />
+          <Route path="customer/:id" element={<CustomerDetailPage />} />
           <Route path="notifications" element={<NotificationPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
           <Route path="alltransactions" element={

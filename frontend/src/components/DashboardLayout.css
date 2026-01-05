@@ -111,7 +111,7 @@
 
 .main-content {
   flex-grow: 1;
-  padding: 20px;
+  padding: 0;
   overflow-y: auto;
   margin-left: 250px;
   min-height: 100vh;

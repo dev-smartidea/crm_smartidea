@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import 'chart.js/auto';
 import { 
   CashCoin, 
@@ -42,7 +42,6 @@ export default function AccountDashboardPage() {
   const [topupCount, setTopupCount] = useState(0);
   const [chargeCount, setChargeCount] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState([]);
-  const [allTransactions, setAllTransactions] = useState([]);
   const [channelBreakdown, setChannelBreakdown] = useState({
     labels: [],
     datasets: [{
@@ -118,9 +117,6 @@ export default function AccountDashboardPage() {
         }
 
         console.log('Total transactions:', allTransactions.length);
-
-        // เก็บ allTransactions ใน state
-        setAllTransactions(allTransactions);
 
         // เรียงลำดับและเลือกรายการล่าสุด 10 รายการ
         allTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

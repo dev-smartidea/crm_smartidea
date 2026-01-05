@@ -136,7 +136,7 @@ export default function AddCustomerPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-card">
             <div className="card-header">
-              <PersonPlusFill className="card-icon" />
+              <BriefcaseFill className="card-icon" />
               <h3 className="card-title">ข้อมูลลูกค้า (หลัก)</h3>
             </div>
             <div className="card-body">
