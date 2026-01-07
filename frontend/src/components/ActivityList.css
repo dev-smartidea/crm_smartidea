@@ -1,0 +1,137 @@
+.activity-list {
+  background: white;
+  border-radius: 12px;
+  overflow: visible;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.activity-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.activity-list thead {
+  background: linear-gradient(180deg, #f8f9fa 0%, #f1f3f5 100%);
+}
+
+.activity-list th {
+  padding: 18px 20px;
+  text-align: left;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.activity-list td {
+  padding: 18px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  font-size: 0.95rem;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.activity-list tbody tr {
+  transition: all 0.2s;
+  position: relative;
+  z-index: 1;
+}
+
+.activity-list tbody tr:hover {
+  background-color: #f9fafb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: scale(1.001);
+  z-index: 10;
+}
+
+.activity-list tbody tr.has-open-dropdown {
+  z-index: 9999 !important;
+}
+
+.activity-list tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.activity-list .badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+/* Activity Type Badges */
+.activity-list .badge-type-new {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.activity-list .badge-type-edit {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+/* Project Status Badges */
+.activity-list .badge-status-waiting {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.activity-list .badge-status-designing {
+  background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+  color: #1e3a8a;
+  border: 1px solid #60a5fa;
+}
+
+.activity-list .badge-status-creating {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.activity-list .badge-status-completed {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #3730a3;
+  border: 1px solid #a5b4fc;
+  position: relative;
+}
+
+.activity-list .badge-status-completed::after {
+  content: '✔';
+  margin-left: 6px;
+  font-size: 0.75rem;
+  color: #2563eb;
+}
+
+/* Dropdown menu styles */
+.dropdown-container {
+  position: relative;
+  z-index: 1;
+}
+
+.dropdown-container:has(.dropdown-menu-custom) {
+  z-index: 9998;
+}
+
+.no-activities {
+  background: white;
+  padding: 100px 40px;
+  text-align: center;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.no-activities p {
+  color: #6b7280;
+  font-size: 1.15rem;
+  font-weight: 500;
+  margin: 0;
+}
