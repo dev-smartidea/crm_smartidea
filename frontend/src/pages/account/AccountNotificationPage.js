@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+<<<<<<< HEAD
 import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, CashCoin, TrashFill, XCircle, ArrowClockwise } from 'react-bootstrap-icons';
+=======
+import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, PersonPlusFill, CashCoin, TrashFill, XCircle, ArrowClockwise } from 'react-bootstrap-icons';
+>>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 import { Link } from 'react-router-dom';
 import './AccountNotificationPage.css';
 

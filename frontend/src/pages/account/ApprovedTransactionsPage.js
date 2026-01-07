@@ -8,6 +8,10 @@ import '../shared/ImageGalleryPage.css';
 export default function ApprovedTransactionsPage() {
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
+<<<<<<< HEAD
+=======
+  const [customers, setCustomers] = useState([]);
+>>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
   const [loading, setLoading] = useState(true);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
@@ -80,7 +84,14 @@ export default function ApprovedTransactionsPage() {
     try {
       setLoading(true);
       const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+<<<<<<< HEAD
       const txRes = await axios.get(`${api}/api/transactions?submissionStatus=approved&limit=500`, authHeaders);
+=======
+      const [txRes, custRes] = await Promise.all([
+        axios.get(`${api}/api/transactions?submissionStatus=approved&limit=500`, authHeaders),
+        axios.get(`${api}/api/customers`, authHeaders)
+      ]);
+>>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
       
       const formatted = (txRes.data.transactions || []).map(tx => ({
         ...tx,
@@ -90,6 +101,10 @@ export default function ApprovedTransactionsPage() {
       
       setTransactions(formatted);
       setFilteredTransactions(formatted);
+<<<<<<< HEAD
+=======
+      setCustomers(custRes.data || []);
+>>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
     } catch (e) {
       console.error('Load data failed:', e);
     } finally {

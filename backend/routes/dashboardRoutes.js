@@ -53,7 +53,11 @@ router.get('/dashboard/summary', async (req, res) => {
 
     // คำนวณรายได้รวม
     const transactionFilter = user.role === 'admin' ? {} : { userId: user.id };
+<<<<<<< HEAD
     const allTransactions = await Transaction.find(transactionFilter).populate('serviceId', 'name');
+=======
+    const allTransactions = await Transaction.find(transactionFilter);
+>>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
     const totalRevenue = allTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
     // ดึงลูกค้าล่าสุด 5 คน
@@ -121,6 +125,7 @@ router.get('/dashboard/summary', async (req, res) => {
     const chartLabels = Object.keys(transactionsByDate);
     const chartData = Object.values(transactionsByDate);
 
+<<<<<<< HEAD
     // คำนวณยอดขายตามบริการ (สำหรับ Donut chart)
     const salesByService = {};
     allTransactions.forEach(tx => {
@@ -163,6 +168,8 @@ router.get('/dashboard/summary', async (req, res) => {
       }
     });
 
+=======
+>>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
     res.json({
       customerCount,
       serviceCount,
@@ -175,6 +182,7 @@ router.get('/dashboard/summary', async (req, res) => {
       transactionChart: {
         labels: chartLabels,
         data: chartData
+<<<<<<< HEAD
       },
       salesByService: {
         labels: sortedSales.map(([name]) => name),
@@ -183,6 +191,8 @@ router.get('/dashboard/summary', async (req, res) => {
       monthlyCollection: {
         labels: Object.keys(monthlyCollection),
         data: Object.values(monthlyCollection)
+=======
+>>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
       }
     });
   } catch (err) {
