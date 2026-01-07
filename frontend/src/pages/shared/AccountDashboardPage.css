@@ -1,10 +1,6 @@
 .account-dashboard-container {
   padding: 2rem;
-<<<<<<< HEAD
   background: #f0f2f5;
-=======
-  background: #ffffff;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
   min-height: 100vh;
   position: relative;
 }
@@ -553,7 +549,6 @@
   font-size: 0.95rem;
 }
 
-<<<<<<< HEAD
 /* Donut Chart Wrapper */
 .donut-chart-wrapper {
   position: relative;
@@ -634,8 +629,6 @@
   }
 }
 
-=======
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 /* Trend Chart */
 .trend-chart-card {
   background: white;

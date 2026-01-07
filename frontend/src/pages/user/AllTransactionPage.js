@@ -719,7 +719,6 @@ export default function AllTransactionPage() {
                               className="btn-slip-upload"
                               onClick={() => triggerUploadFor(tx._id)}
                               disabled={uploadingId === tx._id}
-<<<<<<< HEAD
                               title={uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'อัปโหลดสลิป'}
                             >
                               {uploadingId === tx._id ? (
@@ -728,12 +727,6 @@ export default function AllTransactionPage() {
                                 <Upload />
                               )}
                               <span>{uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}</span>
-=======
-                              title={uploadingId === tx._id ? 'กำลังอัปโหลดไฟล์สลิป...' : 'อัปโหลดสลิปโอนเงิน'}
-                            >
-                              {uploadingId === tx._id ? <span className="spinner" /> : <Upload />}
-                              {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
                             </button>
                             <input
                               id={`slip-input-${tx._id}`}
@@ -768,35 +761,22 @@ export default function AllTransactionPage() {
                         </div>
                       </td>
                       <td>
-<<<<<<< HEAD
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
-=======
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
                           <button
                             className="btn-edit-small"
                             onClick={() => setEditTx(tx)}
                             title="แก้ไขรายการ"
-<<<<<<< HEAD
-=======
-                            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d3d8e2', background: '#f8f9fa', color: '#334155' }}
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
                           >
                             <PencilSquare />
                           </button>
                           {tx.submissionStatus === 'submitted' ? (
-<<<<<<< HEAD
                             <span className="badge" style={{ background: '#eff6ff', color: '#2563eb', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>ส่งแล้ว</span>
-=======
-                            <span className="badge" style={{ background: '#e6f4ff', color: '#0b6ef6', padding: '6px 10px', borderRadius: '6px', border: '1px solid #b9d8ff' }}>ส่งแล้ว</span>
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
                           ) : (
                             <button
                               className="btn-submit-small"
                               onClick={() => handleSubmitTransaction(tx._id)}
                               disabled={submittingId === tx._id}
                               title={submittingId === tx._id ? 'กำลังส่ง...' : 'ส่งให้บัญชี'}
-<<<<<<< HEAD
                             >
                               {submittingId === tx._id ? (
                                 <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
@@ -804,12 +784,6 @@ export default function AllTransactionPage() {
                                 <Send />
                               )}
                               <span>ส่ง</span>
-=======
-                              style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d3d8e2', background: '#f8f9fa', color: '#334155' }}
-                            >
-                              {submittingId === tx._id ? <span className="spinner" /> : <Send />}
-                              <span style={{ marginLeft: 6 }}>ส่ง</span>
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
                             </button>
                           )}
                           <button
@@ -818,10 +792,7 @@ export default function AllTransactionPage() {
                               setTransactionToDelete(tx);
                               setShowDeleteConfirm(true);
                             }}
-<<<<<<< HEAD
                             title="ลบรายการ"
-=======
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
                           >
                             <TrashFill />
                           </button>

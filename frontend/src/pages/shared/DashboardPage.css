@@ -1,7 +1,6 @@
 /* frontend/src/pages/DashboardPage.css */
 
 .dashboard-page-container {
-<<<<<<< HEAD
   padding: 2rem;
   min-height: 100vh;
   box-sizing: border-box;
@@ -30,45 +29,15 @@
   color: #6b7280;
   margin-top: 0.5rem;
   font-weight: 400;
-=======
-  padding: 10px;
-  min-height: 100vh;
-  box-sizing: border-box;
-  background-color: #f0f2f5;
-}
-
-.dashboard-header {
-  margin-bottom: 30px;
-  text-align: left;
-}
-
-.dashboard-header h2 {
-  font-size: 2.4rem;
-  font-weight: 700;
-  color: #222;
-  margin-bottom: 5px;
-}
-
-.dashboard-subtitle {
-  font-size: 1rem;
-  color: #666;
-  margin: 0;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 .dashboard-stats-grid {
   display: grid;
-<<<<<<< HEAD
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2.5rem;
   position: relative;
   z-index: 1;
-=======
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-  margin-bottom: 30px;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 @media (max-width: 1400px) {
@@ -84,7 +53,6 @@
 }
 
 .stat-card {
-<<<<<<< HEAD
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   padding: 1.8rem;
   border-radius: 16px;
@@ -144,47 +112,6 @@
 .stat-card-icon.revenue {
   color: #9c27b0;
   background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-=======
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-}
-
-.stat-card-icon {
-  /* Match Notification page icon sizing for consistency */
-  font-size: 3.2rem;
-  padding: 16px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.stat-card-icon.customers {
-  color: #1976d2;
-  background-color: #e3f2fd;
-}
-.stat-card-icon.services {
-  color: #43a047;
-  background-color: #e8f5e9;
-}
-.stat-card-icon.status {
-  color: #ff9800;
-  background-color: #fff3e0;
-}
-.stat-card-icon.revenue {
-  color: #9c27b0;
-  background-color: #f3e5f5;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 .stat-card-info {
@@ -192,23 +119,15 @@
 }
 
 .stat-card-info h5 {
-<<<<<<< HEAD
   font-size: 0.9rem;
   font-weight: 600;
   color: #6b7280;
   margin: 0 0 0.8rem 0;
-=======
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #666;
-  margin: 0 0 12px 0;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .stat-card-info .stat-number {
-<<<<<<< HEAD
   font-size: 2.4rem;
   font-weight: 800;
   color: #1a202c;
@@ -221,18 +140,6 @@
   color: #9ca3af;
   margin: 0;
   font-weight: 500;
-=======
-  font-size: 2.8rem;
-  font-weight: 700;
-  color: #222;
-  margin-bottom: 6px;
-}
-
-.stat-card-info .stat-label {
-  font-size: 0.95rem;
-  color: #999;
-  margin: 0;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 .status-row {
@@ -314,7 +221,6 @@
 .charts-row {
   display: grid;
   grid-template-columns: 2fr 1fr;
-<<<<<<< HEAD
   gap: 1.5rem;
   margin-bottom: 2.5rem;
   position: relative;
@@ -350,17 +256,6 @@
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.08);
   transform: translateY(-4px);
   border-color: #cbd5e1;
-=======
-  gap: 24px;
-  margin-bottom: 30px;
-}
-
-.chart-card {
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 .chart-card.doughnut-card {
@@ -371,22 +266,15 @@
 
 .chart-title {
   font-size: 1.1rem;
-<<<<<<< HEAD
   font-weight: 700;
   color: #1a202c;
   margin-bottom: 1.5rem;
   letter-spacing: 0.3px;
-=======
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 20px;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 .tables-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-<<<<<<< HEAD
   gap: 1.5rem;
   margin-bottom: 2.5rem;
   position: relative;
@@ -419,17 +307,6 @@
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.08);
   transform: translateY(-4px);
   border-color: #cbd5e1;
-=======
-  gap: 24px;
-  margin-bottom: 30px;
-}
-
-.table-card {
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 .table-card.full-width {
@@ -438,16 +315,10 @@
 
 .table-title {
   font-size: 1.1rem;
-<<<<<<< HEAD
   font-weight: 700;
   color: #1a202c;
   margin-bottom: 1.2rem;
   letter-spacing: 0.3px;
-=======
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 16px;
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }
 
 .mini-table {
@@ -617,7 +488,6 @@
   }
 }
 
-<<<<<<< HEAD
 /* Fade-up animation */
 .fade-up {
   animation: fadeUp 0.5s ease-out;
@@ -634,8 +504,6 @@
   }
 }
 
-=======
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 @media (max-width: 900px) {
   .dashboard-stats-grid {
     grid-template-columns: 1fr;
@@ -646,10 +514,7 @@
   .dashboard-header h2 {
     font-size: 2rem;
   }
-<<<<<<< HEAD
   .dashboard-page-container {
     padding: 1.5rem;
   }
-=======
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 }

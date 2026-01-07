@@ -3,11 +3,7 @@ import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
-<<<<<<< HEAD
 import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Wallet, CheckCircleFill, CreditCard } from 'react-bootstrap-icons';
-=======
-import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Image, Wallet, CheckCircleFill, CreditCard } from 'react-bootstrap-icons';
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 
 export default function AccountDashboardLayout() {
   const navigate = useNavigate();

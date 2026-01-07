@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-<<<<<<< HEAD
 import { Bar, Doughnut } from 'react-chartjs-2';
-=======
-import { Bar } from 'react-chartjs-2';
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
 import 'chart.js/auto';
 import { 
   CashCoin, 
@@ -46,7 +42,6 @@ export default function AccountDashboardPage() {
   const [topupCount, setTopupCount] = useState(0);
   const [chargeCount, setChargeCount] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState([]);
-<<<<<<< HEAD
   const [salesByProduct, setSalesByProduct] = useState({
     labels: [],
     datasets: [{
@@ -72,8 +67,6 @@ export default function AccountDashboardPage() {
       borderWidth: 1
     }]
   });
-=======
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
   const [channelBreakdown, setChannelBreakdown] = useState({
     labels: [],
     datasets: [{
@@ -111,7 +104,6 @@ export default function AccountDashboardPage() {
         setLoading(true);
         setError(null);
         
-<<<<<<< HEAD
         // ดึงข้อมูลจาก dashboard summary API
         const dashboardRes = await axios.get(`${api}/api/dashboard/summary`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -119,9 +111,6 @@ export default function AccountDashboardPage() {
         
         const dashboardData = dashboardRes.data;
         console.log('Dashboard data:', dashboardData);
-=======
-        console.log('Fetching cards from:', `${api}/api/cards`);
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
         
         // ดึงข้อมูลบัตร
         const cardsRes = await axios.get(`${api}/api/cards`, {
@@ -216,7 +205,6 @@ export default function AccountDashboardPage() {
           }]
         });
 
-<<<<<<< HEAD
         // ใช้ข้อมูล sales by service จาก backend
         if (dashboardData.salesByService && dashboardData.salesByService.labels.length > 0) {
           setSalesByProduct({
@@ -250,8 +238,6 @@ export default function AccountDashboardPage() {
           });
         }
 
-=======
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
         // สร้าง daily trend (7 วันล่าสุด)
         const last7Days = [];
         for (let i = 6; i >= 0; i--) {
@@ -434,7 +420,6 @@ export default function AccountDashboardPage() {
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* New Charts Row - Sales & Collection */}
       <div className="charts-row">
         <div className="chart-card">
@@ -530,8 +515,6 @@ export default function AccountDashboardPage() {
         </div>
       </div>
 
-=======
->>>>>>> a5816d992c50d7b594bddd6bac558b1f63401ccb
       {/* Charts Row */}
       <div className="charts-row">
         <div className="chart-card">
