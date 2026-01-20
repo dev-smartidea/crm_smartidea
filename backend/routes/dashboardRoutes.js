@@ -24,17 +24,17 @@ router.get('/dashboard/summary', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // นับจำนวนลูกค้า
-    const customerCount = user.role === 'admin'
+    const customerCount = (user.role === 'admin' || user.role === 'account')
       ? await Customer.countDocuments()
       : await Customer.countDocuments({ userId: user.id });
 
     // นับจำนวนบริการ
-    const serviceCount = user.role === 'admin'
+    const serviceCount = (user.role === 'admin' || user.role === 'account')
       ? await Service.countDocuments()
       : await Service.countDocuments({ userId: user.id });
 
     // นับสถานะบริการ (อิงตามสถานะที่ใช้จริงในระบบ)
-    const serviceStatusFilter = user.role === 'admin' ? {} : { userId: user.id };
+    const serviceStatusFilter = (user.role === 'admin' || user.role === 'account') ? {} : { userId: user.id };
     const services = await Service.find(serviceStatusFilter);
     // แปลงเป็น plain object เพื่อให้ได้สถานะที่คำนวณอัตโนมัติจาก model
     const svcPlain = services.map(s => s.toObject());
@@ -52,8 +52,8 @@ router.get('/dashboard/summary', async (req, res) => {
     };
 
     // คำนวณรายได้รวม
-    const transactionFilter = user.role === 'admin' ? {} : { userId: user.id };
-  const allTransactions = await Transaction.find(transactionFilter).populate('serviceId', 'name');
+    const transactionFilter = (user.role === 'admin' || user.role === 'account') ? {} : { userId: user.id };
+    const allTransactions = await Transaction.find(transactionFilter).populate('serviceId', 'name');
     const totalRevenue = allTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
     // รวมยอดเฉพาะรายการที่อนุมัติแล้ว
@@ -62,7 +62,7 @@ router.get('/dashboard/summary', async (req, res) => {
     const approvedCount = approvedTransactions.length;
 
     // ดึงลูกค้าล่าสุด 5 คน
-    const recentCustomers = user.role === 'admin'
+    const recentCustomers = (user.role === 'admin' || user.role === 'account')
       ? await Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode')
       : await Customer.find({ userId: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode');
 
@@ -140,7 +140,7 @@ router.get('/dashboard/summary', async (req, res) => {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
 
-    // คำนวณสรุปยอดเก็บเงินรายเดือน (12 เดือนล่าสุด)
+    // คำนวณสรุปยอดเก็บเงินรายเดือน (12 เดือนล่าสุด) - ใช้ approved transactions
     const monthlyCollection = {};
     const currentDate = new Date();
     
@@ -148,19 +148,20 @@ router.get('/dashboard/summary', async (req, res) => {
     for (let i = 11; i >= 0; i--) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
       const monthKey = date.toLocaleDateString('th-TH', { 
-        day: 'numeric',
-        month: 'short' 
+        month: 'short',
+        year: '2-digit'
       });
       monthlyCollection[monthKey] = 0;
     }
     
-    // นับยอดเก็บเงินในแต่ละเดือน
-    allTransactions.forEach(tx => {
+    // นับยอดเก็บเงินในแต่ละเดือน (เฉพาะที่อนุมัติแล้ว) - ใช้ข้อมูลจาก Transaction table
+    approvedTransactions.forEach(tx => {
       if (tx.amount > 0) {
-        const txDate = new Date(tx.transactionDate);
+        const dateToUse = tx.transactionDate || tx.createdAt;
+        const txDate = new Date(dateToUse);
         const monthKey = txDate.toLocaleDateString('th-TH', { 
-          day: 'numeric',
-          month: 'short'
+          month: 'short',
+          year: '2-digit'
         });
         if (monthlyCollection.hasOwnProperty(monthKey)) {
           monthlyCollection[monthKey] += tx.amount;

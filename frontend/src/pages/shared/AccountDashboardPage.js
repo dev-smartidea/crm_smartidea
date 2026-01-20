@@ -488,15 +488,9 @@ export default function AccountDashboardPage() {
             <div className="bar-chart-info">
               <div className="chart-summary-stats">
                 <div className="chart-stat-item">
-                  <span className="stat-label">เก็บเงินสำเร็จ:</span>
+                  <span className="stat-label">เก็บเงินสำเร็จ (อนุมัติแล้ว):</span>
                   <span className="stat-value success">
-                    {monthlyCollection.datasets[0].data.reduce((a, b) => a + b, 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="chart-stat-item">
-                  <span className="stat-label">รายได้รวม:</span>
-                  <span className="stat-value">
-                    {monthlyCollection.datasets[0].data.reduce((a, b) => a + b, 0).toLocaleString()}
+                    ฿{monthlyCollection.datasets[0].data.reduce((a, b) => a + b, 0).toLocaleString()}
                   </span>
                 </div>
               </div>
