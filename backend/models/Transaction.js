@@ -7,6 +7,7 @@ const transactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // เจ้าของ
   amount: { type: Number, required: true }, // จำนวนเงิน
   transactionDate: { type: Date, required: true }, // วันที่โอน
+  transactionTime: { type: String }, // เวลาที่โอน (เช่น "10:30")
   notes: { type: String }, // หมายเหตุ
   slipImage: { type: String }, // path ของรูปสลิป/หลักฐาน (optional)
   bank: { type: String, enum: ['KBANK', 'SCB', 'BBL'], required: true }, // บัญชีธนาคาร (จำกัดเฉพาะ 3 ธนาคารที่ใช้งาน)

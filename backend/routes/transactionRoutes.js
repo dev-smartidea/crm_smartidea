@@ -155,6 +155,33 @@ router.put('/transactions/:id/submit', async (req, res) => {
     tx.submittedAt = new Date();
     await tx.save();
 
+    // สร้างการแจ้งเตือนให้ account role
+    try {
+      const User = require('../models/User');
+      const Notification = require('../models/Notification');
+      const Service = require('../models/Service');
+      const Customer = require('../models/Customer');
+      
+      const accountUsers = await User.find({ role: { $in: ['account', 'admin'] } });
+      const service = await Service.findById(tx.serviceId);
+      const customer = service ? await Customer.findById(service.customerId).select('name') : null;
+      
+      for (const accountUser of accountUsers) {
+        await Notification.create({
+          userId: accountUser._id,
+          type: 'transaction_success',
+          title: '💰 มีรายการโอนเงินรออนุมัติ',
+          message: `รายการ ${tx.amount.toLocaleString()} บาท${customer ? ` จาก ${customer.name}` : ''} - ${tx.bank || 'ธนาคาร'}`,
+          link: '/dashboard/account/transactions',
+          relatedTransactionId: tx._id,
+          relatedServiceId: tx.serviceId,
+          isRead: false
+        });
+      }
+    } catch (notifErr) {
+      console.error('Create notification failed:', notifErr.message);
+    }
+
     // คืนค่าพร้อม populate service และ customer ให้ frontend ใช้ข้อมูลสอดคล้องกับ list API
     const populated = await Transaction.findById(tx._id)
       .populate({
@@ -211,6 +238,31 @@ router.put('/transactions/:id/reject', async (req, res) => {
 
     tx.submissionStatus = 'rejected';
     await tx.save();
+
+    // แจ้งเตือน user ที่ส่งรายการว่าถูกปฏิเสธ
+    try {
+      const Notification = require('../models/Notification');
+      const Service = require('../models/Service');
+      const Customer = require('../models/Customer');
+      
+      const service = await Service.findById(tx.serviceId);
+      const customer = service ? await Customer.findById(service.customerId).select('name') : null;
+      
+      if (tx.submittedBy) {
+        await Notification.create({
+          userId: tx.submittedBy,
+          type: 'transaction_failed',
+          title: '❌ รายการโอนเงินถูกปฏิเสธ',
+          message: `รายการ ${tx.amount.toLocaleString()} บาท${customer ? ` (${customer.name})` : ''} ถูกปฏิเสธโดย account`,
+          link: `/dashboard/services/${tx.serviceId}/transactions`,
+          relatedTransactionId: tx._id,
+          relatedServiceId: tx.serviceId,
+          isRead: false
+        });
+      }
+    } catch (notifErr) {
+      console.error('Create notification failed:', notifErr.message);
+    }
 
     const populated = await Transaction.findById(tx._id)
       .populate({
@@ -280,7 +332,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-  const { amount, transactionDate, notes, bank } = req.body || {};
+  const { amount, transactionDate, transactionTime, notes, bank } = req.body || {};
   // แปลง breakdowns จาก string -> array (ถ้ามี)
   let breakdowns = [];
   if (req.body && typeof req.body.breakdowns !== 'undefined') {
@@ -323,6 +375,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       userId: service.userId,
       amount: parseFloat(amount),
       transactionDate: new Date(transactionDate),
+      transactionTime: transactionTime || undefined,
       notes: notes || '',
       slipImage,
       bank,
@@ -389,6 +442,10 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
 
   const update = { ...(req.body || {}) };
     if (update.transactionDate) update.transactionDate = new Date(update.transactionDate);
+    // เก็บ transactionTime ถ้ามี
+    if (update.transactionTime !== undefined) {
+      update.transactionTime = update.transactionTime || undefined;
+    }
 
     // รองรับการอัปเดต breakdowns (stringified JSON หรือ array)
     if (typeof update.breakdowns !== 'undefined') {

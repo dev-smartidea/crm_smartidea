@@ -8,7 +8,17 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['service_overdue', 'service_due_soon', 'new_customer', 'new_transaction'],
+    enum: [
+      'service_overdue', 
+      'service_due_soon', 
+      'new_customer', 
+      'new_transaction',
+      'card_low_balance',
+      'card_inactive',
+      'card_active',
+      'transaction_success',
+      'transaction_failed'
+    ],
     required: true
   },
   title: {

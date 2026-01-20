@@ -213,6 +213,30 @@ export default function ApprovedTransactionsPage() {
     }).format(amount);
   };
 
+  const getBreakdownLabel = (code) => {
+    const labels = {
+      '11': 'ค่าคลิก',
+      '12': 'Vat ค่าคลิก',
+      '13': 'Vat ค่าบริการ',
+      '14': 'ค่าบริการ Google',
+      '15': 'ค่าบริการบางส่วน',
+      '16': 'คูปอง Google'
+    };
+    return labels[code] || code;
+  };
+
+  const getBankBadgeClass = (bank) => {
+    const bankMap = {
+      'KBANK': 'badge-bank-kbank',
+      'SCB': 'badge-bank-scb',
+      'BBL': 'badge-bank-bbl',
+      'KTB': 'badge-bank-ktb',
+      'TTB': 'badge-bank-ttb',
+      'BAY': 'badge-bank-bay'
+    };
+    return bankMap[bank] || 'badge-bank';
+  };
+
   if (loading) return <div style={{ padding: '2rem' }}>กำลังโหลด...</div>;
 
   return (
@@ -367,7 +391,7 @@ export default function ApprovedTransactionsPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Cards Grid */}
         {filteredTransactions.length === 0 ? (
           <div className="empty-state">
             <CheckCircleFill size={64} color="#cbd5e1" />
@@ -375,125 +399,151 @@ export default function ApprovedTransactionsPage() {
           </div>
         ) : (
           <>
-            <div className="table-responsive">
-              <table className="transaction-table">
-                <thead>
-                  <tr>
-                    <th>วันที่โอน</th>
-                    <th>ลูกค้า</th>
-                    <th>บริการ</th>
-                    <th>จำนวนเงิน</th>
-                    <th>ธนาคาร</th>
-                    <th>สลิป</th>
-                    <th>หมายเหตุ</th>
-                    <th>ผู้ส่ง</th>
-                    <th>สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageItems.map(tx => (
-                    <tr key={tx._id}>
-                      <td>{formatDate(tx.transactionDate)}</td>
-                      <td>{tx.customerName}</td>
-                      <td>
-                        {tx.serviceId?.customerIdField && tx.serviceName ? (
-                          <span className={`service-badge ${
-                            tx.serviceName === 'Facebook Ads' ? 'facebook' :
-                            tx.serviceName === 'Google Ads' ? 'google' :
-                            'other'
-                          }`}>
-                            {tx.serviceName === 'Facebook Ads' && <Facebook className="service-icon" />}
-                            {tx.serviceName === 'Google Ads' && <Google className="service-icon" />}
-                            <span className="service-id-text">{tx.serviceId.customerIdField}</span>
-                          </span>
-                        ) : (
-                          <span className="text-muted">-</span>
-                        )}
-                      </td>
-                      <td className="amount-cell">{formatCurrency(tx.amount)}</td>
-                      <td>
-                        <span className={`badge-bank ${tx.bank ? tx.bank.toLowerCase() : 'other'}`}>
-                          {tx.bank || '-'}
-                        </span>
-                      </td>
-                      <td>
-                        {tx.slipImage ? (
-                          <button
-                            className="btn-slip-view"
-                            onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
-                            title="ดูรายละเอียดสลิปโอนเงิน"
-                          >
-                            <Eye /> ดูสลิป
-                          </button>
-                        ) : (
+            <div className="cards-grid">
+              {pageItems.map(tx => (
+                <div key={tx._id} className="transaction-card">
+                  {/* Header: Date & Bank */}
+                  <div className="card-header-simple">
+                    <div>
+                      <div style={{ fontSize: '0.85rem', color: '#1e293b' }}>
+                        <span style={{ fontWeight: '400' }}>วันที่โอน </span>
+                        <span style={{ fontWeight: '600' }}>{formatDate(tx.transactionDate)}</span>
+                        {tx.transactionTime && (
                           <>
-                            <button
-                              className="btn-slip-upload"
-                              onClick={() => triggerUploadFor(tx._id)}
-                              disabled={uploadingId === tx._id}
-                              title={uploadingId === tx._id ? 'กำลังอัปโหลดไฟล์สลิป...' : 'อัปโหลดสลิปโอนเงิน'}
-                            >
-                              {uploadingId === tx._id ? <span className="spinner" /> : <Upload />}
-                              {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
-                            </button>
-                            <input
-                              id={`slip-input-${tx._id}`}
-                              type="file"
-                              accept="image/*"
-                              style={{ display: 'none' }}
-                              onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
-                            />
+                            <span style={{ fontWeight: '400', marginLeft: '12px' }}>เวลาที่โอน </span>
+                            <span style={{ fontWeight: '600' }}>{tx.transactionTime}</span>
                           </>
                         )}
-                      </td>
-                      <td>
-                        <div className="notes-cell">
-                          {tx.notes && (
-                            <div className="notes-text">{tx.notes}</div>
-                          )}
-                          {tx.breakdowns && tx.breakdowns.length > 0 && (
-                            <div className="breakdown-list">
-                              {tx.breakdowns.map((bd, idx) => (
-                                <div key={idx} className="breakdown-item">
-                                  <span className="breakdown-code">{bd.code}</span>
-                                  <span>:</span>
-                                  <span className="breakdown-amount">{formatNumber(bd.amount)}</span>
-                                  <span>บาท</span>
-                                  {bd.statusNote && <span className="breakdown-status">— {bd.statusNote}</span>}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {!tx.notes && (!tx.breakdowns || tx.breakdowns.length === 0) && '-'}
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ fontSize: '0.875rem' }}>
-                          <div style={{ fontWeight: '500', color: '#1e293b' }}>
-                            {tx.submittedBy?.name || '-'}
+                      </div>
+                    </div>
+                    <span className={`badge ${getBankBadgeClass(tx.bank)}`} style={{ fontSize: '0.75rem' }}>
+                      {tx.bank || '-'}
+                    </span>
+                  </div>
+
+                  {/* Customer Name */}
+                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '8px' }}>
+                    {tx.customerName || '-'}
+                  </div>
+
+                  {/* Service Badge */}
+                  {tx.serviceId?.customerIdField && tx.serviceName && (
+                    <div style={{ marginTop: '6px' }}>
+                      <span className={`service-badge ${
+                        tx.serviceName === 'Facebook Ads' ? 'facebook' :
+                        tx.serviceName === 'Google Ads' ? 'google' : 'other'
+                      }`}>
+                        {tx.serviceName === 'Facebook Ads' && <Facebook className="service-icon" />}
+                        {tx.serviceName === 'Google Ads' && <Google className="service-icon" />}
+                        <span className="service-id-text">{tx.serviceId.customerIdField}</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Amount - Large & Centered */}
+                  <div style={{ 
+                    fontSize: '1.75rem', 
+                    fontWeight: '700', 
+                    color: '#10b981',
+                    textAlign: 'center',
+                    padding: '16px 0',
+                    margin: '12px 0',
+                    borderTop: '1px solid #f1f5f9',
+                    borderBottom: '1px solid #f1f5f9'
+                  }}>
+                    {formatCurrency(tx.amount)}
+                  </div>
+
+                  {/* Breakdowns */}
+                  {tx.breakdowns && tx.breakdowns.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+                        📋 รายละเอียดการโอน:
+                      </div>
+                      <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px' }}>
+                        {tx.breakdowns.map((bd, idx) => (
+                          <div key={idx} style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px' }}>
+                            <span style={{ fontWeight: '600' }}>{bd.code} : {getBreakdownLabel(bd.code)}</span> - {formatNumber(bd.amount)} บาท
+                            {bd.statusNote && <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}> — {bd.statusNote}</span>}
                           </div>
-                          {tx.submittedAt && (
-                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                              {new Date(tx.submittedAt).toLocaleDateString('th-TH', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="status-badge status-approved">
-                          อนุมัติแล้ว
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {tx.notes && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+                        📝 หมายเหตุ:
+                      </div>
+                      <div style={{ background: '#fffbeb', padding: '8px 10px', borderRadius: '6px', fontSize: '0.85rem', color: '#475569' }}>
+                        {tx.notes}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Slip & Submitter */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    fontSize: '0.75rem',
+                    color: '#94a3b8',
+                    paddingTop: '8px',
+                    borderTop: '1px solid #f1f5f9',
+                    marginBottom: '12px'
+                  }}>
+                    <div>
+                      ส่งโดย: <strong style={{ color: '#64748b' }}>{tx.submittedBy?.name || '-'}</strong>
+                    </div>
+                    {tx.slipImage ? (
+                      <button
+                        className="btn-slip-view"
+                        onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
+                        style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                      >
+                        <Eye size={12} /> ดูสลิป
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="btn-slip-upload"
+                          onClick={() => triggerUploadFor(tx._id)}
+                          disabled={uploadingId === tx._id}
+                          style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                        >
+                          {uploadingId === tx._id ? <span className="spinner" style={{ width: '10px', height: '10px' }} /> : <Upload size={12} />}
+                          {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
+                        </button>
+                        <input
+                          id={`slip-input-${tx._id}`}
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Status Badge */}
+                  <div style={{ textAlign: 'center' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '8px 16px',
+                      background: '#dcfce7',
+                      color: '#16a34a',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      border: '1px solid #86efac'
+                    }}>
+                      ✓ อนุมัติแล้ว
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Pagination */}

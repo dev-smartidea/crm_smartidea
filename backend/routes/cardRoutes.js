@@ -122,8 +122,33 @@ router.post('/cards/charge', async (req, res) => {
       return res.status(400).json({ error: 'ยอดคงเหลือไม่พอ' });
     }
 
+    const previousBalance = card.balance;
     card.balance -= numericAmount;
     await card.save();
+
+    // ตรวจสอบยอดเงินต่ำ (threshold 3000 บาท)
+    const LOW_BALANCE_THRESHOLD = 3000;
+    if (card.balance < LOW_BALANCE_THRESHOLD && previousBalance >= LOW_BALANCE_THRESHOLD) {
+      try {
+        const User = require('../models/User');
+        const Notification = require('../models/Notification');
+        
+        const accountUsers = await User.find({ role: { $in: ['account', 'admin'] } });
+        
+        for (const accountUser of accountUsers) {
+          await Notification.create({
+            userId: accountUser._id,
+            type: 'card_low_balance',
+            title: '⚠️ ยอดเงินบัตรต่ำ',
+            message: `บัตร ${card.displayName} เหลือยอดเงิน ${card.balance.toLocaleString()} บาท`,
+            link: '/dashboard/account/cards',
+            isRead: false
+          });
+        }
+      } catch (notifErr) {
+        console.error('Create low balance notification failed:', notifErr.message);
+      }
+    }
 
     const ledger = await CardLedger.create({
       cardId,
@@ -199,10 +224,38 @@ router.put('/cards/:id', async (req, res) => {
       if (existing) return res.status(400).json({ error: 'Card with this last4 already exists' });
       card.last4 = last4;
     }
+    
+    // ตรวจสอบการเปลี่ยนสถานะบัตร
+    const oldStatus = card.status;
     if (status !== undefined) card.status = status;
     if (channels !== undefined) card.channels = channels;
 
     await card.save();
+
+    // สร้าง notification เมื่อเปลี่ยนสถานะ
+    if (status !== undefined && status !== oldStatus) {
+      try {
+        const User = require('../models/User');
+        const Notification = require('../models/Notification');
+        
+        const accountUsers = await User.find({ role: { $in: ['account', 'admin'] } });
+        const notifType = status === 'inactive' ? 'card_inactive' : 'card_active';
+        const title = status === 'inactive' ? '🔴 บัตรถูกปิดใช้งาน' : '🟢 บัตรเปิดใช้งานแล้ว';
+        
+        for (const accountUser of accountUsers) {
+          await Notification.create({
+            userId: accountUser._id,
+            type: notifType,
+            title: title,
+            message: `บัตร ${card.displayName} ถูกเปลี่ยนสถานะจาก ${oldStatus} เป็น ${status}`,
+            link: '/dashboard/account/cards',
+            isRead: false
+          });
+        }
+      } catch (notifErr) {
+        console.error('Create card status notification failed:', notifErr.message);
+      }
+    }
     res.json(card);
   } catch (err) {
     console.error('Update card failed:', err);

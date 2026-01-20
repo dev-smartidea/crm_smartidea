@@ -37,6 +37,7 @@ export default function AllTransactionPage() {
     serviceId: '',
     amount: '',
     transactionDate: '',
+    transactionTime: '',
     notes: '',
     bank: 'KBANK',
     slipImage: null,
@@ -244,6 +245,7 @@ export default function AllTransactionPage() {
       const formData = new FormData();
       formData.append('amount', parseFloat(form.amount));
       formData.append('transactionDate', form.transactionDate);
+      if (form.transactionTime) formData.append('transactionTime', form.transactionTime);
       formData.append('notes', form.notes || '');
       formData.append('bank', form.bank);
       if (form.slipImage) {
@@ -304,6 +306,7 @@ export default function AllTransactionPage() {
       serviceId: '',
       amount: '',
       transactionDate: '',
+      transactionTime: '',
       notes: '',
       bank: 'KBANK',
       slipImage: null,
@@ -675,7 +678,10 @@ export default function AllTransactionPage() {
                       const isRejected = tx.submissionStatus === 'rejected';
                       return (
                     <tr key={tx._id} className={isRejected ? 'rejected-transaction' : ''}>
-                      <td>{formatDate(tx.transactionDate)}</td>
+                      <td>
+                        <div>{formatDate(tx.transactionDate)}</div>
+                        {tx.transactionTime && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '2px' }}>{tx.transactionTime}</div>}
+                      </td>
                       <td>
                         <div className="customer-info">
                           <span className="customer-name">{tx.customer?.name || '-'}</span>
@@ -924,6 +930,19 @@ export default function AllTransactionPage() {
                   value={form.transactionDate}
                   onChange={e => setForm({ ...form, transactionDate: e.target.value })}
                   required
+                />
+              </label>
+              <label>
+                เวลาที่โอน (เช่น 14:30)
+                <input
+                  type="text"
+                  value={form.transactionTime}
+                  onChange={e => setForm({ ...form, transactionTime: e.target.value })}
+                  placeholder="14:30"
+                  pattern="[0-2][0-9]:[0-5][0-9]"
+                  title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+                  maxLength="5"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
                 />
               </label>
               <label>

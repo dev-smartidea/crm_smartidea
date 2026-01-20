@@ -14,6 +14,7 @@ export default function EditTransactionModal({
   const [form, setForm] = useState({
     amount: '',
     transactionDate: '',
+    transactionTime: '',
     bank: '',
     notes: '',
     breakdowns: [],
@@ -29,6 +30,7 @@ export default function EditTransactionModal({
       setForm({
         amount: transaction.amount || '',
         transactionDate: transaction.transactionDate ? new Date(transaction.transactionDate).toISOString().slice(0,10) : '',
+        transactionTime: transaction.transactionTime || '',
         bank: transaction.bank || '',
         notes: transaction.notes || '',
         breakdowns: Array.isArray(transaction.breakdowns) ? transaction.breakdowns.map(b => ({
@@ -130,6 +132,7 @@ export default function EditTransactionModal({
       const payload = new FormData();
       payload.append('amount', form.amount);
       payload.append('transactionDate', form.transactionDate);
+      if (form.transactionTime) payload.append('transactionTime', form.transactionTime);
       payload.append('bank', form.bank);
       payload.append('notes', form.notes || '');
       payload.append('breakdowns', JSON.stringify(form.breakdowns || []));
@@ -186,6 +189,19 @@ export default function EditTransactionModal({
               type="date"
               value={form.transactionDate}
               onChange={(e) => updateField('transactionDate', e.target.value)}
+            />
+          </label>
+          <label>
+            เวลาที่โอน (เช่น 14:30)
+            <input
+              type="text"
+              value={form.transactionTime}
+              onChange={(e) => updateField('transactionTime', e.target.value)}
+              placeholder="14:30"
+              pattern="[0-2][0-9]:[0-5][0-9]"
+              title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+              maxLength="5"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
             />
           </label>
           <label>

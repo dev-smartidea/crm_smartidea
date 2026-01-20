@@ -153,22 +153,39 @@ export default function AccountDashboardPage() {
         allTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setRecentTransactions(allTransactions.slice(0, 10));
 
-        // คำนวณสถิติธุรกรรม
-        const pending = allTransactions.filter(tx => tx.status === 'pending').length;
-        const approved = allTransactions.filter(tx => tx.status === 'approved').length;
-        const rejected = allTransactions.filter(tx => tx.status === 'rejected').length;
-        
-        setPendingTransactions(pending);
-        setApprovedTransactions(approved);
-        setRejectedTransactions(rejected);
+        // ดึงข้อมูล Transaction สำหรับนับสถานะการส่งบัญชี
+        try {
+          const transactionRes = await axios.get(`${api}/api/transactions`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          const transactions = transactionRes.data.transactions || [];
+          
+          // คำนวณสถิติธุรกรรมตาม submissionStatus
+          const submitted = transactions.filter(tx => tx.submissionStatus === 'submitted').length;
+          const approved = transactions.filter(tx => tx.submissionStatus === 'approved').length;
+          const rejected = transactions.filter(tx => tx.submissionStatus === 'rejected').length;
+          
+          setPendingTransactions(submitted); // รอดำเนินการ = submitted
+          setApprovedTransactions(approved);
+          setRejectedTransactions(rejected);
+        } catch (e) {
+          console.warn('Failed to fetch transactions for status count:', e.message);
+          // ถ้าดึงไม่ได้ให้ใช้ค่า 0
+          setPendingTransactions(0);
+          setApprovedTransactions(0);
+          setRejectedTransactions(0);
+        }
 
         // คำนวณยอด topup และ charge
-        const topupTotal = allTransactions.filter(tx => tx.type === 'topup').reduce((sum, tx) => sum + (tx.amount || 0), 0);
+        // โอนเข้าทั้งหมด: ใช้ยอดรวมจากรายการที่อนุมัติแล้ว (backend summary)
+        const approvedTotalAmount = dashboardData?.approvedSummary?.totalAmount || 0;
         const chargeTotal = allTransactions.filter(tx => tx.type === 'charge').reduce((sum, tx) => sum + (tx.amount || 0), 0);
-        const topupTxCount = allTransactions.filter(tx => tx.type === 'topup').length;
+        // จำนวนรายการโอนเข้า: ใช้จำนวนที่อนุมัติแล้วจาก backend summary
+        const topupTxCount = dashboardData?.approvedSummary?.count || 0;
         const chargeTxCount = allTransactions.filter(tx => tx.type === 'charge').length;
         
-        setTopupAmount(topupTotal);
+        setTopupAmount(approvedTotalAmount);
         setChargeAmount(chargeTotal);
         setTopupCount(topupTxCount);
         setChargeCount(chargeTxCount);
@@ -187,7 +204,7 @@ export default function AccountDashboardPage() {
         const growth = lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal * 100) : 0;
         setMonthlyGrowth(growth);
 
-        console.log('Topup:', topupTotal, 'Charge:', chargeTotal);
+        console.log('Topup (approved):', approvedTotalAmount, 'Charge:', chargeTotal);
 
         // สร้าง breakdown by channel
         const channelMap = {};

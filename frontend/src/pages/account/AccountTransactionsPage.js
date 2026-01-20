@@ -155,6 +155,18 @@ export default function AccountTransactionsPage() {
     return bankNames[bank] || bank;
   };
 
+  const getBreakdownLabel = (code) => {
+    const labels = {
+      '11': 'ค่าคลิก',
+      '12': 'Vat ค่าคลิก',
+      '13': 'Vat ค่าบริการ',
+      '14': 'ค่าบริการ Google',
+      '15': 'ค่าบริการบางส่วน',
+      '16': 'คูปอง Google'
+    };
+    return labels[code] || code;
+  };
+
   const totalAmount = items.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
   // Pagination
@@ -209,7 +221,7 @@ export default function AccountTransactionsPage() {
             </div>
           )}
         </div>
-        {/* Transactions Table */}
+        {/* Transactions Cards */}
         <div className="transactions-section">
           {items.length === 0 ? (
             <div className="no-data">
@@ -217,191 +229,181 @@ export default function AccountTransactionsPage() {
               <p>ยังไม่มีรายการที่ส่งมา</p>
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="transaction-table">
-                <thead>
-                  <tr>
-                    <th>วันที่โอน</th>
-                    <th>ลูกค้า</th>
-                    <th>บริการ</th>
-                    <th>จำนวนเงิน</th>
-                    <th>ธนาคาร</th>
-                    <th>สลิป</th>
-                    <th>หมายเหตุ</th>
-                    <th>ผู้ส่ง</th>
-                    <th>จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageItems.map(tx => (
-                    <tr key={tx._id}>
-                      <td>{formatDate(tx.transactionDate)}</td>
-                      <td>
-                        <div className="customer-info">
-                          <span className="customer-name">{tx.customer?.name || '-'}</span>
+            <>
+              <div className="cards-grid">
+                {pageItems.map(tx => (
+                  <div key={tx._id} className="transaction-card">
+                    {/* Header: Date & Bank */}
+                    <div className="card-header-simple">
+                      <div>
+                        <div style={{ fontSize: '0.85rem', color: '#1e293b' }}>
+                          <span style={{ fontWeight: '400' }}>วันที่โอน </span>
+                          <span style={{ fontWeight: '600' }}>{formatDate(tx.transactionDate)}</span>
+                          {tx.transactionTime && (
+                            <>
+                              <span style={{ fontWeight: '400', marginLeft: '12px' }}>เวลาที่โอน </span>
+                              <span style={{ fontWeight: '600' }}>{tx.transactionTime}</span>
+                            </>
+                          )}
                         </div>
-                      </td>
-                      <td>
-                        {tx.service?.customerIdField && tx.service?.name ? (
-                          <span className={`service-badge ${
-                            tx.service.name === 'Facebook Ads' ? 'facebook' :
-                            tx.service.name === 'Google Ads' ? 'google' :
-                            'other'
-                          }`}>
-                            {tx.service.name === 'Facebook Ads' && <Facebook className="service-icon" />}
-                            {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
-                            <span className="service-id-text">{tx.service.customerIdField}</span>
-                          </span>
-                        ) : (
-                          <span className="text-muted">-</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="amount">{formatCurrency(tx.amount)}</span>
-                      </td>
-                      <td>
-                        <span className={`badge ${getBankBadgeClass(tx.bank)}`}>
-                          {getBankName(tx.bank)}
+                      </div>
+                      <span className={`badge ${getBankBadgeClass(tx.bank)}`} style={{ fontSize: '0.75rem' }}>
+                        {getBankName(tx.bank)}
+                      </span>
+                    </div>
+
+                    {/* Customer Name */}
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '8px' }}>
+                      {tx.customer?.name || '-'}
+                    </div>
+
+                    {/* Service Badge */}
+                    {tx.service?.customerIdField && tx.service?.name && (
+                      <div style={{ marginTop: '6px' }}>
+                        <span className={`service-badge ${
+                          tx.service.name === 'Facebook Ads' ? 'facebook' :
+                          tx.service.name === 'Google Ads' ? 'google' : 'other'
+                        }`}>
+                          {tx.service.name === 'Facebook Ads' && <Facebook className="service-icon" />}
+                          {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
+                          <span className="service-id-text">{tx.service.customerIdField}</span>
                         </span>
-                      </td>
-                      <td>
-                        {tx.slipImage ? (
-                          <button
-                            className="btn-slip-view"
-                            onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
-                            title="ดูรายละเอียดสลิปโอนเงิน"
-                          >
-                            <Eye /> ดูสลิป
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              className="btn-slip-upload"
-                              onClick={() => triggerUploadFor(tx._id)}
-                              disabled={uploadingId === tx._id}
-                              title={uploadingId === tx._id ? 'กำลังอัปโหลดไฟล์สลิป...' : 'อัปโหลดสลิปโอนเงิน'}
-                            >
-                              {uploadingId === tx._id ? <span className="spinner" /> : <Upload />}
-                              {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
-                            </button>
-                            <input
-                              id={`slip-input-${tx._id}`}
-                              type="file"
-                              accept="image/*"
-                              style={{ display: 'none' }}
-                              onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
-                            />
-                          </>
-                        )}
-                      </td>
-                      <td>
-                        <div className="notes-cell">
-                          {tx.notes && <div className="note-text">{tx.notes}</div>}
-                          {tx.breakdowns && tx.breakdowns.length > 0 && (
-                            <div className="breakdowns">
-                              {tx.breakdowns.map((bd, idx) => (
-                                <div key={idx} className="breakdown-item">
-                                  <span className="bd-code">{bd.code}</span>
-                                  <span className="bd-sep"> :</span>{' '}
-                                  <span className="bd-amount">{bd.amount?.toLocaleString('th-TH')} บาท</span>
-                                  {bd.statusNote && <span className="bd-status"> — {bd.statusNote}</span>}
-                                </div>
-                              ))}
+                      </div>
+                    )}
+
+                    {/* Amount - Large & Centered */}
+                    <div style={{ 
+                      fontSize: '1.75rem', 
+                      fontWeight: '700', 
+                      color: '#10b981',
+                      textAlign: 'center',
+                      padding: '16px 0',
+                      margin: '12px 0',
+                      borderTop: '1px solid #f1f5f9',
+                      borderBottom: '1px solid #f1f5f9'
+                    }}>
+                      {formatCurrency(tx.amount)}
+                    </div>
+
+                    {/* Breakdowns */}
+                    {tx.breakdowns && tx.breakdowns.length > 0 && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+                          📋 รายละเอียดการโอน:
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px' }}>
+                          {tx.breakdowns.map((bd, idx) => (
+                            <div key={idx} style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px' }}>
+                              <span style={{ fontWeight: '600' }}>{bd.code} : {getBreakdownLabel(bd.code)}</span> - {bd.amount?.toLocaleString('th-TH')} บาท
+                              {bd.statusNote && <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}> — {bd.statusNote}</span>}
                             </div>
-                          )}
-                          {!tx.notes && (!tx.breakdowns || tx.breakdowns.length === 0) && '-'}
+                          ))}
                         </div>
-                      </td>
-                      <td>
-                        <div style={{ fontSize: '0.875rem' }}>
-                          <div style={{ fontWeight: '500', color: '#1e293b' }}>
-                            {tx.submittedBy?.name || '-'}
-                          </div>
-                          {tx.submittedAt && (
-                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                              {new Date(tx.submittedAt).toLocaleDateString('th-TH', { 
-                                day: '2-digit', 
-                                month: 'short', 
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </div>
-                          )}
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {tx.notes && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+                          📝 หมายเหตุ:
                         </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ background: '#fffbeb', padding: '8px 10px', borderRadius: '6px', fontSize: '0.85rem', color: '#475569' }}>
+                          {tx.notes}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Slip & Submitter */}
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      fontSize: '0.75rem',
+                      color: '#94a3b8',
+                      paddingTop: '8px',
+                      borderTop: '1px solid #f1f5f9',
+                      marginBottom: '12px'
+                    }}>
+                      <div>
+                        ส่งโดย: <strong style={{ color: '#64748b' }}>{tx.submittedBy?.name || '-'}</strong>
+                      </div>
+                      {tx.slipImage ? (
+                        <button
+                          className="btn-slip-view"
+                          onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
+                          style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                        >
+                          <Eye size={12} /> ดูสลิป
+                        </button>
+                      ) : (
+                        <>
                           <button
-                            onClick={() => handleApprove(tx._id)}
-                            disabled={processingId === tx._id || !tx.slipImage}
-                            className="btn-submit-small"
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid #22c55e',
-                              background: !tx.slipImage ? '#e5e7eb' : '#f0fdf4',
-                              color: !tx.slipImage ? '#9ca3af' : '#16a34a',
-                              cursor: (processingId === tx._id || !tx.slipImage) ? 'not-allowed' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              fontSize: '0.875rem',
-                              opacity: !tx.slipImage ? 0.5 : 1
-                            }}
-                            title={!tx.slipImage ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
+                            className="btn-slip-upload"
+                            onClick={() => triggerUploadFor(tx._id)}
+                            disabled={uploadingId === tx._id}
+                            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
                           >
-                            <CheckCircle /> อนุมัติ
+                            {uploadingId === tx._id ? <span className="spinner" style={{ width: '10px', height: '10px' }} /> : <Upload size={12} />}
+                            {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
                           </button>
-                          <button
-                            onClick={() => handleReject(tx._id)}
-                            disabled={processingId === tx._id}
-                            className="btn-delete-small"
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid #ef4444',
-                              background: '#fef2f2',
-                              color: '#dc2626',
-                              cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              fontSize: '0.875rem'
-                            }}
-                          >
-                            <XCircle /> ปฏิเสธ
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-            {totalPages > 1 && (
-              <div className="pagination">
-                <button
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  ← ก่อนหน้า
-                </button>
-                <div className="pagination-info">
-                  หน้า {currentPage} จาก {totalPages}
-                </div>
-                <button
-                  className="pagination-btn"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  ถัดไป →
-                </button>
+                          <input
+                            id={`slip-input-${tx._id}`}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Actions - Big Buttons */}
+                    <div className="card-actions">
+                      <button
+                        onClick={() => handleApprove(tx._id)}
+                        disabled={processingId === tx._id || !tx.slipImage}
+                        className="btn-approve"
+                        title={!tx.slipImage ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
+                      >
+                        <CheckCircle size={18} /> อนุมัติ
+                      </button>
+                      <button
+                        onClick={() => handleReject(tx._id)}
+                        disabled={processingId === tx._id}
+                        className="btn-reject"
+                      >
+                        <XCircle size={18} /> ปฏิเสธ
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+
+              {totalPages > 1 && (
+                <div className="pagination">
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    ← ก่อนหน้า
+                  </button>
+                  <div className="pagination-info">
+                    หน้า {currentPage} จาก {totalPages}
+                  </div>
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    ถัดไป →
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
         
       </div>
 

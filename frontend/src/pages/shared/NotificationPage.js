@@ -1,373 +1,318 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BellFill, CheckCircleFill, ClockFill, ExclamationTriangleFill, PersonPlusFill, CashCoin, TrashFill, XCircle, ArrowClockwise } from 'react-bootstrap-icons';
-import { Link } from 'react-router-dom';
+import { 
+  Bell, BellSlash, Check, CheckAll, Trash, Trash2, 
+  Clock, Person, CurrencyDollar, ExclamationCircle
+} from 'react-bootstrap-icons';
+import { useNavigate } from 'react-router-dom';
 import './NotificationPage.css';
 
 export default function NotificationPage() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('all'); // all, service, customer, transaction, unread, read
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [notificationToDelete, setNotificationToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteType, setDeleteType] = useState('single'); // 'single' or 'all'
-  const itemsPerPage = 20;
+  const [filter, setFilter] = useState('all');
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
-  const DUE_SOON_WINDOW_DAYS = 1; // ปรับจำนวนวันสำหรับ "ใกล้ครบกำหนด" (ฝั่งหน้าเว็บ)
 
-  const fetchNotifications = useCallback(async (isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
         setLoading(true);
-      }
-      const res = await axios.get(`${api}/api/notifications?windowDays=${DUE_SOON_WINDOW_DAYS}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setNotifications(res.data || []);
-    } catch (err) {
-      console.error('Failed to fetch notifications:', err);
-    } finally {
-      if (isRefresh) {
-        setRefreshing(false);
-      } else {
+        const res = await axios.get(`${api}/api/notifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setNotifications(res.data || []);
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      } finally {
         setLoading(false);
       }
-    }
-  }, [api, token, DUE_SOON_WINDOW_DAYS]);
+    };
+    
+    if (token) fetchNotifications();
+  }, [api, token]);
 
-  // โหลดข้อมูลเมื่อเปิดหน้า
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
-
-  const markAsRead = async (notificationId) => {
+  // Actions
+  const handleMarkAsRead = async (id) => {
     try {
-      await axios.put(`${api}/api/notifications/${notificationId}/read`, {}, {
+      await axios.put(`${api}/api/notifications/${id}/read`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setNotifications(notifications.map(n => 
-        n._id === notificationId ? { ...n, isRead: true } : n
-      ));
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
     } catch (err) {
-      console.error('Failed to mark as read:', err);
+      console.error('Mark as read failed:', err);
     }
   };
 
-  const markAllAsRead = async () => {
+  const handleMarkAllAsRead = async () => {
     try {
-      const notificationIds = notifications.map(n => n._id);
       await axios.put(`${api}/api/notifications/read-all`, 
-        { notificationIds },
+        { notificationIds: notifications.map(n => n._id) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setSelectedIds(new Set());
     } catch (err) {
-      console.error('Failed to mark all as read:', err);
+      console.error('Mark all as read failed:', err);
     }
   };
 
-  const deleteNotification = async (notificationId) => {
-    setNotificationToDelete(notificationId);
-    setDeleteType('single');
-    setShowDeleteConfirm(true);
-  };
-
-  const deleteAllRead = async () => {
-    const readNotifications = notifications.filter(n => n.isRead);
+  const handleDelete = async (id) => {
+    if (!window.confirm('ต้องการลบการแจ้งเตือนนี้?')) return;
     
-    if (readNotifications.length === 0) {
-      alert('⚠️ ไม่มีการแจ้งเตือนที่อ่านแล้วให้ลบ');
-      return;
-    }
-
-    setDeleteType('all');
-    setShowDeleteConfirm(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    setIsDeleting(true);
     try {
-      if (deleteType === 'single') {
-        await axios.delete(`${api}/api/notifications/${notificationToDelete}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setNotifications(notifications.filter(n => n._id !== notificationToDelete));
-      } else {
-        const readIds = notifications.filter(n => n.isRead).map(n => n._id);
-        await axios.delete(`${api}/api/notifications/batch`, {
-          data: { notificationIds: readIds },
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setNotifications(notifications.filter(n => !n.isRead));
-      }
-      setShowDeleteConfirm(false);
-      setNotificationToDelete(null);
+      await axios.delete(`${api}/api/notifications/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.filter(n => n._id !== id));
+      setSelectedIds(prev => {
+        const updated = new Set(prev);
+        updated.delete(id);
+        return updated;
+      });
     } catch (err) {
-      console.error('Failed to delete notification:', err);
-      alert('เกิดข้อผิดพลาดในการลบการแจ้งเตือน');
-      fetchNotifications();
-    } finally {
-      setIsDeleting(false);
+      console.error('Delete failed:', err);
     }
   };
 
-  const DeleteConfirmModal = () => (
-    <div className="modal-backdrop">
-      <div className="modal-content">
-        <div className="modal-header">
-          <ExclamationTriangleFill />
-          <h3>ยืนยันการลบ</h3>
-        </div>
-        <div className="modal-body">
-          {deleteType === 'single' 
-            ? 'คุณแน่ใจหรือไม่ว่าต้องการลบการแจ้งเตือนนี้? การกระทำนี้ไม่สามารถย้อนกลับได้'
-            : `คุณแน่ใจหรือไม่ว่าต้องการลบการแจ้งเตือนที่อ่านแล้วทั้งหมด (${notifications.filter(n => n.isRead).length} รายการ)? การกระทำนี้ไม่สามารถย้อนกลับได้`
-          }
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
-            <XCircle /> ยกเลิก
-          </button>
-          <button className="btn btn-danger" onClick={handleConfirmDelete} disabled={isDeleting}>
-            {isDeleting ? 'กำลังลบ...' : 'ยืนยันการลบ'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const getIcon = (type) => {
-    switch (type) {
-      case 'service_due_soon':
-      case 'service_overdue':
-        return <ClockFill className="notif-icon warning" />;
-      case 'new_customer':
-        return <PersonPlusFill className="notif-icon success" />;
-      case 'new_transaction':
-        return <CashCoin className="notif-icon info" />;
-      default:
-        return <BellFill className="notif-icon" />;
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`ต้องการลบ ${selectedIds.size} รายการ?`)) return;
+    
+    try {
+      await axios.delete(`${api}/api/notifications/batch`, {
+        data: { notificationIds: Array.from(selectedIds) },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.filter(n => !selectedIds.has(n._id)));
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
     }
   };
 
-  const getPriority = (type) => {
-    if (type === 'service_overdue') return 'high';
-    if (type === 'service_due_soon') return 'medium';
-    return 'low';
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const updated = new Set(prev);
+      if (updated.has(id)) updated.delete(id);
+      else updated.add(id);
+      return updated;
+    });
   };
 
-  const filteredNotifications = notifications.filter(n => {
-    if (filter === 'all') return true;
+  const handleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(n => n._id)));
+    }
+  };
+
+  const handleClickNotification = (notif) => {
+    if (!notif.isRead) handleMarkAsRead(notif._id);
+    if (notif.link) navigate(notif.link);
+  };
+
+  // Filter
+  const filtered = notifications.filter(n => {
     if (filter === 'unread') return !n.isRead;
-    if (filter === 'read') return n.isRead;
-    if (filter === 'service') return n.type.includes('service');
-    if (filter === 'customer') return n.type.includes('customer');
-    if (filter === 'transaction') return n.type.includes('transaction');
     return true;
   });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-  const readCount = notifications.length - unreadCount;
+  const stats = {
+    total: notifications.length,
+    unread: notifications.filter(n => !n.isRead).length,
+    read: notifications.filter(n => n.isRead).length
+  };
 
-  // Pagination
-  const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentNotifications = filteredNotifications.slice(startIndex, endIndex);
+  // Icon mapping
+  const getNotificationIcon = (type) => {
+    const icons = {
+      'service_overdue': { icon: ExclamationCircle, color: '#ef4444' },
+      'service_due_soon': { icon: Clock, color: '#f59e0b' },
+      'new_customer': { icon: Person, color: '#10b981' },
+      'new_transaction': { icon: CurrencyDollar, color: '#3b82f6' }
+    };
+    return icons[type] || { icon: Bell, color: '#6b7280' };
+  };
 
-  // Reset to page 1 when filter changes
-  const handleFilterChange = (newFilter) => {
-    setFilter(newFilter);
-    setCurrentPage(1);
+  const formatDate = (date) => {
+    const now = new Date();
+    const notifDate = new Date(date);
+    const diffMs = now - notifDate;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'เมื่อสักครู่';
+    if (diffMins < 60) return `${diffMins} นาทีที่แล้ว`;
+    if (diffHours < 24) return `${diffHours} ชั่วโมงที่แล้ว`;
+    if (diffDays < 7) return `${diffDays} วันที่แล้ว`;
+    
+    return notifDate.toLocaleDateString('th-TH', {
+      day: 'numeric',
+      month: 'short',
+      year: notifDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
   };
 
   if (loading) {
     return (
-      <div className="notification-page">
-        <div className="notification-container">
-          <div className="loading-text">กำลังโหลดการแจ้งเตือน...</div>
+      <div className="notif-page">
+        <div className="notif-loading">
+          <div className="spinner"></div>
+          <p>กำลังโหลด...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="notification-page fade-up">
-      {showDeleteConfirm && <DeleteConfirmModal />}
-      <div className="notification-container">
-        {/* Header */}
-        <div className="notification-header">
-          <div className="header-left">
-            <BellFill className="header-icon" />
-            <h2 className="header-title">การแจ้งเตือน</h2>
-            {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
+    <div className="notif-page">
+      {/* Header */}
+      <div className="notif-header">
+        <div className="notif-header-left">
+          <Bell size={28} className="notif-header-icon" />
+          <div>
+            <h1 className="notif-title">การแจ้งเตือน</h1>
+            <p className="notif-subtitle">
+              {stats.total} รายการ • {stats.unread} ยังไม่ได้อ่าน
+            </p>
           </div>
-          <div className="header-actions">
-            <button 
-              className="btn-refresh" 
-              onClick={() => fetchNotifications(true)}
-              disabled={refreshing}
-              title="รีเฟรชข้อมูล"
-            >
-              <ArrowClockwise className={refreshing ? 'spinning' : ''} /> 
-              {refreshing ? 'กำลังโหลด...' : 'รีเฟรช'}
+        </div>
+
+        <div className="notif-header-actions">
+          {stats.unread > 0 && (
+            <button className="notif-btn notif-btn-primary" onClick={handleMarkAllAsRead}>
+              <CheckAll size={18} />
+              <span>อ่านทั้งหมด</span>
             </button>
-            {unreadCount > 0 && (
-              <button className="btn-mark-all" onClick={markAllAsRead}>
-                <CheckCircleFill /> ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว
-              </button>
-            )}
-            {readCount > 0 && (
-              <button className="btn-delete-all" onClick={deleteAllRead}>
-                <TrashFill /> ลบที่อ่านแล้วทั้งหมด
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="notification-filters">
-          <button 
-            className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('all')}
-          >
-            ทั้งหมด {notifications.length > 0 && `(${notifications.length})`}
-          </button>
-          <button 
-            className={`filter-btn ${filter === 'unread' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('unread')}
-          >
-            ยังไม่ได้อ่าน {`(${unreadCount})`}
-          </button>
-          <button 
-            className={`filter-btn ${filter === 'read' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('read')}
-          >
-            อ่านแล้ว {`(${readCount})`}
-          </button>
-          <button 
-            className={`filter-btn ${filter === 'service' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('service')}
-          >
-            บริการ
-          </button>
-          <button 
-            className={`filter-btn ${filter === 'customer' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('customer')}
-          >
-            ลูกค้า
-          </button>
-          <button 
-            className={`filter-btn ${filter === 'transaction' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('transaction')}
-          >
-            การเงิน
-          </button>
-        </div>
-
-        {/* Notification List */}
-        <div className="notification-list">
-          {currentNotifications.length > 0 ? (
-            currentNotifications.map((notif) => (
-              <div 
-                key={notif._id} 
-                className={`notification-item ${!notif.isRead ? 'unread' : ''} priority-${getPriority(notif.type)}`}
-              >
-                <div className="notif-icon-wrapper">
-                  {getIcon(notif.type)}
-                  {!notif.isRead && <span className="unread-dot"></span>}
-                </div>
-                <div className="notif-content">
-                  <h4 className="notif-title">{notif.title}</h4>
-                  <p className="notif-message">{notif.message}</p>
-                  <div className="notif-footer">
-                    <span className="notif-time">
-                      {new Date(notif.createdAt).toLocaleDateString('th-TH', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                    {notif.link && (
-                      <Link to={notif.link} className="notif-link">
-                        ดูรายละเอียด →
-                      </Link>
-                    )}
-                  </div>
-                </div>
-                <div className="notif-actions">
-                  {!notif.isRead && (
-                    <button 
-                      className="btn-mark-read"
-                      onClick={() => markAsRead(notif._id)}
-                      title="ทำเครื่องหมายว่าอ่านแล้ว"
-                    >
-                      <CheckCircleFill />
-                    </button>
-                  )}
-                  {notif.isRead && (
-                    <button 
-                      className="btn-delete-notif"
-                      onClick={() => deleteNotification(notif._id)}
-                      title="ลบการแจ้งเตือน"
-                    >
-                      <TrashFill />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="no-notifications">
-              <BellFill size={64} className="empty-icon" />
-              <h3>ไม่มีการแจ้งเตือน</h3>
-              <p>คุณไม่มีการแจ้งเตือนใหม่ในขณะนี้</p>
-            </div>
+          )}
+          {selectedIds.size > 0 && (
+            <button className="notif-btn notif-btn-danger" onClick={handleBulkDelete}>
+              <Trash2 size={18} />
+              <span>ลบที่เลือก ({selectedIds.size})</span>
+            </button>
           )}
         </div>
+      </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button 
-              className="pagination-btn"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-            >
-              ← ก่อนหน้า
-            </button>
-            
-            <div className="pagination-info">
-              <span className="page-numbers">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    className={`page-number ${currentPage === page ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </span>
-            </div>
+      {/* Filter Tabs */}
+      <div className="notif-tabs">
+        <button 
+          className={`notif-tab ${filter === 'all' ? 'active' : ''}`}
+          onClick={() => setFilter('all')}
+        >
+          <span>ทั้งหมด</span>
+          <span className="notif-tab-badge">{stats.total}</span>
+        </button>
+        <button 
+          className={`notif-tab ${filter === 'unread' ? 'active' : ''}`}
+          onClick={() => setFilter('unread')}
+        >
+          <span>ยังไม่ได้อ่าน</span>
+          {stats.unread > 0 && <span className="notif-tab-badge primary">{stats.unread}</span>}
+        </button>
+      </div>
 
-            <button 
-              className="pagination-btn"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-            >
-              ถัดไป →
-            </button>
+      {/* Bulk Actions Bar */}
+      {filtered.length > 0 && (
+        <div className="notif-bulk-bar">
+          <label className="notif-checkbox-label">
+            <input 
+              type="checkbox" 
+              checked={selectedIds.size === filtered.length && filtered.length > 0}
+              onChange={handleSelectAll}
+            />
+            <span>เลือกทั้งหมด</span>
+          </label>
+          <span className="notif-bulk-info">
+            {selectedIds.size > 0 ? `เลือกแล้ว ${selectedIds.size} รายการ` : `${filtered.length} รายการ`}
+          </span>
+        </div>
+      )}
+
+      {/* Notification List */}
+      <div className="notif-list">
+        {filtered.length === 0 ? (
+          <div className="notif-empty">
+            <BellSlash size={64} className="notif-empty-icon" />
+            <h3>ไม่มีการแจ้งเตือน</h3>
+            <p>คุณไม่มีการแจ้งเตือน{filter === 'unread' ? 'ที่ยังไม่ได้อ่าน' : ''}ในขณะนี้</p>
           </div>
+        ) : (
+          filtered.map(notif => {
+            const iconData = getNotificationIcon(notif.type);
+            const IconComponent = iconData.icon;
+            
+            return (
+              <div 
+                key={notif._id} 
+                className={`notif-item ${!notif.isRead ? 'unread' : ''} ${selectedIds.has(notif._id) ? 'selected' : ''}`}
+              >
+                <div className="notif-item-checkbox">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIds.has(notif._id)}
+                    onChange={() => handleToggleSelect(notif._id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+
+                <div 
+                  className="notif-item-content"
+                  onClick={() => handleClickNotification(notif)}
+                  style={{ cursor: notif.link ? 'pointer' : 'default' }}
+                >
+                  <div 
+                    className="notif-item-icon" 
+                    style={{ backgroundColor: iconData.color + '15', color: iconData.color }}
+                  >
+                    <IconComponent size={20} />
+                  </div>
+
+                  <div className="notif-item-body">
+                    <div className="notif-item-header">
+                      <h4 className="notif-item-title">{notif.title}</h4>
+                      <span className="notif-item-time">{formatDate(notif.createdAt)}</span>
+                    </div>
+                    <p className="notif-item-message">{notif.message}</p>
+                  </div>
+
+                  {!notif.isRead && <div className="notif-item-dot"></div>}
+                </div>
+
+                <div className="notif-item-actions">
+                  {!notif.isRead && (
+                    <button 
+                      className="notif-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkAsRead(notif._id);
+                      }}
+                      title="ทำเครื่องหมายว่าอ่านแล้ว"
+                    >
+                      <Check size={18} />
+                    </button>
+                  )}
+                  <button 
+                    className="notif-action-btn danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(notif._id);
+                    }}
+                    title="ลบ"
+                  >
+                    <Trash size={18} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

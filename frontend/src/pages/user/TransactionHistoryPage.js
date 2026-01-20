@@ -33,6 +33,7 @@ export default function TransactionHistoryPage() {
   const [form, setForm] = useState({
     amount: '',
     transactionDate: '',
+    transactionTime: '',
     notes: '',
     bank: 'KBANK',
     slipImage: null, // เก็บ File object
@@ -47,6 +48,7 @@ export default function TransactionHistoryPage() {
   const [editForm, setEditForm] = useState({
     amount: '',
     transactionDate: '',
+    transactionTime: '',
     notes: '',
     bank: 'KBANK',
     breakdowns: [{ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }]
@@ -103,6 +105,7 @@ export default function TransactionHistoryPage() {
       const formData = new FormData();
       formData.append('amount', parseFloat(form.amount));
       formData.append('transactionDate', form.transactionDate);
+      if (form.transactionTime) formData.append('transactionTime', form.transactionTime);
       formData.append('notes', form.notes || '');
       formData.append('bank', form.bank);
       if (form.slipImage) {
@@ -126,6 +129,7 @@ export default function TransactionHistoryPage() {
       setForm({
         amount: '',
         transactionDate: '',
+        transactionTime: '',
         notes: '',
         bank: 'KBANK',
         slipImage: null,
@@ -243,6 +247,7 @@ export default function TransactionHistoryPage() {
     setEditForm({
       amount: tx.amount,
       transactionDate: tx.transactionDate ? new Date(tx.transactionDate).toISOString().slice(0, 10) : '',
+      transactionTime: tx.transactionTime || '',
       notes: tx.notes || '',
       bank: tx.bank || 'KBANK',
       breakdowns: (tx.breakdowns && tx.breakdowns.length > 0) 
@@ -329,6 +334,7 @@ export default function TransactionHistoryPage() {
       const formData = new FormData();
       formData.append('amount', parseFloat(editForm.amount));
       formData.append('transactionDate', editForm.transactionDate);
+      if (editForm.transactionTime) formData.append('transactionTime', editForm.transactionTime);
       formData.append('notes', editForm.notes || '');
       formData.append('bank', editForm.bank);
       if (editForm.slipImage) {
@@ -359,6 +365,7 @@ export default function TransactionHistoryPage() {
     setEditForm({
       amount: '',
       transactionDate: '',
+      transactionTime: '',
       notes: '',
       bank: 'KBANK',
       breakdowns: [{ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }]
@@ -562,6 +569,19 @@ export default function TransactionHistoryPage() {
                   />
                 </label>
                 <label>
+                  เวลาที่โอน (เช่น 14:30)
+                  <input
+                    type="text"
+                    value={form.transactionTime}
+                    onChange={e => setForm({ ...form, transactionTime: e.target.value })}
+                    placeholder="14:30"
+                    pattern="[0-2][0-9]:[0-5][0-9]"
+                    title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+                    maxLength="5"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
+                  />
+                </label>
+                <label>
                   บัญชีธนาคาร
                   <select
                     value={form.bank}
@@ -730,6 +750,19 @@ export default function TransactionHistoryPage() {
                   />
                 </label>
                 <label>
+                  เวลาที่โอน (เช่น 14:30)
+                  <input
+                    type="text"
+                    value={editForm.transactionTime}
+                    onChange={e => setEditForm({ ...editForm, transactionTime: e.target.value })}
+                    placeholder="14:30"
+                    pattern="[0-2][0-9]:[0-5][0-9]"
+                    title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+                    maxLength="5"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
+                  />
+                </label>
+                <label>
                   บัญชีธนาคาร
                   <select
                     value={editForm.bank}
@@ -886,7 +919,8 @@ export default function TransactionHistoryPage() {
                   .map(tx => (
                     <tr key={tx._id}>
                     <td>
-                      {tx.transactionDate ? new Date(tx.transactionDate).toLocaleDateString('th-TH') : '-'}
+                      <div>{tx.transactionDate ? new Date(tx.transactionDate).toLocaleDateString('th-TH') : '-'}</div>
+                      {tx.transactionTime && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '2px' }}>{tx.transactionTime}</div>}
                     </td>
                     <td>
                       {`${Number(tx.amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท`}
@@ -1082,6 +1116,19 @@ export default function TransactionHistoryPage() {
                 />
               </label>
               <label>
+                เวลาที่โอน (เช่น 14:30)
+                <input
+                  type="text"
+                  value={form.transactionTime}
+                  onChange={e => setForm({ ...form, transactionTime: e.target.value })}
+                  placeholder="14:30"
+                  pattern="[0-2][0-9]:[0-5][0-9]"
+                  title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+                  maxLength="5"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
+                />
+              </label>
+              <label>
                 บัญชีธนาคาร
                 <select
                   value={form.bank}
@@ -1246,6 +1293,19 @@ export default function TransactionHistoryPage() {
                   value={editForm.transactionDate}
                   onChange={e => setEditForm({ ...editForm, transactionDate: e.target.value })}
                   required
+                />
+              </label>
+              <label>
+                เวลาที่โอน (เช่น 14:30)
+                <input
+                  type="text"
+                  value={editForm.transactionTime}
+                  onChange={e => setEditForm({ ...editForm, transactionTime: e.target.value })}
+                  placeholder="14:30"
+                  pattern="[0-2][0-9]:[0-5][0-9]"
+                  title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+                  maxLength="5"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
                 />
               </label>
               <label>
