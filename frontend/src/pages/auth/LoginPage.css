@@ -123,3 +123,23 @@
 .register-link a:hover {
   text-decoration: underline;
 }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .login-page-container {
+    padding: 20px 16px;
+  }
+  
+  .login-card {
+    padding: 30px 24px;
+    border-radius: 10px;
+  }
+  
+  .login-header h2 {
+    font-size: 1.75rem;
+  }
+  
+  .login-header p {
+    font-size: 0.9rem;
+  }
+}

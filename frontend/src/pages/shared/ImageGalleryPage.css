@@ -2,21 +2,24 @@
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  overflow-x: hidden;
 }
 
 .gallery-container {
   background: white;
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  padding: 32px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .gallery-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
   /* Blue banner like sample */
-  margin: -32px -32px 24px;
   padding: 32px;
   border-bottom: none;
   background: linear-gradient(135deg, #1976d2 0%, #0d6efd 100%);
@@ -25,6 +28,10 @@
   border-top-right-radius: 16px;
   box-shadow: inset 0 -1px 0 rgba(255,255,255,0.15);
   min-height: 120px;
+}
+
+.gallery-content {
+  padding: 32px;
 }
 
 .gallery-header-title {

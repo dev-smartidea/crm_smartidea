@@ -241,83 +241,81 @@ const AllActivitiesPage = () => {
       {showEditModal && <EditActivityModal />}
       <div className="activities-container">
         <div className="page-header">
-          <div className="header-content">
-            <div className="header-title-group">
-              <div className="page-header-icon">
-                <ClipboardCheckFill />
-              </div>
-              <div>
-                <h1>กิจกรรมทั้งหมด</h1>
-                <p className="subtitle">รายการกิจกรรมทั้งหมดของคุณ</p>
-              </div>
+          <div className="header-title-group">
+            <div className="page-header-icon">
+              <ClipboardCheckFill />
             </div>
-            <div className="header-buttons">
-              <button className="btn-back" onClick={() => navigate('/dashboard')}>
-                <ArrowLeftCircle size={18} /> กลับ
-              </button>
+            <div>
+              <h1>กิจกรรมทั้งหมด</h1>
+              <p className="subtitle">รายการกิจกรรมทั้งหมดของคุณ</p>
             </div>
+          </div>
+          <div className="header-buttons">
+            <button className="btn-back" onClick={() => navigate('/dashboard')}>
+              <ArrowLeftCircle size={18} /> กลับ
+            </button>
           </div>
         </div>
 
         {/* Filter Section - 3 column grid */}
-        <div className="filter-section">
-          <div className="filter-item">
-            <div className="field-label">ค้นหาลูกค้า</div>
-            <div className="search-box">
-              <Search className="search-icon" />
-              <input
-                type="text"
-                placeholder="ค้นหาชื่อ Project, รหัสบริการ, ลูกค้า..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="filter-section">
+            <div className="filter-item">
+              <div className="field-label">ค้นหาลูกค้า</div>
+              <div className="search-box">
+                <Search className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="ค้นหาชื่อ Project, รหัสบริการ, ลูกค้า..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="filter-item">
+              <div className="field-label">ประเภทงาน</div>
+              <select
+                className="select-field"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+              >
+                <option value="all">ทั้งหมด</option>
+                <option value="งานใหม่">งานใหม่</option>
+                <option value="งานแก้ไข / ปรับปรุงบัญชี">งานแก้ไข / ปรับปรุงบัญชี</option>
+              </select>
+            </div>
+
+            <div className="filter-item">
+              <div className="field-label">สถานะ</div>
+              <select
+                className="select-field"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="all">ทั้งหมด</option>
+                <option value="รอข้อมูล / รูปภาพ ลูกค้า">รอข้อมูล / รูปภาพ ลูกค้า</option>
+                <option value="อยู่ระหว่างทำกราฟฟิก">อยู่ระหว่างทำกราฟฟิก</option>
+                <option value="อยู่ระหว่างสร้างบัญชี">อยู่ระหว่างสร้างบัญชี</option>
+              </select>
             </div>
           </div>
 
-          <div className="filter-item">
-            <div className="field-label">ประเภทงาน</div>
-            <select
-              className="select-field"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="all">ทั้งหมด</option>
-              <option value="งานใหม่">งานใหม่</option>
-              <option value="งานแก้ไข / ปรับปรุงบัญชี">งานแก้ไข / ปรับปรุงบัญชี</option>
-            </select>
+          {/* Activities Count */}
+          <div className="activities-count">
+            <strong>ทั้งหมด {filteredActivities.length} กิจกรรม</strong>
           </div>
 
-          <div className="filter-item">
-            <div className="field-label">สถานะ</div>
-            <select
-              className="select-field"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="all">ทั้งหมด</option>
-              <option value="รอข้อมูล / รูปภาพ ลูกค้า">รอข้อมูล / รูปภาพ ลูกค้า</option>
-              <option value="อยู่ระหว่างทำกราฟฟิก">อยู่ระหว่างทำกราฟฟิก</option>
-              <option value="อยู่ระหว่างสร้างบัญชี">อยู่ระหว่างสร้างบัญชี</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Activities Count */}
-        <div className="activities-count">
-          <strong>ทั้งหมด {filteredActivities.length} กิจกรรม</strong>
-        </div>
-
-        {/* Activities Table */}
-        <div className="activities-section">
-          {loading ? (
-            <div className="loading-state">
-              <div className="spinner"></div>
-              <p>กำลังโหลดข้อมูล...</p>
-            </div>
-          ) : filteredActivities.length === 0 ? (
-            <div className="no-activities">
-              <ClipboardCheckFill size={64} />
-              <p>ไม่พบกิจกรรมที่ตรงกับเงื่อนไข</p>
+          {/* Activities Table */}
+          <div className="activities-section">
+            {loading ? (
+              <div className="loading-state">
+                <div className="spinner"></div>
+                <p>กำลังโหลดข้อมูล...</p>
+              </div>
+            ) : filteredActivities.length === 0 ? (
+              <div className="no-activities">
+                <ClipboardCheckFill size={64} />
+                <p>ไม่พบกิจกรรมที่ตรงกับเงื่อนไข</p>
             </div>
           ) : (
             <div className="table-responsive">

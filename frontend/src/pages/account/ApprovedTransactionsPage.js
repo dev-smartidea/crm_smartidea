@@ -290,7 +290,7 @@ export default function ApprovedTransactionsPage() {
                   value={customerQuery}
                   onChange={(e) => setCustomerQuery(e.target.value)}
                   onFocus={() => setShowCustomerDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 300)}
                 />
                 {showCustomerDropdown && filteredCustomers.length > 0 && (
                   <div className="combobox-dropdown">
@@ -334,7 +334,7 @@ export default function ApprovedTransactionsPage() {
                   value={serviceQuery}
                   onChange={(e) => setServiceQuery(e.target.value)}
                   onFocus={() => setShowServiceDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowServiceDropdown(false), 200)}
+                  onBlur={() => setTimeout(() => setShowServiceDropdown(false), 300)}
                 />
                 {showServiceDropdown && filteredServices.length > 0 && (
                   <div className="combobox-dropdown">
@@ -570,33 +570,70 @@ export default function ApprovedTransactionsPage() {
             )}
           </>
         )}
+      </div>
 
-        {/* Slip Modal */}
-        {viewSlip && (
-          <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }}>
-            <div className="modal-content slip-modal" onClick={e => e.stopPropagation()}>
-              <div className="modal-header" style={{ justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
-                <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
-                  <XCircle />
-                </button>
-              </div>
-              <div className="modal-body slip-modal-body">
-                <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
-              </div>
-              <div className="modal-footer slip-modal-footer">
-                <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
-                <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()}>
-                  <Upload /> อัปโหลดภาพใหม่
-                </button>
-                <button className="btn-action-delete" onClick={handleDeleteSlip}>
-                  ลบสลิป
-                </button>
-              </div>
+      {/* Slip Modal - อยู่นอก container เพื่อให้ z-index ทำงานถูกต้อง */}
+      {viewSlip && (
+        <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          background: 'rgba(0,0,0,0.5)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          zIndex: 10000 
+        }}>
+          <div className="modal-content slip-modal" onClick={e => e.stopPropagation()} style={{
+            background: 'white',
+            borderRadius: '12px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
+              <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
+              <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+                <XCircle />
+              </button>
+            </div>
+            <div className="modal-body slip-modal-body" style={{ padding: '20px' }}>
+              <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px' }} />
+            </div>
+            <div className="modal-footer slip-modal-footer" style={{ display: 'flex', gap: '12px', padding: '16px 20px', borderTop: '1px solid #e5e7eb', justifyContent: 'center' }}>
+              <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
+              <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()} style={{
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontWeight: 600
+              }}>
+                <Upload /> อัปโหลดภาพใหม่
+              </button>
+              <button className="btn-action-delete" onClick={handleDeleteSlip} style={{
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}>
+                ลบสลิป
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

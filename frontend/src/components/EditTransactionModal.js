@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import PropTypes from 'prop-types';
 import '../pages/user/TransactionHistoryPage.css';
 
 export default function EditTransactionModal({
-  open,
-  onClose,
-  transaction,
-  token,
-  api,
-  onSaved,
-  onResubmitted
+  open = false,
+  onClose = () => {},
+  transaction = null,
+  token = '',
+  api = '',
+  onSaved = () => {},
+  onResubmitted = () => {}
 }) {
   const [form, setForm] = useState({
     amount: '',
@@ -311,3 +312,13 @@ export default function EditTransactionModal({
     </div>
   );
 }
+
+EditTransactionModal.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+  transaction: PropTypes.object,
+  token: PropTypes.string,
+  api: PropTypes.string,
+  onSaved: PropTypes.func,
+  onResubmitted: PropTypes.func
+};

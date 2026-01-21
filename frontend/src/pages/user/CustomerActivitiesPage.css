@@ -404,3 +404,73 @@
   background: #0b5ed7;
   transform: translateY(-2px);
 }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .customer-activities-page {
+    padding: 24px;
+  }
+  
+  .customer-activities-page .page-header {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .customer-activities-page {
+    padding: 16px;
+  }
+  
+  .customer-activities-page .page-header {
+    padding: 20px;
+    border-radius: 12px;
+  }
+  
+  .customer-activities-page .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .customer-activities-page .header-title-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .customer-activities-page .page-header-icon {
+    font-size: 2rem;
+    padding: 12px;
+    min-width: 50px;
+    min-height: 50px;
+  }
+  
+  .customer-activities-page .customer-name {
+    font-size: 1.5rem;
+  }
+  
+  .customer-activities-page .header-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  
+  .customer-activities-page .btn-back {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .customer-activities-page {
+    padding: 12px;
+  }
+  
+  .customer-activities-page .customer-name {
+    font-size: 1.25rem;
+  }
+  
+  .customer-activities-page .btn-back {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+}

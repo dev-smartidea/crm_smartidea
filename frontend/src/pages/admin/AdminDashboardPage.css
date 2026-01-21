@@ -4,7 +4,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 0;
+  padding: 40px 20px;
+  overflow-x: hidden;
 }
 
 .admin-dashboard-card {
@@ -14,6 +15,7 @@
   padding: 32px 40px;
   max-width: 700px;
   width: 100%;
+  overflow-x: auto;
 }
 
 .admin-dashboard-title {
@@ -23,6 +25,13 @@
   margin-bottom: 24px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-dashboard-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-dashboard-table {
@@ -32,6 +41,7 @@
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(59,130,246,0.05);
+  min-width: 500px;
 }
 
 .admin-dashboard-table th, .admin-dashboard-table td {
@@ -82,4 +92,48 @@
 
 .admin-dashboard-delete-btn:hover:not(:disabled) {
   background: #dc2626;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-dashboard-container {
+    padding: 20px 16px;
+  }
+  
+  .admin-dashboard-card {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+  
+  .admin-dashboard-title {
+    font-size: 1.5rem;
+  }
+  
+  .admin-dashboard-table th,
+  .admin-dashboard-table td {
+    padding: 10px 8px;
+    font-size: 0.9rem;
+  }
+  
+  .admin-dashboard-select {
+    padding: 4px 8px;
+    font-size: 0.9rem;
+  }
+  
+  .admin-dashboard-delete-btn {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-dashboard-title {
+    font-size: 1.25rem;
+  }
+  
+  .admin-dashboard-table th,
+  .admin-dashboard-table td {
+    padding: 8px 6px;
+    font-size: 0.85rem;
+  }
 }

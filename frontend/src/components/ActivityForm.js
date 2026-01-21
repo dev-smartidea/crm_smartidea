@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { XCircle } from 'react-bootstrap-icons';
+import PropTypes from 'prop-types';
 import './ActivityForm.css';
 
-const ActivityForm = ({ activity, onSave, onCancel }) => {
+const ActivityForm = ({ activity = null, onSave = () => {}, onCancel = () => {} }) => {
   const [formData, setFormData] = useState({
     serviceCode: '',
     activityType: '',
@@ -131,6 +132,12 @@ const ActivityForm = ({ activity, onSave, onCancel }) => {
       </form>
     </div>
   );
+};
+
+ActivityForm.propTypes = {
+  activity: PropTypes.object,
+  onSave: PropTypes.func,
+  onCancel: PropTypes.func
 };
 
 export default ActivityForm;
