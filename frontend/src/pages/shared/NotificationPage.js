@@ -13,6 +13,8 @@ export default function NotificationPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -122,6 +124,17 @@ export default function NotificationPage() {
     if (filter === 'unread') return !n.isRead;
     return true;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedNotifications = filtered.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
 
   const stats = {
     total: notifications.length,
@@ -245,7 +258,7 @@ export default function NotificationPage() {
             <p>คุณไม่มีการแจ้งเตือน{filter === 'unread' ? 'ที่ยังไม่ได้อ่าน' : ''}ในขณะนี้</p>
           </div>
         ) : (
-          filtered.map(notif => {
+          paginatedNotifications.map(notif => {
             const iconData = getNotificationIcon(notif.type);
             const IconComponent = iconData.icon;
             
@@ -315,6 +328,59 @@ export default function NotificationPage() {
           })
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="notif-pagination">
+          <button 
+            className="notif-page-btn"
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            ก่อนหน้า
+          </button>
+          
+          <div className="notif-page-numbers">
+            {[...Array(totalPages)].map((_, index) => {
+              const pageNum = index + 1;
+              // Show first, last, current, and adjacent pages
+              if (
+                pageNum === 1 ||
+                pageNum === totalPages ||
+                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+              ) {
+                return (
+                  <button
+                    key={pageNum}
+                    className={`notif-page-num ${currentPage === pageNum ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              } else if (
+                pageNum === currentPage - 2 ||
+                pageNum === currentPage + 2
+              ) {
+                return <span key={pageNum} className="notif-page-dots">...</span>;
+              }
+              return null;
+            })}
+          </div>
+
+          <button 
+            className="notif-page-btn"
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            ถัดไป
+          </button>
+          
+          <span className="notif-page-info">
+            หน้า {currentPage} จาก {totalPages} ({filtered.length} รายการ)
+          </span>
+        </div>
+      )}
     </div>
   );
 }
