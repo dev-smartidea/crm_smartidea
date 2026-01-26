@@ -29,7 +29,9 @@ export default function AccountTransactionsPage() {
       const formatted = (res.data.transactions || []).map(tx => ({
         ...tx,
         service: tx.serviceId || {},
-        customer: tx.serviceId?.customerId || {}
+        customer: tx.customerId || tx.serviceId?.customerId || {},
+        serviceType: tx.serviceId?.serviceType || tx.serviceId?.name || '',
+        serviceCid: tx.serviceId?.cid || tx.serviceId?.customerIdField || ''
       }));
       setItems(formatted);
     } catch (e) {
@@ -254,19 +256,20 @@ export default function AccountTransactionsPage() {
 
                     {/* Customer Name */}
                     <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '8px' }}>
-                      {tx.customer?.name || '-'}
+                      {tx.customer?.name || tx.service?.customerId?.name || '-'}
                     </div>
 
                     {/* Service Badge */}
-                    {tx.service?.customerIdField && tx.service?.name && (
+                    {tx.serviceType && (
                       <div style={{ marginTop: '6px' }}>
                         <span className={`service-badge ${
-                          tx.service.name === 'Facebook Ads' ? 'facebook' :
-                          tx.service.name === 'Google Ads' ? 'google' : 'other'
+                          tx.serviceType === 'Facebook Ads' ? 'facebook' :
+                          tx.serviceType === 'Google Ads' ? 'google' : 'other'
                         }`}>
-                          {tx.service.name === 'Facebook Ads' && <Facebook className="service-icon" />}
-                          {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
-                          <span className="service-id-text">{tx.service.customerIdField}</span>
+                          {tx.serviceType === 'Facebook Ads' && <Facebook className="service-icon" />}
+                          {tx.serviceType === 'Google Ads' && <Google className="service-icon" />}
+                          <span style={{ marginRight: '6px' }}>{tx.serviceType}</span>
+                          {tx.serviceCid && <span className="service-id-text">({tx.serviceCid})</span>}
                         </span>
                       </div>
                     )}

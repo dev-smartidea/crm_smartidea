@@ -211,9 +211,10 @@ export default function EditTransactionModal({
               <option value="KBANK">KBANK (กสิกรไทย)</option>
               <option value="SCB">SCB (ไทยพาณิชย์)</option>
               <option value="BBL">BBL (กรุงเทพ)</option>
-              <option value="KTB">KTB (กรุงไทย)</option>
-              <option value="TTB">TTB (ทหารไทยธนชาต)</option>
-              <option value="BAY">BAY (กรุงศรี)</option>
+              <option value="BAY-4396">BAY-4396</option>
+              <option value="BAY-7146">BAY-7146</option>
+              <option value="Cr.-8508">Cr.-8508</option>
+              <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
             </select>
           </label>
 

@@ -534,6 +534,43 @@
   letter-spacing: 0.3px;
 }
 
+/* Chart Header with Filter */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chart-header .chart-title {
+  margin: 0;
+}
+
+.chart-filter-select {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.chart-filter-select:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.chart-filter-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
 .chart-card canvas {
   flex: 1;
   position: relative;
@@ -887,9 +924,49 @@
   font-size: 0.95rem;
 }
 
+.tx-cid {
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-left: 0.25rem;
+}
+
 .tx-channel {
   color: #9ca3af;
   font-size: 0.85rem;
+}
+
+/* Transaction Status Badges */
+.tx-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  margin-left: 0.5rem;
+}
+
+.tx-status.submitted {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.tx-status.approved {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.tx-status.rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Transaction Icons */
+.approved-icon {
+  color: #10b981;
+}
+
+.pending-icon {
+  color: #f59e0b;
 }
 
 .tx-card {

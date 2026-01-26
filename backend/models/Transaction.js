@@ -10,7 +10,7 @@ const transactionSchema = new mongoose.Schema({
   transactionTime: { type: String }, // เวลาที่โอน (เช่น "10:30")
   notes: { type: String }, // หมายเหตุ
   slipImage: { type: String }, // path ของรูปสลิป/หลักฐาน (optional)
-  bank: { type: String, enum: ['KBANK', 'SCB', 'BBL'], required: true }, // บัญชีธนาคาร (จำกัดเฉพาะ 3 ธนาคารที่ใช้งาน)
+  bank: { type: String, enum: ['KBANK', 'SCB', 'BBL', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'], required: true }, // บัญชีธนาคาร
   // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
   breakdowns: [{
     code: { type: String, enum: ['11', '12', '13', '14', '15', '16'], required: true }, // รหัส

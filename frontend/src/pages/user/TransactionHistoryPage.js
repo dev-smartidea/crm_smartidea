@@ -590,6 +590,10 @@ export default function TransactionHistoryPage() {
                     <option value="KBANK">KBANK (กสิกรไทย)</option>
                     <option value="SCB">SCB (ไทยพาณิชย์)</option>
                     <option value="BBL">BBL (กรุงเทพ)</option>
+                    <option value="BAY-4396">BAY-4396</option>
+                    <option value="BAY-7146">BAY-7146</option>
+                    <option value="Cr.-8508">Cr.-8508</option>
+                    <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
                   </select>
                 </label>
                 {/* Breakdown Rows */}
@@ -771,6 +775,10 @@ export default function TransactionHistoryPage() {
                     <option value="KBANK">KBANK (กสิกรไทย)</option>
                     <option value="SCB">SCB (ไทยพาณิชย์)</option>
                     <option value="BBL">BBL (กรุงเทพ)</option>
+                    <option value="BAY-4396">BAY-4396</option>
+                    <option value="BAY-7146">BAY-7146</option>
+                    <option value="Cr.-8508">Cr.-8508</option>
+                    <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
                   </select>
                 </label>
                 {/* Breakdown Rows */}
@@ -930,10 +938,8 @@ export default function TransactionHistoryPage() {
                         <span className={`badge-bank ${
                           tx.bank === 'KBANK' || tx.bank === 'กสิกรไทย' ? 'kbank' :
                           tx.bank === 'SCB' || tx.bank === 'ไทยพาณิชย์' ? 'scb' :
-                          tx.bank === 'BBL' || tx.bank === 'กรุงเทพ' ? 'bbl' :
-                          tx.bank === 'KTB' || tx.bank === 'กรุงไทย' ? 'ktb' :
-                          tx.bank === 'TMB' || tx.bank === 'ทหารไทยธนชาต' ? 'tmb' :
-                          tx.bank === 'BAY' || tx.bank === 'กรุงศรี' ? 'bay' :
+                          tx.bank === 'BBL' || tx.bank === 'กรุงเทพ' || tx.bank === 'BBL-ส่วนตัว' ? 'bbl' :
+                          tx.bank === 'BAY-4396' || tx.bank === 'BAY-7146' ? 'bay' :
                           'default'
                         }`}>
                           {tx.bank}

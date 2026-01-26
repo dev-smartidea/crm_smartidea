@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Bell, BellSlash, Check, CheckAll, Trash, Trash2, 
-  Clock, ExclamationCircle, CashCoin, CreditCard2BackFill
+  ExclamationCircle, CashCoin, CreditCard2BackFill
 } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
 import './AccountNotificationPage.css';
@@ -153,7 +153,7 @@ export default function AccountNotificationPage() {
   const getNotificationIcon = (type) => {
     const icons = {
       'card_low_balance': { icon: ExclamationCircle, color: '#f59e0b' },
-      'card_inactive': { icon: Clock, color: '#ef4444' },
+      'card_inactive': { icon: CreditCard2BackFill, color: '#ef4444' },
       'card_active': { icon: CreditCard2BackFill, color: '#10b981' },
       'transaction_success': { icon: CashCoin, color: '#3b82f6' },
       'transaction_failed': { icon: ExclamationCircle, color: '#ef4444' }

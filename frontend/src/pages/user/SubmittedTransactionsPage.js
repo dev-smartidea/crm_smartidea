@@ -134,9 +134,10 @@ export default function SubmittedTransactionsPage() {
       'KBANK': 'badge-bank-kbank',
       'SCB': 'badge-bank-scb',
       'BBL': 'badge-bank-bbl',
-      'KTB': 'badge-bank-ktb',
-      'TTB': 'badge-bank-ttb',
-      'BAY': 'badge-bank-bay'
+      'BAY-4396': 'badge-bank-bay',
+      'BAY-7146': 'badge-bank-bay',
+      'Cr.-8508': 'badge-bank',
+      'BBL-ส่วนตัว': 'badge-bank-bbl'
     };
     return bankMap[bank] || 'badge-bank';
   };
@@ -146,9 +147,10 @@ export default function SubmittedTransactionsPage() {
         'KBANK': 'KBANK',
         'SCB': 'SCB',
         'BBL': 'BBL',
-        'KTB': 'KTB',
-        'TTB': 'TTB',
-        'BAY': 'BAY'
+        'BAY-4396': 'BAY-4396',
+        'BAY-7146': 'BAY-7146',
+        'Cr.-8508': 'Cr.-8508',
+        'BBL-ส่วนตัว': 'BBL-ส่วนตัว'
     };
     return bankNames[bank] || bank;
   };

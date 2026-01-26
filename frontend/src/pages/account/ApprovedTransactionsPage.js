@@ -84,8 +84,9 @@ export default function ApprovedTransactionsPage() {
       
       const formatted = (txRes.data.transactions || []).map(tx => ({
         ...tx,
-        customerName: tx.serviceId?.customerId?.name || '-',
-        serviceName: tx.serviceId?.name || '-'
+        customerName: tx.customerId?.name || tx.serviceId?.customerId?.name || '-',
+        serviceName: tx.serviceId?.serviceType || tx.serviceId?.name || '-',
+        serviceCid: tx.serviceId?.cid || tx.serviceId?.customerIdField || ''
       }));
       
       setTransactions(formatted);
@@ -427,7 +428,7 @@ export default function ApprovedTransactionsPage() {
                   </div>
 
                   {/* Service Badge */}
-                  {tx.serviceId?.customerIdField && tx.serviceName && (
+                  {tx.serviceName && (
                     <div style={{ marginTop: '6px' }}>
                       <span className={`service-badge ${
                         tx.serviceName === 'Facebook Ads' ? 'facebook' :
@@ -435,7 +436,8 @@ export default function ApprovedTransactionsPage() {
                       }`}>
                         {tx.serviceName === 'Facebook Ads' && <Facebook className="service-icon" />}
                         {tx.serviceName === 'Google Ads' && <Google className="service-icon" />}
-                        <span className="service-id-text">{tx.serviceId.customerIdField}</span>
+                        <span style={{ marginRight: '6px' }}>{tx.serviceName}</span>
+                        {tx.serviceCid && <span className="service-id-text">({tx.serviceCid})</span>}
                       </span>
                     </div>
                   )}

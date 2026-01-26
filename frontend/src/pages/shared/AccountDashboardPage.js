@@ -6,9 +6,6 @@ import {
   CashCoin, 
   CreditCard2Back, 
   GraphUp, 
-  ArrowUpRight, 
-  ArrowDownLeft,
-  ArrowUp,
   ArrowDown,
   CheckCircle,
   XCircle,
@@ -16,7 +13,6 @@ import {
   GraphUpArrow,
   GraphDownArrow
 } from 'react-bootstrap-icons';
-import { useNavigate } from 'react-router-dom';
 import './AccountDashboardPage.css';
 
 // Icon components
@@ -24,24 +20,19 @@ const BalanceIcon = () => <CashCoin className="stat-card-icon balance" />;
 const CardIcon = () => <CreditCard2Back className="stat-card-icon cards" />;
 const TrendIcon = () => <GraphUp className="stat-card-icon trend" />;
 const TopupIcon = () => <ArrowDown className="stat-card-icon topup" />;
-const ChargeIcon = () => <ArrowUp className="stat-card-icon charge" />;
 
 export default function AccountDashboardPage() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [totalBalance, setTotalBalance] = useState(0);
   const [totalCards, setTotalCards] = useState(0);
   const [activeCards, setActiveCards] = useState(0);
   const [topupAmount, setTopupAmount] = useState(0);
-  const [chargeAmount, setChargeAmount] = useState(0);
   const [pendingTransactions, setPendingTransactions] = useState(0);
   const [approvedTransactions, setApprovedTransactions] = useState(0);
   const [rejectedTransactions, setRejectedTransactions] = useState(0);
   const [monthlyGrowth, setMonthlyGrowth] = useState(0);
   const [topupCount, setTopupCount] = useState(0);
-  const [chargeCount, setChargeCount] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState([]);
   const [salesByProduct, setSalesByProduct] = useState({
     labels: [],
     datasets: [{
@@ -94,6 +85,9 @@ export default function AccountDashboardPage() {
       }
     ]
   });
+  const [allLedgerEntries, setAllLedgerEntries] = useState([]);
+  const [channelFilter, setChannelFilter] = useState('all');
+  const [submittedTransactions, setSubmittedTransactions] = useState([]);
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -149,9 +143,8 @@ export default function AccountDashboardPage() {
 
         console.log('Total transactions:', allTransactions.length);
 
-        // เรียงลำดับและเลือกรายการล่าสุด 10 รายการ
+        // เรียงลำดับ
         allTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setRecentTransactions(allTransactions.slice(0, 10));
 
         // ดึงข้อมูล Transaction สำหรับนับสถานะการส่งบัญชี
         try {
@@ -169,6 +162,13 @@ export default function AccountDashboardPage() {
           setPendingTransactions(submitted); // รอดำเนินการ = submitted
           setApprovedTransactions(approved);
           setRejectedTransactions(rejected);
+
+          // เก็บรายการธุรกรรมที่ส่งเข้ามาล่าสุด 5 รายการ (submitted หรือ approved)
+          const recentSubmitted = transactions
+            .filter(tx => tx.submissionStatus === 'submitted' || tx.submissionStatus === 'approved')
+            .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+            .slice(0, 5);
+          setSubmittedTransactions(recentSubmitted);
         } catch (e) {
           console.warn('Failed to fetch transactions for status count:', e.message);
           // ถ้าดึงไม่ได้ให้ใช้ค่า 0
@@ -177,18 +177,14 @@ export default function AccountDashboardPage() {
           setRejectedTransactions(0);
         }
 
-        // คำนวณยอด topup และ charge
+        // คำนวณยอด topup
         // โอนเข้าทั้งหมด: ใช้ยอดรวมจากรายการที่อนุมัติแล้ว (backend summary)
         const approvedTotalAmount = dashboardData?.approvedSummary?.totalAmount || 0;
-        const chargeTotal = allTransactions.filter(tx => tx.type === 'charge').reduce((sum, tx) => sum + (tx.amount || 0), 0);
         // จำนวนรายการโอนเข้า: ใช้จำนวนที่อนุมัติแล้วจาก backend summary
         const topupTxCount = dashboardData?.approvedSummary?.count || 0;
-        const chargeTxCount = allTransactions.filter(tx => tx.type === 'charge').length;
         
         setTopupAmount(approvedTotalAmount);
-        setChargeAmount(chargeTotal);
         setTopupCount(topupTxCount);
-        setChargeCount(chargeTxCount);
 
         // คำนวณการเติบโต (เปรียบเทียบกับเดือนที่แล้ว)
         const now = new Date();
@@ -204,38 +200,36 @@ export default function AccountDashboardPage() {
         const growth = lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal * 100) : 0;
         setMonthlyGrowth(growth);
 
-        console.log('Topup (approved):', approvedTotalAmount, 'Charge:', chargeTotal);
+        console.log('Topup (approved):', approvedTotalAmount);
 
-        // สร้าง breakdown by channel
-        const channelMap = {};
-        allTransactions.forEach(tx => {
-          const channel = tx.channel || 'Other';
-          const amount = tx.amount || 0;
-          channelMap[channel] = (channelMap[channel] || 0) + amount;
-        });
-        setChannelBreakdown({
-          labels: Object.keys(channelMap),
-          datasets: [{
-            data: Object.values(channelMap),
-            backgroundColor: ['#1976d2', '#43a047', '#fb8500', '#ff9800'],
-            borderWidth: 0
-          }]
-        });
+        // ดึงข้อมูล CardLedger ทั้งหมดสำหรับ channel breakdown และ daily trend
+        let ledgerEntries = [];
+        try {
+          const ledgerRes = await axios.get(`${api}/api/cards/ledger/all`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          ledgerEntries = ledgerRes.data || [];
+          setAllLedgerEntries(ledgerEntries);
+        } catch (e) {
+          console.warn('Failed to fetch all ledger entries:', e.message);
+        }
 
         // ใช้ข้อมูล sales by service จาก backend
         if (dashboardData.salesByService && dashboardData.salesByService.labels.length > 0) {
+          // กำหนดสีตามชื่อบริการ
+          const colors = dashboardData.salesByService.labels.map(label => {
+            if (label.toLowerCase().includes('google')) return '#10b981'; // สีเขียว
+            if (label.toLowerCase().includes('facebook')) return '#3b82f6'; // สีฟ้า
+            // สีเริ่มต้นสำหรับบริการอื่นๆ
+            const defaultColors = ['#2563eb', '#60a5fa', '#93c5fd', '#1e40af', '#1e3a8a', '#6366f1'];
+            return defaultColors[Math.floor(Math.random() * defaultColors.length)];
+          });
+
           setSalesByProduct({
             labels: dashboardData.salesByService.labels,
             datasets: [{
               data: dashboardData.salesByService.data,
-              backgroundColor: [
-                '#2563eb',
-                '#3b82f6', 
-                '#60a5fa',
-                '#93c5fd',
-                '#1e40af',
-                '#1e3a8a'
-              ],
+              backgroundColor: colors,
               borderWidth: 0
             }]
           });
@@ -255,7 +249,7 @@ export default function AccountDashboardPage() {
           });
         }
 
-        // สร้าง daily trend (7 วันล่าสุด)
+        // สร้าง daily trend (7 วันล่าสุด) จาก CardLedger (ใช้ ledgerEntries ที่ดึงมาแล้ว)
         const last7Days = [];
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
@@ -264,14 +258,14 @@ export default function AccountDashboardPage() {
         }
 
         const topupTrend = last7Days.map(date => {
-          return allTransactions.filter(tx => {
+          return ledgerEntries.filter(tx => {
             const txDate = new Date(tx.createdAt).toISOString().split('T')[0];
             return txDate === date && tx.type === 'topup';
           }).reduce((sum, tx) => sum + (tx.amount || 0), 0);
         });
 
         const chargeTrend = last7Days.map(date => {
-          return allTransactions.filter(tx => {
+          return ledgerEntries.filter(tx => {
             const txDate = new Date(tx.createdAt).toISOString().split('T')[0];
             return txDate === date && tx.type === 'charge';
           }).reduce((sum, tx) => sum + (tx.amount || 0), 0);
@@ -314,6 +308,72 @@ export default function AccountDashboardPage() {
       setError('ไม่พบ token หรือ API URL');
     }
   }, [api, token]);
+
+  // คำนวณ channelBreakdown เมื่อ filter เปลี่ยน
+  useEffect(() => {
+    if (allLedgerEntries.length === 0) return;
+
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // วันอาทิตย์ของสัปดาห์นี้
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    // กรองตาม filter
+    const filteredByTime = allLedgerEntries.filter(tx => {
+      if (tx.type !== 'charge') return false;
+      
+      const txDate = new Date(tx.createdAt);
+      
+      switch (channelFilter) {
+        case 'today':
+          return txDate >= startOfDay;
+        case 'week':
+          return txDate >= startOfWeek;
+        case 'month':
+          return txDate >= startOfMonth;
+        case 'year':
+          return txDate >= startOfYear;
+        case 'all':
+        default:
+          return true;
+      }
+    });
+
+    // สร้าง breakdown by channel
+    const channelMap = {
+      'Google Ads': 0,
+      'Facebook Ads': 0,
+      'Other': 0
+    };
+    
+    filteredByTime.forEach(tx => {
+      const channel = tx.channel || 'Other';
+      const amount = tx.amount || 0;
+      channelMap[channel] = (channelMap[channel] || 0) + amount;
+    });
+    
+    // กรองเฉพาะ channel ที่มียอดมากกว่า 0
+    const filteredChannels = Object.entries(channelMap).filter(([, amount]) => amount > 0);
+    
+    // กำหนดสีตามช่องทาง
+    const channelColors = filteredChannels.map(([label]) => {
+      if (label === 'Google Ads') return '#10b981'; // สีเขียว
+      if (label === 'Facebook Ads') return '#3b82f6'; // สีฟ้า
+      return '#fb8500'; // สีส้มสำหรับ Other
+    });
+    
+    setChannelBreakdown({
+      labels: filteredChannels.map(([label]) => label),
+      datasets: [{
+        data: filteredChannels.map(([, amount]) => amount),
+        backgroundColor: channelColors,
+        borderWidth: 0
+      }]
+    });
+  }, [allLedgerEntries, channelFilter]);
 
   if (loading) {
     return (
@@ -381,15 +441,6 @@ export default function AccountDashboardPage() {
           </div>
         </div>
         
-        <div className="summary-card charge-card">
-          <ChargeIcon />
-          <div className="summary-info">
-            <h5>โอนออกทั้งหมด</h5>
-            <div className="summary-amount danger">฿{chargeAmount.toLocaleString()}</div>
-            <p className="summary-label">{chargeCount} รายการ</p>
-          </div>
-        </div>
-        
         <div className="summary-card trend-card">
           <TrendIcon />
           <div className="summary-info">
@@ -440,7 +491,7 @@ export default function AccountDashboardPage() {
       {/* New Charts Row - Sales & Collection */}
       <div className="charts-row">
         <div className="chart-card">
-          <h5 className="chart-title">ยอดขายตามสินค้า</h5>
+          <h5 className="chart-title">รายการโอนเงินตามรายการ</h5>
           {salesByProduct.labels.length > 0 ? (
             <div className="donut-chart-wrapper">
               <Doughnut data={salesByProduct} options={{
@@ -473,7 +524,7 @@ export default function AccountDashboardPage() {
               <div className="chart-center-text">
                 <div className="chart-total">รายได้รวม:</div>
                 <div className="chart-total-amount">
-                  {salesByProduct.datasets[0].data.reduce((a, b) => a + b, 0).toLocaleString()}
+                  {(salesByProduct.datasets?.[0]?.data || []).reduce((a, b) => a + b, 0).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -490,7 +541,7 @@ export default function AccountDashboardPage() {
                 <div className="chart-stat-item">
                   <span className="stat-label">เก็บเงินสำเร็จ (อนุมัติแล้ว):</span>
                   <span className="stat-value success">
-                    ฿{monthlyCollection.datasets[0].data.reduce((a, b) => a + b, 0).toLocaleString()}
+                    ฿{(monthlyCollection.datasets?.[0]?.data || []).reduce((a, b) => a + b, 0).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -529,7 +580,20 @@ export default function AccountDashboardPage() {
       {/* Charts Row */}
       <div className="charts-row">
         <div className="chart-card">
-          <h5 className="chart-title">การใช้งานตามช่องทาง</h5>
+          <div className="chart-header">
+            <h5 className="chart-title">การใช้งานตามช่องทาง</h5>
+            <select 
+              className="chart-filter-select"
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value)}
+            >
+              <option value="today">วันนี้</option>
+              <option value="week">สัปดาห์นี้</option>
+              <option value="month">เดือนนี้</option>
+              <option value="year">ปีนี้</option>
+              <option value="all">ทั้งหมด</option>
+            </select>
+          </div>
           {channelBreakdown.labels.length > 0 ? (
             <Bar data={channelBreakdown} options={{
               indexAxis: 'y',
@@ -592,37 +656,49 @@ export default function AccountDashboardPage() {
       <div className="recent-transactions-card">
         <div className="section-header">
           <h5 className="chart-title">ธุรกรรมล่าสุด</h5>
-          <button 
-            className="view-all-btn"
-            onClick={() => navigate('/dashboard/account/alltransactions')}
-          >
-            ดูทั้งหมด →
-          </button>
         </div>
         
-        {recentTransactions.length > 0 ? (
+        {submittedTransactions.length > 0 ? (
           <div className="transactions-list">
-            {recentTransactions.map((tx, idx) => (
+            {submittedTransactions.map((tx, idx) => (
               <div key={idx} className="transaction-item">
                 <div className="transaction-icon">
-                  {tx.type === 'topup' 
-                    ? <ArrowDownLeft className="topup-icon" /> 
-                    : <ArrowUpRight className="charge-icon" />
-                  }
+                  <CashCoin className={tx.submissionStatus === 'approved' ? 'approved-icon' : 'pending-icon'} />
                 </div>
                 <div className="transaction-content">
                   <div className="transaction-label">
-                    <span className="tx-type">{tx.type === 'topup' ? 'โอนเข้า' : 'โอนออก'}</span>
-                    <span className="tx-channel">({tx.channel || 'Other'})</span>
+                    <span className="tx-type">{tx.serviceId?.serviceType || tx.serviceId?.name || 'ธุรกรรม'}</span>
+                    {tx.serviceId?.cid && <span className="tx-cid">({tx.serviceId.cid})</span>}
+                    {tx.bank && (
+                      <span className="tx-bank" style={{
+                        fontSize: '0.75rem',
+                        padding: '2px 8px',
+                        borderRadius: '8px',
+                        marginLeft: '6px',
+                        fontWeight: '600',
+                        backgroundColor: 
+                          tx.bank === 'KBANK' || tx.bank.includes('KBANK') ? '#138f59' :
+                          tx.bank === 'SCB' || tx.bank.includes('SCB') ? '#4e2e7f' :
+                          tx.bank === 'BBL' || tx.bank.includes('BBL') ? '#1e4598' :
+                          tx.bank === 'BAY' || tx.bank.includes('BAY') ? '#fec43b' :
+                          '#6c757d',
+                        color: (tx.bank === 'BAY' || tx.bank.includes('BAY')) ? '#000' : '#fff'
+                      }}>
+                        {tx.bank}
+                      </span>
+                    )}
+                    <span className={`tx-status ${tx.submissionStatus}`}>
+                      {tx.submissionStatus === 'approved' ? 'อนุมัติแล้ว' : 'รออนุมัติ'}
+                    </span>
                   </div>
-                  <span className="tx-card">{tx.cardName || 'บัตร'}</span>
+                  <span className="tx-card">{tx.customerId?.name || tx.serviceId?.customerId?.name || '-'}</span>
                 </div>
                 <div className="transaction-amount">
-                  <span className={tx.type === 'topup' ? 'amount-topup' : 'amount-charge'}>
-                    {tx.type === 'topup' ? '+' : '-'}{tx.amount.toLocaleString()}
+                  <span className="amount-topup">
+                    +฿{(tx.amount || 0).toLocaleString()}
                   </span>
                   <span className="tx-date">
-                    {new Date(tx.createdAt).toLocaleDateString('th-TH', {
+                    {new Date(tx.updatedAt || tx.createdAt).toLocaleDateString('th-TH', {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',

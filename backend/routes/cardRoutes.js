@@ -349,4 +349,18 @@ router.get('/cards/:id/ledger/export', async (req, res) => {
   }
 });
 
+// GET /api/cards/ledger/all - get all ledger entries (for dashboard)
+router.get('/cards/ledger/all', async (req, res) => {
+  try {
+    const ledger = await CardLedger.find()
+      .sort({ createdAt: -1 })
+      .populate('cardId', 'cardName last4')
+      .populate('createdBy', 'name email');
+    res.json(ledger);
+  } catch (err) {
+    console.error('Get all ledger failed:', err);
+    res.status(500).json({ error: 'Failed to fetch ledger', detail: err.message });
+  }
+});
+
 module.exports = router;

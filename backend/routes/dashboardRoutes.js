@@ -126,10 +126,10 @@ router.get('/dashboard/summary', async (req, res) => {
     const chartLabels = Object.keys(transactionsByDate);
     const chartData = Object.values(transactionsByDate);
 
-    // คำนวณยอดขายตามบริการ (สำหรับ Donut chart)
+    // คำนวณยอดขายตามบริการ (สำหรับ Donut chart) - เฉพาะที่อนุมัติแล้ว
     const salesByService = {};
     allTransactions.forEach(tx => {
-      if (tx.amount > 0) {
+      if (tx.amount > 0 && tx.submissionStatus === 'approved') {
         const serviceName = tx.serviceId?.name || 'อื่นๆ';
         salesByService[serviceName] = (salesByService[serviceName] || 0) + tx.amount;
       }

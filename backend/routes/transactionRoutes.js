@@ -114,8 +114,10 @@ router.get('/transactions', async (req, res) => {
     const transactions = await query
       .populate({
         path: 'serviceId',
+        select: 'serviceType name cid customerId',
         populate: { path: 'customerId', select: 'name phone' }
       })
+      .populate('customerId', 'name phone')
       .populate('submittedBy', 'name email')
       .sort({ transactionDate: -1 })
       .skip(skip)
