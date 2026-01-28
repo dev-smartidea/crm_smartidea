@@ -614,11 +614,14 @@ export default function AccountCardsPage() {
                   <label className="field">
                     <span className="field-label">เวลาที่ตัดเงิน</span>
                     <input
-                      type="time"
+                      type="text"
                       className="field-input"
                       value={formChargeTime}
                       onChange={e => setFormChargeTime(e.target.value)}
-                      placeholder="00:00"
+                      placeholder="เช่น 14:30"
+                      pattern="[0-2][0-9]:[0-5][0-9]"
+                      title="กรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+                      maxLength="5"
                     />
                   </label>
 

@@ -3,6 +3,31 @@ const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
+
+// Account Lockout Tracking (ในโปรเจคใหญ่ควรใช้ Redis)
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5;
+const LOCKOUT_TIME = parseInt(process.env.LOCKOUT_TIME) || 900000; // 15 minutes
+
+// Rate Limiter สำหรับ Login - ป้องกัน Brute Force
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 นาที
+  max: 5, // จำกัด 5 ครั้งต่อ IP
+  message: 'ล็อกอินผิดพลาดหลายครั้ง กรุณาลองใหม่อีกครั้งใน 15 นาที',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate Limiter สำหรับ Register
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 ชั่วโมง
+  max: 3, // จำกัด 3 ครั้งต่อ IP
+  message: 'สมัครสมาชิกมากเกินไป กรุณาลองใหม่ในอีก 1 ชั่วโมง',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Middleware ตรวจสอบ admin
 function requireAdmin(req, res, next) {
@@ -65,8 +90,26 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 });
 
 // ✅ Register
-router.post('/register', async (req, res) => {
+router.post('/register',
+  registerLimiter,
+  [
+    body('username').trim().isLength({ min: 3 }).withMessage('Username ต้องมีอย่างน้อย 3 ตัวอักษร'),
+    body('email').isEmail().normalizeEmail().withMessage('Email ไม่ถูกต้อง'),
+    body('password')
+      .isLength({ min: 8 }).withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
+      .matches(/[a-z]/).withMessage('รหัสผ่านต้องมีตัวอักษรพิมพ์เล็ก')
+      .matches(/[A-Z]/).withMessage('รหัสผ่านต้องมีตัวอักษรพิมพ์ใหญ่')
+      .matches(/[0-9]/).withMessage('รหัสผ่านต้องมีตัวเลข'),
+    body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
+  ],
+  async (req, res) => {
   try {
+    // ตรวจสอบ validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
     const { username, name, email, password } = req.body;
     if (!username || !name || !email || !password) {
       return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
@@ -81,22 +124,68 @@ router.post('/register', async (req, res) => {
     res.json({ message: '✅ สมัครสำเร็จ' });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server', detail: err.message });
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
   }
 });
 
 // ✅ Login
-router.post('/login', async (req, res) => {
+router.post('/login',
+  loginLimiter,
+  [
+    body('username').trim().notEmpty().withMessage('กรุณากรอก Username'),
+    body('password').notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
+  ],
+  async (req, res) => {
   try {
+    // ตรวจสอบ validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
     const { username, password } = req.body;
+    
+    // ตรวจสอบว่าบัญชีถูกล็อกหรือไม่
+    const attemptKey = username.toLowerCase();
+    const attempts = loginAttempts.get(attemptKey);
+    if (attempts && attempts.count >= MAX_LOGIN_ATTEMPTS) {
+      const lockoutEnd = attempts.timestamp + LOCKOUT_TIME;
+      if (Date.now() < lockoutEnd) {
+        const remainingMinutes = Math.ceil((lockoutEnd - Date.now()) / 60000);
+        return res.status(429).json({ 
+          error: `บัญชีถูกล็อก กรุณารอ ${remainingMinutes} นาที` 
+        });
+      } else {
+        // หมดเวลาล็อก - รีเซ็ต
+        loginAttempts.delete(attemptKey);
+      }
+    }
+    
     const user = await User.findOne({ username });
     if (!user) {
+      // บันทึกความพยายามที่ล้มเหลว
+      const current = loginAttempts.get(attemptKey) || { count: 0, timestamp: Date.now() };
+      loginAttempts.set(attemptKey, { count: current.count + 1, timestamp: Date.now() });
       return res.status(400).json({ error: 'ไม่พบผู้ใช้' });
     }
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
+      // บันทึกความพยายามที่ล้มเหลว
+      const current = loginAttempts.get(attemptKey) || { count: 0, timestamp: Date.now() };
+      const newCount = current.count + 1;
+      loginAttempts.set(attemptKey, { count: newCount, timestamp: Date.now() });
+      
+      const remaining = MAX_LOGIN_ATTEMPTS - newCount;
+      if (remaining > 0) {
+        return res.status(400).json({ 
+          error: `รหัสผ่านไม่ถูกต้อง (เหลือ ${remaining} ครั้ง)` 
+        });
+      }
       return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
     }
+    
+    // ล็อกอินสำเร็จ - ลบข้อมูลความพยายามที่ผิดพลาด
+    loginAttempts.delete(attemptKey);
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
   } catch (err) {
