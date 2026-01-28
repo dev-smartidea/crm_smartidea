@@ -23,6 +23,7 @@ export default function AccountCardsPage() {
   const [formReference, setFormReference] = useState('');
   const [formServiceId, setFormServiceId] = useState('');
   const [formNote, setFormNote] = useState('');
+  const [formChargeTime, setFormChargeTime] = useState('');
   const [serviceOptions, setServiceOptions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
@@ -88,6 +89,7 @@ export default function AccountCardsPage() {
     setFormReference('');
     setFormServiceId('');
     setFormNote('');
+    setFormChargeTime('');
     setError('');
   };
 
@@ -112,6 +114,7 @@ export default function AccountCardsPage() {
           channel: formChannel,
           reference: formReference,
           note: formNote,
+          chargeTime: formChargeTime,
           serviceId: formServiceId || undefined
         }, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -605,6 +608,17 @@ export default function AccountCardsPage() {
                       className="field-input"
                       value={formReference}
                       onChange={e => setFormReference(e.target.value)}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span className="field-label">เวลาที่ตัดเงิน</span>
+                    <input
+                      type="time"
+                      className="field-input"
+                      value={formChargeTime}
+                      onChange={e => setFormChargeTime(e.target.value)}
+                      placeholder="00:00"
                     />
                   </label>
 

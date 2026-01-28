@@ -9,6 +9,7 @@ const cardLedgerSchema = new mongoose.Schema({
   channel: { type: String, enum: ['Google Ads', 'Facebook Ads', 'Other'], default: 'Other' },
   reference: { type: String }, // campaign/billing reference
   note: { type: String },
+  chargeTime: { type: String }, // เวลาที่ตัดเงิน (เช่น "14:30")
   balanceAfter: { type: Number },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });

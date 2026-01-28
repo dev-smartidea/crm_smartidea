@@ -14,6 +14,7 @@ import DashboardPage from './pages/shared/DashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AccountDashboardPage from './pages/shared/AccountDashboardPage';
 import AccountTransactionsPage from './pages/account/AccountTransactionsPage';
+import RejectedTransactionsPage from './pages/account/RejectedTransactionsPage';
 import AccountCardLedgerPage from './pages/account/AccountCardLedgerPage';
 import ApprovedTransactionsPage from './pages/account/ApprovedTransactionsPage';
 import AccountDashboardLayout from './components/AccountDashboardLayout';
@@ -109,6 +110,7 @@ function App() {
           <Route path="cards" element={<AccountCardsPage />} />
           <Route path="cards/:cardId/ledger" element={<AccountCardLedgerPage />} />
           <Route path="alltransactions" element={<AccountTransactionsPage />} />
+          <Route path="rejected" element={<RejectedTransactionsPage />} />
           <Route path="approved" element={<ApprovedTransactionsPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
           <Route path="profile" element={<ProfilePage />} />
