@@ -3,6 +3,26 @@ const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
+
+// Rate Limiter สำหรับ Login - ป้องกัน Brute Force
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 นาที
+  max: 5, // จำกัด 5 ครั้งต่อ IP
+  message: 'ล็อกอินผิดพลาดหลายครั้ง กรุณาลองใหม่อีกครั้งใน 15 นาที',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate Limiter สำหรับ Register
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 ชั่วโมง
+  max: 3, // จำกัด 3 ครั้งต่อ IP
+  message: 'สมัครสมาชิกมากเกินไป กรุณาลองใหม่ในอีก 1 ชั่วโมง',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Middleware ตรวจสอบ admin
 function requireAdmin(req, res, next) {
@@ -65,8 +85,22 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 });
 
 // ✅ Register
-router.post('/register', async (req, res) => {
+router.post('/register',
+  registerLimiter,
+  [
+    body('username').trim().isLength({ min: 3 }).withMessage('Username ต้องมีอย่างน้อย 3 ตัวอักษร'),
+    body('email').isEmail().normalizeEmail().withMessage('Email ไม่ถูกต้อง'),
+    body('password').isLength({ min: 6 }).withMessage('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'),
+    body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
+  ],
+  async (req, res) => {
   try {
+    // ตรวจสอบ validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
     const { username, name, email, password } = req.body;
     if (!username || !name || !email || !password) {
       return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
@@ -81,13 +115,25 @@ router.post('/register', async (req, res) => {
     res.json({ message: '✅ สมัครสำเร็จ' });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server', detail: err.message });
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
   }
 });
 
 // ✅ Login
-router.post('/login', async (req, res) => {
+router.post('/login',
+  loginLimiter,
+  [
+    body('username').trim().notEmpty().withMessage('กรุณากรอก Username'),
+    body('password').notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
+  ],
+  async (req, res) => {
   try {
+    // ตรวจสอบ validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
     const { username, password } = req.body;
     const user = await User.findOne({ username });
     if (!user) {

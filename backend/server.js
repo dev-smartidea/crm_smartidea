@@ -1,16 +1,66 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 const connectDB = require('./config/database');
 
 const app = express();
-// อนุญาต CORS จากทุก origin สำหรับการใช้งานใน network
+
+// Security Headers
+app.use(helmet());
+
+// CORS - จำกัดเฉพาะโดเมนที่อนุญาต
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'http://192.168.1.65:3000', // Network IP
+  'http://192.168.1.189:3000', // Additional Network IP
+];
+
 app.use(cors({
-  origin: true, // อนุญาตทุก origin
+  origin: function (origin, callback) {
+    // อนุญาต requests ที่ไม่มี origin (เช่น Postman, mobile apps)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
+
+// Rate Limiting - ป้องกัน Brute Force
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 นาที
+  max: 100, // จำกัด 100 requests ต่อ IP
+  message: 'คำขอมากเกินไป กรุณาลองใหม่ในอีก 15 นาที',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(limiter);
+
+// Custom Sanitize Middleware - ป้องกัน NoSQL Injection
+// แทน express-mongo-sanitize ที่ไม่รองรับ Node.js ใหม่
+app.use((req, res, next) => {
+  const sanitize = (obj) => {
+    if (typeof obj !== 'object' || obj === null) return obj;
+    for (const key in obj) {
+      if (key.startsWith('$') || key.includes('.')) {
+        delete obj[key];
+      } else if (typeof obj[key] === 'object') {
+        sanitize(obj[key]);
+      }
+    }
+    return obj;
+  };
+  if (req.body) sanitize(req.body);
+  next();
+});
+
 // รองรับ JSON body และ x-www-form-urlencoded (เผื่อบาง client ส่งฟิลด์ text มาพร้อม multipart)
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // จำกัดขนาด JSON
 app.use(express.urlencoded({ extended: true }));
 
 // เพิ่ม session middleware
