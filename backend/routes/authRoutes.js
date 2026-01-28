@@ -6,11 +6,6 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 
-// Account Lockout Tracking (ในโปรเจคใหญ่ควรใช้ Redis)
-const loginAttempts = new Map();
-const MAX_LOGIN_ATTEMPTS = parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5;
-const LOCKOUT_TIME = parseInt(process.env.LOCKOUT_TIME) || 900000; // 15 minutes
-
 // Rate Limiter สำหรับ Login - ป้องกัน Brute Force
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 นาที
@@ -95,11 +90,7 @@ router.post('/register',
   [
     body('username').trim().isLength({ min: 3 }).withMessage('Username ต้องมีอย่างน้อย 3 ตัวอักษร'),
     body('email').isEmail().normalizeEmail().withMessage('Email ไม่ถูกต้อง'),
-    body('password')
-      .isLength({ min: 8 }).withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
-      .matches(/[a-z]/).withMessage('รหัสผ่านต้องมีตัวอักษรพิมพ์เล็ก')
-      .matches(/[A-Z]/).withMessage('รหัสผ่านต้องมีตัวอักษรพิมพ์ใหญ่')
-      .matches(/[0-9]/).withMessage('รหัสผ่านต้องมีตัวเลข'),
+    body('password').isLength({ min: 6 }).withMessage('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'),
     body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
   ],
   async (req, res) => {
@@ -144,48 +135,14 @@ router.post('/login',
     }
 
     const { username, password } = req.body;
-    
-    // ตรวจสอบว่าบัญชีถูกล็อกหรือไม่
-    const attemptKey = username.toLowerCase();
-    const attempts = loginAttempts.get(attemptKey);
-    if (attempts && attempts.count >= MAX_LOGIN_ATTEMPTS) {
-      const lockoutEnd = attempts.timestamp + LOCKOUT_TIME;
-      if (Date.now() < lockoutEnd) {
-        const remainingMinutes = Math.ceil((lockoutEnd - Date.now()) / 60000);
-        return res.status(429).json({ 
-          error: `บัญชีถูกล็อก กรุณารอ ${remainingMinutes} นาที` 
-        });
-      } else {
-        // หมดเวลาล็อก - รีเซ็ต
-        loginAttempts.delete(attemptKey);
-      }
-    }
-    
     const user = await User.findOne({ username });
     if (!user) {
-      // บันทึกความพยายามที่ล้มเหลว
-      const current = loginAttempts.get(attemptKey) || { count: 0, timestamp: Date.now() };
-      loginAttempts.set(attemptKey, { count: current.count + 1, timestamp: Date.now() });
       return res.status(400).json({ error: 'ไม่พบผู้ใช้' });
     }
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      // บันทึกความพยายามที่ล้มเหลว
-      const current = loginAttempts.get(attemptKey) || { count: 0, timestamp: Date.now() };
-      const newCount = current.count + 1;
-      loginAttempts.set(attemptKey, { count: newCount, timestamp: Date.now() });
-      
-      const remaining = MAX_LOGIN_ATTEMPTS - newCount;
-      if (remaining > 0) {
-        return res.status(400).json({ 
-          error: `รหัสผ่านไม่ถูกต้อง (เหลือ ${remaining} ครั้ง)` 
-        });
-      }
       return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
     }
-    
-    // ล็อกอินสำเร็จ - ลบข้อมูลความพยายามที่ผิดพลาด
-    loginAttempts.delete(attemptKey);
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
   } catch (err) {

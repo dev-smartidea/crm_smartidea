@@ -45,11 +45,7 @@ const uploadSlip = multer({
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
-    // ตรวจสอบ MIME type อย่างเข้มงวด
-    const validMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    
-    if (mimetype && extname && validMimeTypes.includes(file.mimetype)) {
+    if (mimetype && extname) {
       return cb(null, true);
     } else {
       cb(new Error('อนุญาตเฉพาะไฟล์รูปภาพเท่านั้น (jpeg, jpg, png, gif, webp)'));

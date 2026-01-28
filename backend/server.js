@@ -2,49 +2,19 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const mongoSanitize = require('express-mongo-sanitize');
 require('dotenv').config();
 const connectDB = require('./config/database');
 
 const app = express();
 
-// HTTPS Redirect ใน Production
-if (process.env.NODE_ENV === 'production') {
-  app.use((req, res, next) => {
-    if (req.header('x-forwarded-proto') !== 'https') {
-      res.redirect(`https://${req.header('host')}${req.url}`);
-    } else {
-      next();
-    }
-  });
-}
-
-// Security Headers พร้อม Content Security Policy
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"], // สำหรับ inline styles ใน React
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:"], // รองรับรูปภาพจาก upload
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-    },
-  },
-  hsts: {
-    maxAge: 31536000, // 1 ปี
-    includeSubDomains: true,
-    preload: true
-  }
-}));
+// Security Headers
+app.use(helmet());
 
 // CORS - จำกัดเฉพาะโดเมนที่อนุญาต
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   'http://192.168.1.65:3000', // Network IP
+  'http://192.168.1.189:3000', // Additional Network IP
 ];
 
 app.use(cors({
@@ -71,31 +41,34 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// IP Whitelist (ไม่บังคับ - เปิดใช้งานโดยตั้งค่า ALLOWED_IPS ใน .env)
-// ตัวอย่าง: ALLOWED_IPS=192.168.1.1,192.168.1.2,10.0.0.1
-const ipWhitelist = require('./middleware/ipWhitelist');
-app.use(ipWhitelist);
-
-// Sanitize data to prevent NoSQL Injection
-app.use(mongoSanitize());
+// Custom Sanitize Middleware - ป้องกัน NoSQL Injection
+// แทน express-mongo-sanitize ที่ไม่รองรับ Node.js ใหม่
+app.use((req, res, next) => {
+  const sanitize = (obj) => {
+    if (typeof obj !== 'object' || obj === null) return obj;
+    for (const key in obj) {
+      if (key.startsWith('$') || key.includes('.')) {
+        delete obj[key];
+      } else if (typeof obj[key] === 'object') {
+        sanitize(obj[key]);
+      }
+    }
+    return obj;
+  };
+  if (req.body) sanitize(req.body);
+  next();
+});
 
 // รองรับ JSON body และ x-www-form-urlencoded (เผื่อบาง client ส่งฟิลด์ text มาพร้อม multipart)
 app.use(express.json({ limit: '10mb' })); // จำกัดขนาด JSON
 app.use(express.urlencoded({ extended: true }));
 
-// เพิ่ม session middleware พร้อมความปลอดภัยสูง
+// เพิ่ม session middleware
 const session = require('express-session');
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your_secret_key',
+  secret: process.env.SESSION_SECRET || 'your_secret_key', // ใช้ Secret จาก .env
   resave: false,
-  saveUninitialized: false, // ไม่สร้าง session ถ้าไม่จำเป็น
-  cookie: {
-    httpOnly: true, // ป้องกัน XSS - ไม่ให้ JavaScript อ่าน cookie
-    secure: process.env.NODE_ENV === 'production', // HTTPS only ใน production
-    sameSite: 'strict', // ป้องกัน CSRF attacks
-    maxAge: 24 * 60 * 60 * 1000 // 24 ชั่วโมง
-  },
-  name: 'sessionId' // เปลี่ยนชื่อ cookie ไม่ให้เป็น default
+  saveUninitialized: true
 }));
 
 // ให้ express ให้บริการไฟล์ static สำหรับรูปโปรไฟล์

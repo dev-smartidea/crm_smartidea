@@ -618,9 +618,7 @@ export default function AccountCardsPage() {
                       className="field-input"
                       value={formChargeTime}
                       onChange={e => setFormChargeTime(e.target.value)}
-                      placeholder="เช่น 14:30"
-                      pattern="[0-2][0-9]:[0-5][0-9]"
-                      title="กรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
+                      placeholder="00:00"
                       maxLength="5"
                     />
                   </label>
