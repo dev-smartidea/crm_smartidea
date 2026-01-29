@@ -2,6 +2,25 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
+const { getIO } = require('../socket');
+// POST /api/notifications - สร้างการแจ้งเตือนใหม่ (สำหรับทดสอบ push real-time)
+router.post('/notifications', async (req, res) => {
+  try {
+    const { userId, type, title, message, link } = req.body;
+    if (!userId || !type || !title || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const notification = new Notification({ userId, type, title, message, link });
+    await notification.save();
+    // push real-time
+    try {
+      getIO().emit('notification', { userId, type, title, message, link, _id: notification._id, createdAt: notification.createdAt });
+    } catch (e) { /* ignore if io not ready */ }
+    res.status(201).json(notification);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
 
 // Helper: auth + return user object (id, role)
 function getUserFromReq(req) {

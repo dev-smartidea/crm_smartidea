@@ -5,6 +5,7 @@ import {
   ExclamationCircle, CashCoin, CreditCard2BackFill
 } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
+import useNotificationSocket from '../../hooks/useNotificationSocket';
 import './AccountNotificationPage.css';
 
 export default function AccountNotificationPage() {
@@ -18,6 +19,24 @@ export default function AccountNotificationPage() {
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
+
+  // Real-time notification (Socket.io)
+  useNotificationSocket(
+    (data) => {
+      if (!data || !data.userId || !token) return;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.id && payload.id === data.userId) {
+          setNotifications(prev => [{
+            ...data,
+            isRead: false,
+            createdAt: data.createdAt || new Date().toISOString()
+          }, ...prev]);
+        }
+      } catch {}
+    },
+    [token, setNotifications]
+  );
 
   // Fetch notifications
   useEffect(() => {
@@ -34,7 +53,6 @@ export default function AccountNotificationPage() {
         setLoading(false);
       }
     };
-    
     if (token) fetchNotifications();
   }, [api, token]);
 

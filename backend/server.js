@@ -4,8 +4,11 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 const connectDB = require('./config/database');
+const http = require('http');
+const { setupSocket } = require('./socket');
 
 const app = express();
+const server = http.createServer(app);
 
 // Security Headers
 app.use(helmet());
@@ -125,7 +128,9 @@ const { initStatusScheduler } = require('./utils/statusScheduler');
 initStatusScheduler();
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
+const io = setupSocket(server);
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Backend server running on http://0.0.0.0:${PORT}`);
   console.log(`🌐 Network access: http://192.168.1.189:${PORT}`);
 });
+module.exports = { io };
