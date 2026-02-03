@@ -8,6 +8,8 @@ const transactionSchema = new mongoose.Schema({
   amount: { type: Number, required: true }, // จำนวนเงิน
   transactionDate: { type: Date, required: true }, // วันที่โอน
   transactionTime: { type: String }, // เวลาที่โอน (เช่น "10:30")
+  cardNumber: { type: String }, // บัตรเลขที่
+  cardTime: { type: String }, // เวลาที่ตัดบัตร
   notes: { type: String }, // หมายเหตุ
   slipImage: { type: String }, // path ของรูปสลิป/หลักฐาน (optional)
   bank: { type: String, enum: ['KBANK', 'SCB', 'BBL', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'], required: true }, // บัญชีธนาคาร

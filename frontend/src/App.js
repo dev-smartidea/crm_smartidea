@@ -20,6 +20,7 @@ import ApprovedTransactionsPage from './pages/account/ApprovedTransactionsPage';
 import AccountDashboardLayout from './components/AccountDashboardLayout';
 import AccountCardsPage from './pages/account/AccountCardsPage';
 import AccountNotificationPage from './pages/account/AccountNotificationPage';
+import AccountLedgerPage from './pages/account/AccountLedgerPage';
 import UserDetailPage from './pages/user/UserDetailPage';
 import ProfilePage from './pages/user/ProfilePage';
 import NotificationPage from './pages/shared/NotificationPage';
@@ -109,6 +110,7 @@ function App() {
           <Route path="notifications" element={<AccountNotificationPage />} />
           <Route path="cards" element={<AccountCardsPage />} />
           <Route path="cards/:cardId/ledger" element={<AccountCardLedgerPage />} />
+          <Route path="ledger" element={<AccountLedgerPage />} />
           <Route path="alltransactions" element={<AccountTransactionsPage />} />
           <Route path="rejected" element={<RejectedTransactionsPage />} />
           <Route path="approved" element={<ApprovedTransactionsPage />} />

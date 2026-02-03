@@ -115,6 +115,10 @@ app.use('/api', cardRoutes); // เส้นทางจะเป็น /api/car
 const activityRoutes = require('./routes/activityRoutes');
 app.use('/api', activityRoutes); // เส้นทางจะเป็น /api/customers/:customerId/activities, /api/activities/:id
 
+// ✅ Ledger routes (ยอดเดินบัญชี)
+const ledgerRoutes = require('./routes/ledgerRoutes');
+app.use('/api', ledgerRoutes); // เส้นทางจะเป็น /api/ledger
+
 // ✅ route หลัก
 app.get('/', (req, res) => {
   res.send('🎉 Backend CRM is working');

@@ -311,35 +311,18 @@ export default function SubmittedTransactionsPage() {
                           </div>
                         </td>
                         <td>
-                          {tx.service?.customerIdField && tx.service?.name ? (
+                          {tx.service ? (
                             <span className={`service-badge ${
-                              tx.service.name === 'Facebook Ads' ? 'facebook' :
-                              tx.service.name === 'Google Ads' ? 'google' :
+                              (tx.service.serviceType || tx.service.name) === 'Facebook Ads' ? 'facebook' :
+                              (tx.service.serviceType || tx.service.name) === 'Google Ads' ? 'google' :
                               'other'
                             }`}>
-                              {tx.service.name === 'Facebook Ads' && <Facebook className="service-icon" />}
-                              {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
-                              <span className="service-id-text">{tx.service.customerIdField}</span>
+                              {(tx.service.serviceType || tx.service.name) === 'Facebook Ads' && <Facebook className="service-icon" />}
+                              {(tx.service.serviceType || tx.service.name) === 'Google Ads' && <Google className="service-icon" />}
+                              <span className="service-id-text">{tx.service.cid || tx.service.customerIdField || '-'}</span>
                             </span>
                           ) : (
-                            <>
-                              <button
-                                className="btn-slip-upload"
-                                onClick={() => triggerUploadFor(tx._id)}
-                                disabled={uploadingId === tx._id}
-                                title={uploadingId === tx._id ? 'กำลังอัปโหลดไฟล์สลิป...' : 'อัปโหลดสลิปโอนเงิน'}
-                              >
-                                {uploadingId === tx._id ? <span className="spinner" /> : <Upload />}
-                                {uploadingId === tx._id ? 'กำลังอัปโหลด...' : 'เพิ่มสลิป'}
-                              </button>
-                              <input
-                                id={`submitted-slip-input-${tx._id}`}
-                                type="file"
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                                onChange={(e) => handleInlineSlipChange(tx._id, e.target.files?.[0])}
-                              />
-                            </>
+                            <span>-</span>
                           )}
                         </td>
                         <td>
