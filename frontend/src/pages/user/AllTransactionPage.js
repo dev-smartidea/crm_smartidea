@@ -690,15 +690,15 @@ export default function AllTransactionPage() {
                         </div>
                       </td>
                       <td>
-                        {tx.service?.customerIdField && tx.service?.name ? (
+                        {tx.service ? (
                           <span className={`service-badge ${
-                            tx.service.name === 'Facebook Ads' ? 'facebook' :
-                            tx.service.name === 'Google Ads' ? 'google' :
+                            (tx.service.serviceType || tx.service.name) === 'Facebook Ads' ? 'facebook' :
+                            (tx.service.serviceType || tx.service.name) === 'Google Ads' ? 'google' :
                             'other'
                           }`}>
-                            {tx.service.name === 'Facebook Ads' && <Facebook className="service-icon" />}
-                            {tx.service.name === 'Google Ads' && <Google className="service-icon" />}
-                            <span className="service-id-text">{tx.service.customerIdField}</span>
+                            {(tx.service.serviceType || tx.service.name) === 'Facebook Ads' && <Facebook className="service-icon" />}
+                            {(tx.service.serviceType || tx.service.name) === 'Google Ads' && <Google className="service-icon" />}
+                            <span className="service-id-text">{tx.service.cid || tx.service.customerIdField || '-'}</span>
                           </span>
                         ) : (
                           <span className="text-muted">-</span>

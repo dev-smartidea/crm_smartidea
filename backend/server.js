@@ -6,6 +6,7 @@ require('dotenv').config();
 const connectDB = require('./config/database');
 const http = require('http');
 const { setupSocket } = require('./socket');
+const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
@@ -137,4 +138,47 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Backend server running on http://0.0.0.0:${PORT}`);
   console.log(`🌐 Network access: http://192.168.1.189:${PORT}`);
 });
+
+// =========================================
+// Error Handling - ป้องกัน Backend หลุดเอง
+// =========================================
+
+// จัดการ Unhandled Promise Rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // ไม่ exit process แต่ log ไว้เพื่อ debug
+});
+
+// จัดการ Uncaught Exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // ไม่ exit process แต่ log ไว้เพื่อ debug
+});
+
+// Graceful Shutdown
+const gracefulShutdown = async (signal) => {
+  console.log(`\n⚠️ ${signal} received. Closing server gracefully...`);
+  server.close(async () => {
+    console.log('✅ HTTP server closed');
+    try {
+      await mongoose.connection.close();
+      console.log('✅ MongoDB connection closed');
+      process.exit(0);
+    } catch (err) {
+      console.error('❌ Error closing MongoDB:', err);
+      process.exit(1);
+    }
+  });
+
+  // ถ้า shutdown ไม่สำเร็จใน 10 วินาที ให้ force exit
+  setTimeout(() => {
+    console.error('⚠️ Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+// รับสัญญาณ shutdown
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 module.exports = { io };

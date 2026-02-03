@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { CreditCard2BackFill, Google, Facebook, DashCircle, PlusCircle, Trash2, Eye } from 'react-bootstrap-icons';
+import { CreditCard2BackFill, Google, Facebook, DashCircle, PlusCircle, Trash2, Eye, Calendar3 } from 'react-bootstrap-icons';
 import './AccountCardsPage.css';
 
 const CHANNEL_OPTIONS = ['Google Ads', 'Facebook Ads', 'Other'];
@@ -252,9 +252,18 @@ export default function AccountCardsPage() {
           <h1 className="cards-title">บัตร</h1>
           <p className="cards-subtitle">จัดการบัตรตัดยอดและแพลตฟอร์มที่เชื่อมต่อ</p>
         </div>
-        <button className="cards-hero-btn" onClick={() => { setShowAddCard(true); setError(''); }}>
-          <PlusCircle /> เพิ่มบัตร
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="cards-hero-btn" 
+            style={{ background: '#10b981', borderColor: '#10b981' }}
+            onClick={() => navigate('/dashboard/account/cards/daily-summary')}
+          >
+            <Calendar3 /> สรุปรายวัน
+          </button>
+          <button className="cards-hero-btn" onClick={() => { setShowAddCard(true); setError(''); }}>
+            <PlusCircle /> เพิ่มบัตร
+          </button>
+        </div>
       </div>
 
       <div className="cards-surface">

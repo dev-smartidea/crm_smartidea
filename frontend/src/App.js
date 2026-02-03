@@ -19,6 +19,7 @@ import AccountCardLedgerPage from './pages/account/AccountCardLedgerPage';
 import ApprovedTransactionsPage from './pages/account/ApprovedTransactionsPage';
 import AccountDashboardLayout from './components/AccountDashboardLayout';
 import AccountCardsPage from './pages/account/AccountCardsPage';
+import AccountCardDailySummaryPage from './pages/account/AccountCardDailySummaryPage';
 import AccountNotificationPage from './pages/account/AccountNotificationPage';
 import AccountLedgerPage from './pages/account/AccountLedgerPage';
 import UserDetailPage from './pages/user/UserDetailPage';
@@ -109,6 +110,7 @@ function App() {
           <Route index element={<AccountDashboardPage />} />
           <Route path="notifications" element={<AccountNotificationPage />} />
           <Route path="cards" element={<AccountCardsPage />} />
+          <Route path="cards/daily-summary" element={<AccountCardDailySummaryPage />} />
           <Route path="cards/:cardId/ledger" element={<AccountCardLedgerPage />} />
           <Route path="ledger" element={<AccountLedgerPage />} />
           <Route path="alltransactions" element={<AccountTransactionsPage />} />
