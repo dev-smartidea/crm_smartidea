@@ -1,0 +1,10 @@
+.env
+node_modules/
+uploads/avatars/*
+uploads/slips/*
+uploads/images/*
+!uploads/avatars/.gitkeep
+!uploads/slips/.gitkeep
+!uploads/images/.gitkeep
+*.log
+.DS_Store
