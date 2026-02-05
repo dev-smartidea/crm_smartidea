@@ -19,6 +19,8 @@ const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   'http://192.168.1.65:3000', // Network IP
   'http://192.168.1.189:3000', // Additional Network IP
+  'https://crm-smartidea.vercel.app', // Vercel Production
+  'https://crm-smartidea-foti4fw4t-smartidea-devs-projects.vercel.app', // Vercel Preview
 ];
 
 app.use(cors({
