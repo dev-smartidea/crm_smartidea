@@ -9,6 +9,9 @@ const API_HOST = process.env.REACT_APP_API_URL || '';
 
 function getAvatarUrl(avatar) {
   if (!avatar) return require('../../img/blank-profile.png');
+  if (typeof avatar === 'string' && (avatar.startsWith('http://') || avatar.startsWith('https://'))) {
+    return avatar;
+  }
   if (typeof avatar === 'string' && avatar.startsWith('/uploads/avatars/')) {
     return `${API_HOST}${avatar}`;
   }
@@ -69,6 +72,7 @@ const ProfilePage = () => {
       const token = localStorage.getItem('token');
       let avatarUrl = user.avatar;
 
+      let avatarCloudinaryId = null;
       if (avatarFile) {
         const formData = new FormData();
         formData.append('avatar', avatarFile);
@@ -79,10 +83,13 @@ const ProfilePage = () => {
           },
         });
         avatarUrl = res.data.url;
+        avatarCloudinaryId = res.data.cloudinaryId;
         setAvatarPreview(getAvatarUrl(avatarUrl));
       }
 
-      await axios.patch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, { phone, avatar: avatarUrl }, {
+      const patchData = { phone, avatar: avatarUrl };
+      if (avatarCloudinaryId) patchData.avatarCloudinaryId = avatarCloudinaryId;
+      await axios.patch(`${process.env.REACT_APP_API_URL}/api/auth/profile`, patchData, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

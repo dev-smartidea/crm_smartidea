@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { CheckCircle, XCircle, Google, Facebook, Wallet, CashCoin, Eye, Upload } from 'react-bootstrap-icons';
 import '../shared/DashboardPage.css';
+import { getImageUrl } from '../../utils/imageHelper';
 import '../user/AllTransactionPage.css';
 import '../shared/ImageGalleryPage.css';
 import '../user/TransactionHistoryPage.css';
@@ -423,7 +424,7 @@ export default function AccountTransactionsPage() {
               </button>
             </div>
             <div className="modal-body slip-modal-body">
-              <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+              <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
             </div>
             <div className="modal-footer slip-modal-footer">
               <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />

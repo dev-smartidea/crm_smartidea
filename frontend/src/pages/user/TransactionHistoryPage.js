@@ -7,6 +7,7 @@ import './CustomerServicesPage.css';
 import '../shared/ImageGalleryPage.css'; // reuse gradient blue button (.btn-header-upload)
 import './TransactionHistoryPage.css'; // slip upload custom styles
 import '../shared/DashboardPage.css'; // reuse .badge-bank styles to match Dashboard
+import { getImageUrl } from '../../utils/imageHelper';
 
 export default function TransactionHistoryPage() {
     const { serviceId } = useParams();
@@ -260,7 +261,7 @@ export default function TransactionHistoryPage() {
     });
     // ถ้ามีสลิปอยู่แล้ว แสดงตัวอย่าง
     if (tx.slipImage) {
-      setEditSlipPreview(`${api}${tx.slipImage}`);
+      setEditSlipPreview(getImageUrl(tx.slipImage, api));
     } else {
       setEditSlipPreview(null);
     }
@@ -495,7 +496,7 @@ export default function TransactionHistoryPage() {
           </button>
         </div>
         <div className="modal-body slip-modal-body">
-          <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
         </div>
         <div className="modal-footer slip-modal-footer">
           <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />

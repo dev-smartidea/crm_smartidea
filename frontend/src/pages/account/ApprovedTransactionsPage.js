@@ -3,6 +3,7 @@ import axios from 'axios';
 import { CheckCircleFill, Google, Facebook, Search, CashCoin, Wallet, Eye, Upload, XCircle } from 'react-bootstrap-icons';
 import './ApprovedTransactionsPage.css';
 import '../shared/DashboardPage.css';
+import { getImageUrl } from '../../utils/imageHelper';
 import '../shared/ImageGalleryPage.css';
 
 export default function ApprovedTransactionsPage() {
@@ -605,7 +606,7 @@ export default function ApprovedTransactionsPage() {
               </button>
             </div>
             <div className="modal-body slip-modal-body" style={{ padding: '20px' }}>
-              <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px' }} />
+              <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px' }} />
             </div>
             <div className="modal-footer slip-modal-footer" style={{ display: 'flex', gap: '12px', padding: '16px 20px', borderTop: '1px solid #e5e7eb', justifyContent: 'center' }}>
               <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />

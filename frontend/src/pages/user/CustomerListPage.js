@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
+import { getImageUrl } from '../../utils/imageHelper';
 import './CustomerListPage.css';
 
 export default function CustomerListPage() {
@@ -13,6 +14,7 @@ export default function CustomerListPage() {
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const api = process.env.REACT_APP_API_URL;
 
   const fetchCustomers = async (searchValue = '') => {
     setIsLoading(true);
@@ -158,7 +160,7 @@ export default function CustomerListPage() {
                     <td>
                       <div className="customer-info">
                         {cust.avatarUrl ? (
-                          <img src={cust.avatarUrl} alt={cust.name} className="customer-avatar" />
+                          <img src={getImageUrl(cust.avatarUrl, api)} alt={cust.name} className="customer-avatar" />
                         ) : (
                           <div className="customer-avatar placeholder">
                             <PersonCircle size={32} />

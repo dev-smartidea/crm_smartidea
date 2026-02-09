@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Wallet, CashCoin, Google, Facebook, Eye, CheckCircleFill, XCircleFill, ClockFill, Upload, PencilSquare, TrashFill, ExclamationTriangleFill, XCircle } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
 import '../shared/DashboardPage.css';
+import { getImageUrl } from '../../utils/imageHelper';
 import '../shared/ImageGalleryPage.css';
 import EditTransactionModal from '../../components/EditTransactionModal';
 
@@ -534,7 +535,7 @@ export default function SubmittedTransactionsPage() {
               </button>
             </div>
             <div className="modal-body slip-modal-body">
-              <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+              <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
             </div>
           </div>
         </div>

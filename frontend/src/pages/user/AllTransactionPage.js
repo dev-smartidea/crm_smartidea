@@ -7,6 +7,7 @@ import './TransactionHistoryPage.css'; // reuse slip upload button styles
 import '../shared/ImageGalleryPage.css'; // reuse combobox and search styles to match gallery
 import './CustomerServicesPage.css'; // reuse svc-modal styles for create form
 import EditTransactionModal from '../../components/EditTransactionModal';
+import { getImageUrl } from '../../utils/imageHelper';
 
 export default function AllTransactionPage() {
   const [transactions, setTransactions] = useState([]);
@@ -486,7 +487,7 @@ export default function AllTransactionPage() {
           </button>
         </div>
         <div className="modal-body slip-modal-body">
-          <img src={`${api}${viewSlip?.url}`} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
         </div>
         <div className="modal-footer slip-modal-footer">
           <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />

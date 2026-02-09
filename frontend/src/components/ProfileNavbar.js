@@ -4,6 +4,9 @@ import React from 'react';
 const API_HOST = process.env.REACT_APP_API_URL || '';
 function getAvatarUrl(avatar) {
   if (!avatar) return require('../img/blank-profile.png');
+  if (typeof avatar === 'string' && (avatar.startsWith('http://') || avatar.startsWith('https://'))) {
+    return avatar;
+  }
   if (typeof avatar === 'string' && avatar.startsWith('/uploads/avatars/')) {
     return `${API_HOST}${avatar}`;
   }

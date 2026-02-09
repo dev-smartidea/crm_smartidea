@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Image as ImageIcon, Search, Upload, Trash, Eye, X, XCircle, Plus, Dash, ArrowCounterclockwise } from 'react-bootstrap-icons';
 import './ImageGalleryPage.css';
+import { getImageUrl } from '../../utils/imageHelper';
 
 export default function ImageGalleryPage() {
   const [images, setImages] = useState([]);
@@ -383,7 +384,7 @@ export default function ImageGalleryPage() {
               {images.map((img) => (
                 <div key={img._id} className="gallery-item">
                   <div className="gallery-item-image" onClick={() => handleImageClick(img)}>
-                    <img src={`${api}${img.imageUrl}`} alt={img.customerName} />
+                    <img src={getImageUrl(img.imageUrl, api)} alt={img.customerName} />
                     <div className="gallery-item-overlay">
                       <Eye size={24} />
                     </div>
@@ -619,7 +620,7 @@ export default function ImageGalleryPage() {
             >
               <img
                 className="zoom-image"
-                src={`${api}${selectedImage.imageUrl}`}
+                src={getImageUrl(selectedImage.imageUrl, api)}
                 alt={selectedImage.customerName}
                 style={{
                   transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
@@ -673,7 +674,7 @@ export default function ImageGalleryPage() {
             </div>
             <div className="delete-modal-body">
               <div className="delete-preview">
-                <img src={`${api}${imageToDelete.imageUrl}`} alt={imageToDelete.customerName} />
+                <img src={getImageUrl(imageToDelete.imageUrl, api)} alt={imageToDelete.customerName} />
               </div>
               <div className="delete-info">
                 <p className="delete-question">คุณแน่ใจหรือไม่ว่าต้องการลบรูปภาพนี้?</p>
