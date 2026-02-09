@@ -19,7 +19,7 @@ export default function CustomerServicesPage() {
     serviceType: 'Google Ads', 
     status: 'อยู่ระหว่างบริการ', 
     acquisitionRole: 'sale',
-    acquisitionPerson: 'นายก',
+    acquisitionPerson: 'จิมมี่',
     ownership: 'ลูกค้า',
     price: '',
     notes: '', 
@@ -125,7 +125,7 @@ export default function CustomerServicesPage() {
         serviceType: 'Google Ads',
         status: 'อยู่ระหว่างบริการ',
         acquisitionRole: 'sale',
-        acquisitionPerson: 'นายก',
+        acquisitionPerson: 'จิมมี่',
         ownership: 'ลูกค้า',
         price: '',
         notes: '',
@@ -177,12 +177,14 @@ export default function CustomerServicesPage() {
   };
 
   const startDetailEdit = () => {
+    const role = selectedService.acquisitionRole || 'sale';
+    const defaultPerson = role === 'admin' ? 'บิว' : 'จิมมี่';
     setDetailForm({
       serviceType: selectedService.serviceType || selectedService.name,
       pageUrl: selectedService.pageUrl || '',
       cid: selectedService.cid || selectedService.customerIdField || '',
-      acquisitionRole: selectedService.acquisitionRole || 'sale',
-      acquisitionPerson: selectedService.acquisitionPerson || 'นายก',
+      acquisitionRole: role,
+      acquisitionPerson: selectedService.acquisitionPerson || defaultPerson,
       ownership: selectedService.ownership || 'ลูกค้า',
       price: typeof selectedService.price === 'number' ? selectedService.price : '',
       status: selectedService.status,
@@ -322,7 +324,11 @@ export default function CustomerServicesPage() {
                 <div className="svc-row-2">
                   <label>
                     ช่องทางการได้มา
-                    <select value={form.acquisitionRole} onChange={e => setForm({ ...form, acquisitionRole: e.target.value })}>
+                    <select value={form.acquisitionRole} onChange={e => {
+                      const newRole = e.target.value;
+                      const defaultPerson = newRole === 'admin' ? 'บิว' : 'จิมมี่';
+                      setForm({ ...form, acquisitionRole: newRole, acquisitionPerson: defaultPerson });
+                    }}>
                       <option value="sale">ขายโดย sale</option>
                       <option value="admin">ขายโดย admin</option>
                     </select>
@@ -330,8 +336,23 @@ export default function CustomerServicesPage() {
                   <label>
                     ผู้ขาย/ผู้ดูแล
                     <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
-                      <option value="นายก">นายก</option>
-                      <option value="นายข">นายข</option>
+                      {form.acquisitionRole === 'admin' ? (
+                        <>
+                          <option value="บิว">บิว</option>
+                          <option value="น้ำ">น้ำ</option>
+                          <option value="ครีม">ครีม</option>
+                          <option value="มิกซ์">มิกซ์</option>
+                          <option value="ปาน">ปาน</option>
+                          <option value="อุ้ม">อุ้ม</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="จิมมี่">จิมมี่</option>
+                          <option value="นุช">นุช</option>
+                          <option value="โบ">โบ</option>
+                          <option value="นุก">นุก</option>
+                        </>
+                      )}
                     </select>
                   </label>
                 </div>
@@ -499,7 +520,11 @@ export default function CustomerServicesPage() {
                   <div className="svc-row-2">
                     <label>
                       ช่องทางการได้มา
-                      <select value={detailForm.acquisitionRole} onChange={e => setDetailForm({ ...detailForm, acquisitionRole: e.target.value })}>
+                      <select value={detailForm.acquisitionRole} onChange={e => {
+                        const newRole = e.target.value;
+                        const defaultPerson = newRole === 'admin' ? 'บิว' : 'จิมมี่';
+                        setDetailForm({ ...detailForm, acquisitionRole: newRole, acquisitionPerson: defaultPerson });
+                      }}>
                         <option value="sale">ขายโดย sale</option>
                         <option value="admin">ขายโดย admin</option>
                       </select>
@@ -507,8 +532,23 @@ export default function CustomerServicesPage() {
                     <label>
                       ผู้ขาย/ผู้ดูแล
                       <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
-                        <option value="นายก">นายก</option>
-                        <option value="นายข">นายข</option>
+                        {detailForm.acquisitionRole === 'admin' ? (
+                          <>
+                            <option value="บิว">บิว</option>
+                            <option value="น้ำ">น้ำ</option>
+                            <option value="ครีม">ครีม</option>
+                            <option value="มิกซ์">มิกซ์</option>
+                            <option value="ปาน">ปาน</option>
+                            <option value="อุ้ม">อุ้ม</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value="จิมมี่">จิมมี่</option>
+                            <option value="นุช">นุช</option>
+                            <option value="โบ">โบ</option>
+                            <option value="นุก">นุก</option>
+                          </>
+                        )}
                       </select>
                     </label>
                   </div>
@@ -724,7 +764,11 @@ export default function CustomerServicesPage() {
               <div className="svc-row-2">
                 <label>
                   ช่องทางการได้มา
-                  <select value={form.acquisitionRole} onChange={e => setForm({ ...form, acquisitionRole: e.target.value })}>
+                  <select value={form.acquisitionRole} onChange={e => {
+                    const newRole = e.target.value;
+                    const defaultPerson = newRole === 'admin' ? 'บิว' : 'จิมมี่';
+                    setForm({ ...form, acquisitionRole: newRole, acquisitionPerson: defaultPerson });
+                  }}>
                     <option value="sale">ขายโดย sale</option>
                     <option value="admin">ขายโดย admin</option>
                   </select>
@@ -732,8 +776,23 @@ export default function CustomerServicesPage() {
                 <label>
                   ผู้ขาย/ผู้ดูแล
                   <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
-                    <option value="นายก">นายก</option>
-                    <option value="นายข">นายข</option>
+                    {form.acquisitionRole === 'admin' ? (
+                      <>
+                        <option value="บิว">บิว</option>
+                        <option value="น้ำ">น้ำ</option>
+                        <option value="ครีม">ครีม</option>
+                        <option value="มิกซ์">มิกซ์</option>
+                        <option value="ปาน">ปาน</option>
+                        <option value="อุ้ม">อุ้ม</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="จิมมี่">จิมมี่</option>
+                        <option value="นุช">นุช</option>
+                        <option value="โบ">โบ</option>
+                        <option value="นุก">นุก</option>
+                      </>
+                    )}
                   </select>
                 </label>
               </div>
@@ -898,7 +957,11 @@ export default function CustomerServicesPage() {
                 <div className="svc-row-2">
                   <label>
                     ช่องทางการได้มา
-                    <select value={detailForm.acquisitionRole} onChange={e => setDetailForm({ ...detailForm, acquisitionRole: e.target.value })}>
+                    <select value={detailForm.acquisitionRole} onChange={e => {
+                      const newRole = e.target.value;
+                      const defaultPerson = newRole === 'admin' ? 'บิว' : 'จิมมี่';
+                      setDetailForm({ ...detailForm, acquisitionRole: newRole, acquisitionPerson: defaultPerson });
+                    }}>
                       <option value="sale">ขายโดย sale</option>
                       <option value="admin">ขายโดย admin</option>
                     </select>
@@ -906,8 +969,23 @@ export default function CustomerServicesPage() {
                   <label>
                     ผู้ขาย/ผู้ดูแล
                     <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
-                      <option value="นายก">นายก</option>
-                      <option value="นายข">นายข</option>
+                      {detailForm.acquisitionRole === 'admin' ? (
+                        <>
+                          <option value="บิว">บิว</option>
+                          <option value="น้ำ">น้ำ</option>
+                          <option value="ครีม">ครีม</option>
+                          <option value="มิกซ์">มิกซ์</option>
+                          <option value="ปาน">ปาน</option>
+                          <option value="อุ้ม">อุ้ม</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="จิมมี่">จิมมี่</option>
+                          <option value="นุช">นุช</option>
+                          <option value="โบ">โบ</option>
+                          <option value="นุก">นุก</option>
+                        </>
+                      )}
                     </select>
                   </label>
                 </div>
