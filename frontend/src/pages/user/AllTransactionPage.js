@@ -62,10 +62,12 @@ export default function AllTransactionPage() {
   const BREAKDOWN_CODE_OPTIONS = [
     { value: '11', label: '11 : ค่าคลิก' },
     { value: '12', label: '12 : Vat ค่าคลิก' },
-    { value: '13', label: '13 : Vat ค่าบริการ' },
+    { value: '13', label: '13 : Vat ค่าบริการ Google' },
     { value: '14', label: '14 : ค่าบริการ Google' },
     { value: '15', label: '15 : ค่าบริการบางส่วน' },
-    { value: '16', label: '16 : คูปอง Google' }
+    { value: '16', label: '16 : คูปอง Google' },
+    { value: '17', label: '17 : Vat ค่าบริการ Facebook' },
+    { value: '18', label: '18 : ค่าบริการ Facebook' }
   ];
   const STATUS_OPTIONS = [
     { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },
@@ -108,7 +110,7 @@ export default function AllTransactionPage() {
       const rows = [...(prev.breakdowns || [])];
       const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
       
-      if (current.code === '12' || current.code === '13') {
+      if (current.code === '12' || current.code === '13' || current.code === '17') {
         alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
         return prev;
       }
@@ -128,6 +130,8 @@ export default function AllTransactionPage() {
         vatCode = '12';
       } else if (current.code === '14') {
         vatCode = '13';
+      } else if (current.code === '18') {
+        vatCode = '17';
       } else {
         vatCode = '12';
       }
@@ -360,10 +364,12 @@ export default function AllTransactionPage() {
   const breakdownCodeLabels = {
     '11': 'ค่าคลิก',
     '12': 'Vat ค่าคลิก',
-    '13': 'Vat ค่าบริการ',
+    '13': 'Vat ค่าบริการ Google',
     '14': 'ค่าบริการ Google',
     '15': 'ค่าบริการบางส่วน',
-    '16': 'คูปอง Google'
+    '16': 'คูปอง Google',
+    '17': 'Vat ค่าบริการ Facebook',
+    '18': 'ค่าบริการ Facebook'
   };
 
   const getBankBadgeClass = (bank) => {
@@ -1001,12 +1007,12 @@ export default function AllTransactionPage() {
                         style={{ 
                           flex: '1 1 auto',
                           minWidth: 0,
-                          paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                          paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' ? '95px' : '8px'
                         }}
                         disabled={row.isAutoVat}
                       />
                       {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
-                      {row.code !== '12' && row.code !== '13' && (
+                      {row.code !== '12' && row.code !== '13' && row.code !== '17' && (
                         <button
                           type="button"
                           onClick={() => computeVatForRow(idx)}

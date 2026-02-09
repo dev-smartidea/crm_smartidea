@@ -120,15 +120,17 @@ router.get('/ledger', async (req, res) => {
       const breakdowns = t.breakdowns || [];
       const code11 = breakdowns.find(b => b.code === '11')?.amount || 0; // ค่าคลิก
       const code12 = breakdowns.find(b => b.code === '12')?.amount || 0; // Vat ค่าคลิก
-      const code13 = breakdowns.find(b => b.code === '13')?.amount || 0; // Vat ค่าบริการ
-      const code14 = breakdowns.find(b => b.code === '14')?.amount || 0; // ค่าบริการ
+      const code13 = breakdowns.find(b => b.code === '13')?.amount || 0; // Vat ค่าบริการ Google
+      const code14 = breakdowns.find(b => b.code === '14')?.amount || 0; // ค่าบริการ Google
       const code15 = breakdowns.find(b => b.code === '15')?.amount || 0; // โดนเบิกล่วงหน้า
       const code16 = breakdowns.find(b => b.code === '16')?.amount || 0; // คูปอง
+      const code17 = breakdowns.find(b => b.code === '17')?.amount || 0; // Vat ค่าบริการ Facebook
+      const code18 = breakdowns.find(b => b.code === '18')?.amount || 0; // ค่าบริการ Facebook
 
       // กำหนดยอดตาม logic:
-      // - ค่าบริการ (code 14) → ลูกค้าใหม่/ต่ออายุ GG/FB (ขึ้นกับ service type และเป็นลูกค้าใหม่หรือเก่า)
+      // - ค่าบริการ Google (code 14) / Facebook (code 18) → ลูกค้าใหม่/ต่ออายุ GG/FB
       // - ค่าคลิก (code 11) → ช่องค่าคลิก
-      // - Vat ค่าบริการ (code 13) → Vat 36
+      // - Vat ค่าบริการ Google (code 13) / Facebook (code 17) → Vat 36
       // - Vat ค่าคลิก (code 12) → Vat 30
       let newCustomerGG = 0;
       let renewGG = 0;
@@ -137,20 +139,20 @@ router.get('/ledger', async (req, res) => {
 
       if (svcType === 'Google Ads') {
         if (isFirstTransaction) {
-          newCustomerGG = code14; // ใช้ค่าบริการ (code 14)
+          newCustomerGG = code14; // ใช้ค่าบริการ Google (code 14)
         } else {
-          renewGG = code14; // ใช้ค่าบริการ (code 14)
+          renewGG = code14; // ใช้ค่าบริการ Google (code 14)
         }
       } else if (svcType === 'Facebook Ads') {
         if (isFirstTransaction) {
-          newCustomerFB = code14; // ใช้ค่าบริการ (code 14)
+          newCustomerFB = code18 || code14; // ใช้ค่าบริการ Facebook (code 18) หรือ code14 สำหรับข้อมูลเก่า
         } else {
-          renewFB = code14; // ใช้ค่าบริการ (code 14)
+          renewFB = code18 || code14; // ใช้ค่าบริการ Facebook (code 18) หรือ code14 สำหรับข้อมูลเก่า
         }
       }
 
-      // VAT
-      const vat36 = code13; // Vat ค่าบริการ
+      // VAT: รวม Vat ค่าบริการ Google (code13) + Vat ค่าบริการ Facebook (code17)
+      const vat36 = code13 + code17; // Vat ค่าบริการ (รวม Google + Facebook)
       const vat30 = code12; // Vat ค่าคลิก
       
       // Invoice รวม (ค่าบริการ + ค่าคลิก)
@@ -320,12 +322,14 @@ router.get('/ledger/export', async (req, res) => {
       // ดึงยอดจาก breakdowns
       const code11 = breakdowns.find(b => b.code === '11')?.amount || 0; // ค่าคลิก
       const code12 = breakdowns.find(b => b.code === '12')?.amount || 0; // Vat ค่าคลิก
-      const code13 = breakdowns.find(b => b.code === '13')?.amount || 0; // Vat ค่าบริการ
-      const code14 = breakdowns.find(b => b.code === '14')?.amount || 0; // ค่าบริการ
+      const code13 = breakdowns.find(b => b.code === '13')?.amount || 0; // Vat ค่าบริการ Google
+      const code14 = breakdowns.find(b => b.code === '14')?.amount || 0; // ค่าบริการ Google
       const code15 = breakdowns.find(b => b.code === '15')?.amount || 0;
       const code16 = breakdowns.find(b => b.code === '16')?.amount || 0;
+      const code17 = breakdowns.find(b => b.code === '17')?.amount || 0; // Vat ค่าบริการ Facebook
+      const code18 = breakdowns.find(b => b.code === '18')?.amount || 0; // ค่าบริการ Facebook
 
-      // กำหนดยอดตาม logic: ค่าบริการ (code 14) → ลูกค้าใหม่/ต่ออายุ
+      // กำหนดยอดตาม logic: ค่าบริการ → ลูกค้าใหม่/ต่ออายุ
       let newCustomerGG = 0;
       let renewGG = 0;
       let newCustomerFB = 0;
@@ -338,15 +342,17 @@ router.get('/ledger/export', async (req, res) => {
           renewGG = code14;
         }
       } else if (svcType === 'Facebook Ads') {
+        // Facebook: ใช้ code18 (ค่าบริการ Facebook) หรือ code14 สำหรับข้อมูลเก่า
+        const fbService = code18 || code14;
         if (isFirstTransaction) {
-          newCustomerFB = code14;
+          newCustomerFB = fbService;
         } else {
-          renewFB = code14;
+          renewFB = fbService;
         }
       }
 
-      // VAT
-      const vat36 = code13; // Vat ค่าบริการ
+      // VAT: รวม Vat ค่าบริการ Google (13) + Vat ค่าบริการ Facebook (17)
+      const vat36 = code13 + code17; // Vat ค่าบริการ (Google + Facebook)
       const vat30 = code12; // Vat ค่าคลิก
       const totalGG = svcType === 'Google Ads' ? (code14 + code11) : 0;
       const totalFB = svcType === 'Facebook Ads' ? (code14 + code11) : 0;

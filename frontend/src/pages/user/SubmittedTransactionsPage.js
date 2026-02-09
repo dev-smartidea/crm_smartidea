@@ -158,10 +158,12 @@ export default function SubmittedTransactionsPage() {
   const breakdownCodeLabels = {
     '11': 'ค่าคลิก',
     '12': 'Vat ค่าคลิก',
-    '13': 'Vat ค่าบริการ',
+    '13': 'Vat ค่าบริการ Google',
     '14': 'ค่าบริการ Google',
     '15': 'ค่าบริการบางส่วน',
-    '16': 'คูปอง Google'
+    '16': 'คูปอง Google',
+    '17': 'Vat ค่าบริการ Facebook',
+    '18': 'ค่าบริการ Facebook'
   };
 
   const totalAmount = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);

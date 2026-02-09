@@ -11,7 +11,7 @@ const Image = require('../models/Image');
 const Notification = require('../models/Notification');
 
 // กำหนดรายการรหัส/สถานะที่อนุญาต
-const ALLOWED_BREAKDOWN_CODES = ['11', '12', '13', '14', '15', '16'];
+const ALLOWED_BREAKDOWN_CODES = ['11', '12', '13', '14', '15', '16', '17', '18'];
 const ALLOWED_STATUS_NOTES = ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'];
 
 // Helper: ตรวจสอบว่าไฟล์มีอยู่จริงหรือไม่

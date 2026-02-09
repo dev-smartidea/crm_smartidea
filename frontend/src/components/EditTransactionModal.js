@@ -85,7 +85,7 @@ export default function EditTransactionModal({
       const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบบันทึกบัญชี', isAutoVat: false };
       
       // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่
-      if (current.code === '12' || current.code === '13') {
+      if (current.code === '12' || current.code === '13' || current.code === '17') {
         alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
         return prev;
       }
@@ -107,6 +107,8 @@ export default function EditTransactionModal({
         vatCode = '12';
       } else if (current.code === '14') {
         vatCode = '13';
+      } else if (current.code === '18') {
+        vatCode = '17';
       } else {
         vatCode = '12';
       }
@@ -237,18 +239,20 @@ export default function EditTransactionModal({
                 <select value={row.code} onChange={e => updateBreakdown(idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
                   <option value="11">11 : ค่าคลิก</option>
                   <option value="12">12 : Vat ค่าคลิก</option>
-                  <option value="13">13 : Vat ค่าบริการ</option>
+                  <option value="13">13 : Vat ค่าบริการ Google</option>
                   <option value="14">14 : ค่าบริการ Google</option>
                   <option value="15">15 : ค่าบริการบางส่วน</option>
                   <option value="16">16 : คูปอง Google</option>
+                  <option value="17">17 : Vat ค่าบริการ Facebook</option>
+                  <option value="18">18 : ค่าบริการ Facebook</option>
                 </select>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
                   <input type="number" step="0.01" placeholder="ยอดเงิน" value={row.amount}
                     onChange={e => updateBreakdown(idx, 'amount', e.target.value)}
                     disabled={row.isAutoVat}
-                    style={{ flex: '1 1 auto', minWidth: 0, paddingRight: (row.code !== '12' && row.code !== '13') ? '95px' : '8px' }} />
+                    style={{ flex: '1 1 auto', minWidth: 0, paddingRight: (row.code !== '12' && row.code !== '13' && row.code !== '17') ? '95px' : '8px' }} />
                   {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
-                  {(row.code !== '12' && row.code !== '13') && !row.isAutoVat && (
+                  {(row.code !== '12' && row.code !== '13' && row.code !== '17') && !row.isAutoVat && (
                     <button
                       type="button"
                       onClick={() => computeVatForRow(idx)}

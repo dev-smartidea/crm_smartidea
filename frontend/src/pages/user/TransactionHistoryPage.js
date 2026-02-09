@@ -146,10 +146,12 @@ export default function TransactionHistoryPage() {
   const BREAKDOWN_CODE_OPTIONS = [
     { value: '11', label: '11 : ค่าคลิก' },
     { value: '12', label: '12 : Vat ค่าคลิก' },
-    { value: '13', label: '13 : Vat ค่าบริการ' },
+    { value: '13', label: '13 : Vat ค่าบริการ Google' },
     { value: '14', label: '14 : ค่าบริการ Google' },
     { value: '15', label: '15 : ค่าบริการบางส่วน' },
-    { value: '16', label: '16 : คูปอง Google' }
+    { value: '16', label: '16 : คูปอง Google' },
+    { value: '17', label: '17 : Vat ค่าบริการ Facebook' },
+    { value: '18', label: '18 : ค่าบริการ Facebook' }
   ];
   const STATUS_OPTIONS = [
     { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },
@@ -200,8 +202,8 @@ export default function TransactionHistoryPage() {
       const rows = [...(prev.breakdowns || [])];
       const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
       
-      // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่ (12 หรือ 13) ห้ามคำนวณซ้ำ
-      if (current.code === '12' || current.code === '13') {
+      // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่ (12, 13, 17) ห้ามคำนวณซ้ำ
+      if (current.code === '12' || current.code === '13' || current.code === '17') {
         alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
         return prev;
       }
@@ -222,9 +224,11 @@ export default function TransactionHistoryPage() {
       if (current.code === '11') {
         vatCode = '12'; // 11:ค่าคลิก → 12:Vat ค่าคลิก
       } else if (current.code === '14') {
-        vatCode = '13'; // 14:ค่าบริการ Google → 13:Vat ค่าบริการ
+        vatCode = '13'; // 14:ค่าบริการ Google → 13:Vat ค่าบริการ Google
+      } else if (current.code === '18') {
+        vatCode = '17'; // 18:ค่าบริการ Facebook → 17:Vat ค่าบริการ Facebook
       } else {
-        // รหัสอื่นๆ (12,13,15,16) ให้ใช้ 12 เป็น default
+        // รหัสอื่นๆ (15,16) ให้ใช้ 12 เป็น default
         vatCode = '12';
       }
 
@@ -403,10 +407,22 @@ export default function TransactionHistoryPage() {
     const vatVal = includesVat * (7 / 107);
     const noVat = includesVat - vatVal;
 
+    // กำหนดรหัส VAT ตามรหัสต้นทาง
+    let vatCode = '12';
+    if (row.code === '11') {
+      vatCode = '12';
+    } else if (row.code === '14') {
+      vatCode = '13';
+    } else if (row.code === '18') {
+      vatCode = '17';
+    } else {
+      vatCode = '12';
+    }
+
     const newBreakdowns = [...editForm.breakdowns];
     newBreakdowns.splice(index, 1);
     newBreakdowns.splice(index, 0, { code: row.code, amount: noVat.toFixed(2), statusNote: row.statusNote, isAutoVat: false });
-    newBreakdowns.splice(index + 1, 0, { code: '12', amount: vatVal.toFixed(2), statusNote: row.statusNote, isAutoVat: true });
+    newBreakdowns.splice(index + 1, 0, { code: vatCode, amount: vatVal.toFixed(2), statusNote: row.statusNote, isAutoVat: true });
 
     setEditForm(prev => ({ ...prev, breakdowns: newBreakdowns }));
   };
@@ -635,12 +651,12 @@ export default function TransactionHistoryPage() {
                           style={{ 
                             flex: '1 1 auto',
                             minWidth: 0,
-                            paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                            paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' ? '95px' : '8px'
                           }}
                           disabled={row.isAutoVat}
                         />
                         {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
-                        {row.code !== '12' && row.code !== '13' && (
+                        {row.code !== '12' && row.code !== '13' && row.code !== '17' && (
                           <button
                             type="button"
                             onClick={() => computeVatForRow(idx)}
@@ -819,11 +835,11 @@ export default function TransactionHistoryPage() {
                           style={{ 
                             flex: '1 1 auto',
                             minWidth: 0,
-                            paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                            paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' ? '95px' : '8px'
                           }}
                           disabled={row.isAutoVat}
                         />
-                        {row.code !== '12' && row.code !== '13' && (
+                        {row.code !== '12' && row.code !== '13' && row.code !== '17' && (
                           <button
                             type="button"
                             onClick={() => computeVatForEditRow(idx)}
@@ -1184,12 +1200,12 @@ export default function TransactionHistoryPage() {
                         style={{ 
                           flex: '1 1 auto',
                           minWidth: 0,
-                          paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                          paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' ? '95px' : '8px'
                         }}
                         disabled={row.isAutoVat}
                       />
                       {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
-                      {row.code !== '12' && row.code !== '13' && (
+                      {row.code !== '12' && row.code !== '13' && row.code !== '17' && (
                         <button
                           type="button"
                           onClick={() => computeVatForRow(idx)}
@@ -1363,11 +1379,11 @@ export default function TransactionHistoryPage() {
                         style={{ 
                           flex: '1 1 auto',
                           minWidth: 0,
-                          paddingRight: row.code !== '12' && row.code !== '13' ? '95px' : '8px'
+                          paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' ? '95px' : '8px'
                         }}
                         disabled={row.isAutoVat}
                       />
-                      {row.code !== '12' && row.code !== '13' && (
+                      {row.code !== '12' && row.code !== '13' && row.code !== '17' && (
                         <button
                           type="button"
                           onClick={() => computeVatForEditRow(idx)}
