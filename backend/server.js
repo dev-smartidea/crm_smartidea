@@ -157,30 +157,48 @@ process.on('uncaughtException', (error) => {
   // ไม่ exit process แต่ log ไว้เพื่อ debug
 });
 
-// Graceful Shutdown
+// Graceful Shutdown (สำหรับ production deployment)
 const gracefulShutdown = async (signal) => {
-  console.log(`\n⚠️ ${signal} received. Closing server gracefully...`);
-  server.close(async () => {
-    console.log('✅ HTTP server closed');
+  console.log(`\n⚠️ ${signal} received. Preparing for shutdown...`);
+  
+  // ปิดรับ request ใหม่
+  server.close(() => {
+    console.log('✅ HTTP server closed, no longer accepting new connections');
+  });
+
+  // รอให้ requests ที่กำลังทำงานอยู่เสร็จสิ้น
+  setTimeout(async () => {
     try {
-      await mongoose.connection.close();
-      console.log('✅ MongoDB connection closed');
+      await mongoose.connection.close(false); // false = ไม่ force close
+      console.log('✅ MongoDB connection closed gracefully');
       process.exit(0);
     } catch (err) {
       console.error('❌ Error closing MongoDB:', err);
       process.exit(1);
     }
-  });
+  }, 2000);
 
-  // ถ้า shutdown ไม่สำเร็จใน 10 วินาที ให้ force exit
+  // ถ้า shutdown ไม่สำเร็จใน 15 วินาที ให้ force exit
   setTimeout(() => {
     console.error('⚠️ Could not close connections in time, forcefully shutting down');
     process.exit(1);
-  }, 10000);
+  }, 15000);
 };
 
-// รับสัญญาณ shutdown
+// รับสัญญาณ shutdown (Render.com ส่ง SIGTERM ตอน spin down)
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Health check endpoint สำหรับ monitoring
+app.get('/health', (req, res) => {
+  const health = {
+    uptime: process.uptime(),
+    status: mongoose.connection.readyState === 1 ? 'OK' : 'ERROR',
+    timestamp: Date.now(),
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  };
+  const statusCode = health.status === 'OK' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
 
 module.exports = { io };
