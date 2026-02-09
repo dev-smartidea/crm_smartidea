@@ -11,7 +11,8 @@ const transactionSchema = new mongoose.Schema({
   cardNumber: { type: String }, // บัตรเลขที่
   cardTime: { type: String }, // เวลาที่ตัดบัตร
   notes: { type: String }, // หมายเหตุ
-  slipImage: { type: String }, // path ของรูปสลิป/หลักฐาน (optional)
+  slipImage: { type: String }, // URL ของรูปสลิป/หลักฐาน (Cloudinary หรือ local path)
+  cloudinaryId: { type: String }, // Cloudinary public_id สำหรับลบภายหลัง
   bank: { type: String, enum: ['KBANK', 'SCB', 'BBL', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'], required: true }, // บัญชีธนาคาร
   // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
   breakdowns: [{

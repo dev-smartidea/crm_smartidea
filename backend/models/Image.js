@@ -4,6 +4,7 @@ const imageSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
   service: { type: String, enum: ['Google Ads', 'Facebook Ads'], required: true },
   imageUrl: { type: String, required: true },
+  cloudinaryId: { type: String }, // สำหรับเก็บ public_id ของ Cloudinary เพื่อลบภายหลัง
   description: { type: String },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });

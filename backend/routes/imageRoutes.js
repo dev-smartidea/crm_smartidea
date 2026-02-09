@@ -8,6 +8,7 @@ const Image = require('../models/Image');
 const Customer = require('../models/Customer');
 const Service = require('../models/Service');
 const Transaction = require('../models/Transaction');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 // Helper: auth + return user object (id, role)
 function getUserFromReq(req) {
@@ -21,22 +22,8 @@ function getUserFromReq(req) {
   }
 }
 
-// สร้างโฟลเดอร์สำหรับเก็บรูปภาพถ้ายังไม่มี
-const uploadDir = path.join(__dirname, '../uploads/images');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// ตั้งค่า multer สำหรับอัปโหลดรูปภาพ
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'image-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// ใช้ memory storage สำหรับ Cloudinary
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -144,17 +131,20 @@ router.post('/images', upload.single('image'), async (req, res) => {
     const { customerName, service, description } = req.body;
     
     if (!customerName || !service) {
-      // ลบไฟล์ที่อัปโหลดไว้
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: 'กรุณาระบุชื่อลูกค้าและบริการ' });
     }
 
-    const imageUrl = `/uploads/images/${req.file.filename}`;
+    // อัปโหลดไปยัง Cloudinary
+    const cloudinaryResult = await uploadToCloudinary(req.file.buffer, {
+      folder: 'crm_smartidea/images',
+      original_filename: req.file.originalname
+    });
 
     const newImage = new Image({
       customerName,
       service,
-      imageUrl,
+      imageUrl: cloudinaryResult.secure_url, // ใช้ Cloudinary URL
+      cloudinaryId: cloudinaryResult.public_id, // เก็บ public_id สำหรับลบภายหลัง
       description: description || '',
       userId: user.id
     });
@@ -163,10 +153,6 @@ router.post('/images', upload.single('image'), async (req, res) => {
     res.status(201).json(newImage);
   } catch (err) {
     console.error('Upload image error:', err);
-    // ลบไฟล์ที่อัปโหลดไว้ถ้ามีข้อผิดพลาด
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
     res.status(500).json({ error: 'Server error', detail: err.message });
   }
 });
@@ -187,21 +173,22 @@ router.delete('/images/:id', async (req, res) => {
       return res.status(403).json({ error: 'ไม่มีสิทธิ์ลบรูปภาพนี้' });
     }
 
-    // ลบไฟล์จากระบบ
-    const filePath = path.join(__dirname, '..', image.imageUrl);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // ลบไฟล์จาก Cloudinary
+    if (image.cloudinaryId) {
+      try {
+        await deleteFromCloudinary(image.cloudinaryId);
+      } catch (cloudError) {
+        console.warn('Failed to delete from Cloudinary:', cloudError.message);
+      }
     }
 
-
-    // ถ้าเป็นสลิปโอนเงิน ให้ลบ slipImage ใน Transaction ด้วย
-    if (image.imageUrl && image.imageUrl.includes('/uploads/slips/')) {
+    // ถ้าเป็นสลิปโอนเงิน ให้ลบ slipImage ใน Transaction ด้วย  
+    if (image.imageUrl) {
       try {
         const result = await Transaction.updateMany(
           { slipImage: image.imageUrl },
           { $set: { slipImage: null } }
         );
-        // cleared slip references in related transactions
       } catch (e) {
         console.warn('Failed to clear Transaction slipImage:', e.message);
       }

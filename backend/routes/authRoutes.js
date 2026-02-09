@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 // Rate Limiter สำหรับ Login - ป้องกัน Brute Force
 const loginLimiter = rateLimit({
@@ -173,28 +174,27 @@ router.patch('/profile', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const update = {};
     if ('phone' in req.body) update.phone = req.body.phone;
-    let oldAvatarPath = null;
+    let oldCloudinaryId = null;
     if ('avatar' in req.body) {
       // Find old avatar before update
       const userBefore = await User.findById(decoded.id);
-      if (userBefore && userBefore.avatar && typeof userBefore.avatar === 'string' && userBefore.avatar.trim() !== '') {
-        // Only delete if old avatar is a file in uploads/avatars
-        const avatarUrl = userBefore.avatar;
-        const match = avatarUrl.match(/\/uploads\/avatars\/(.+)$/);
-        if (match) {
-          const filename = match[1];
-          oldAvatarPath = require('path').join(__dirname, '../uploads/avatars', filename);
-        }
+      if (userBefore && userBefore.avatarCloudinaryId) {
+        oldCloudinaryId = userBefore.avatarCloudinaryId;
       }
       update.avatar = req.body.avatar;
+      // Save cloudinaryId if provided
+      if (req.body.avatarCloudinaryId) {
+        update.avatarCloudinaryId = req.body.avatarCloudinaryId;
+      }
     }
     const user = await User.findByIdAndUpdate(decoded.id, update, { new: true, runValidators: true, fields: { password: 0 } });
-    // Delete old avatar file if needed
-    if (oldAvatarPath) {
-      const fs = require('fs');
-      fs.unlink(oldAvatarPath, err => {
-        if (err) console.error('Failed to delete old avatar:', oldAvatarPath, err);
-      });
+    // Delete old avatar from Cloudinary if needed
+    if (oldCloudinaryId) {
+      try {
+        await deleteFromCloudinary(oldCloudinaryId);
+      } catch (err) {
+        console.error('Failed to delete old avatar from Cloudinary:', err);
+      }
     }
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
@@ -227,26 +227,24 @@ module.exports = router;
 const multer = require('multer');
 const path = require('path');
 
-// กำหนด storage สำหรับไฟล์
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../uploads/avatars'));
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    const filename = `${Date.now()}-${Math.round(Math.random()*1e9)}${ext}`;
-    cb(null, filename);
-  }
-});
+// ใช้ memory storage สำหรับ Cloudinary
+const storage = multer.memoryStorage();
 
 const upload = multer({ storage });
 
 // POST /api/auth/upload-avatar
-router.post('/upload-avatar', upload.single('avatar'), (req, res) => {
+router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  // ใช้ URL แบบ relative เพื่อให้ยืดหยุ่น
-  const url = `/uploads/avatars/${req.file.filename}`;
-  res.json({ url });
+  try {
+    const cloudinaryResult = await uploadToCloudinary(req.file.buffer, {
+      folder: 'crm_smartidea/avatars',
+      original_filename: req.file.originalname
+    });
+    res.json({ url: cloudinaryResult.secure_url, cloudinaryId: cloudinaryResult.public_id });
+  } catch (err) {
+    console.error('Avatar upload to Cloudinary failed:', err);
+    res.status(500).json({ error: 'Upload failed', detail: err.message });
+  }
 });

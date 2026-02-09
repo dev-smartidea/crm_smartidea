@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['user', 'admin', 'account'], default: 'user' },
   phone: { type: String },
   avatar: { type: String },
+  avatarCloudinaryId: { type: String },
 });
 
 module.exports = mongoose.model('User', userSchema);
