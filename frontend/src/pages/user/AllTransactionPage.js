@@ -68,7 +68,9 @@ export default function AllTransactionPage() {
     { value: '15', label: '15 : ค่าบริการบางส่วน' },
     { value: '16', label: '16 : คูปอง Google' },
     { value: '17', label: '17 : Vat ค่าบริการ Facebook' },
-    { value: '18', label: '18 : ค่าบริการ Facebook' }
+    { value: '18', label: '18 : ค่าบริการ Facebook' },
+    { value: '19', label: '19 : Vat ค่าบริการ Hosting Domain' },
+    { value: '20', label: '20 : ค่าบริการ Hosting Domain' }
   ];
   const STATUS_OPTIONS = [
     { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },
@@ -111,7 +113,13 @@ export default function AllTransactionPage() {
       const rows = [...(prev.breakdowns || [])];
       const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
       
-      if (current.code === '12' || current.code === '13' || current.code === '17') {
+      // เพิ่ม logic สำหรับ 19/20
+      if (
+        current.code === '12' ||
+        current.code === '13' ||
+        current.code === '17' ||
+        current.code === '19'
+      ) {
         alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
         return prev;
       }
@@ -123,16 +131,17 @@ export default function AllTransactionPage() {
       }
 
       const vat = Math.round(base * 0.07 * 100) / 100;
-      
       let vatCode = '12';
       let vatStatus = current.statusNote;
-      
+
       if (current.code === '11') {
         vatCode = '12';
       } else if (current.code === '14') {
         vatCode = '13';
       } else if (current.code === '18') {
         vatCode = '17';
+      } else if (current.code === '20') {
+        vatCode = '19';
       } else {
         vatCode = '12';
       }
@@ -143,9 +152,8 @@ export default function AllTransactionPage() {
         statusNote: vatStatus,
         isAutoVat: true
       };
-      
+
       rows.splice(idx + 1, 0, newVatRow);
-      
       return { ...prev, breakdowns: rows };
     });
   };
@@ -370,7 +378,9 @@ export default function AllTransactionPage() {
     '15': 'ค่าบริการบางส่วน',
     '16': 'คูปอง Google',
     '17': 'Vat ค่าบริการ Facebook',
-    '18': 'ค่าบริการ Facebook'
+    '18': 'ค่าบริการ Facebook',
+    '19': 'Vat ค่าบริการ Hosting Domain',
+    '20': 'ค่าบริการ Hosting Domain'
   };
 
   const getBankBadgeClass = (bank) => {

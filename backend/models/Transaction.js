@@ -16,7 +16,7 @@ const transactionSchema = new mongoose.Schema({
   bank: { type: String, enum: ['KBANK', 'SCB', 'BBL', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'], required: true }, // บัญชีธนาคาร
   // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
   breakdowns: [{
-    code: { type: String, enum: ['11', '12', '13', '14', '15', '16', '17', '18'], required: true }, // รหัส
+    code: { type: String, enum: ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20'], required: true }, // รหัส
     amount: { type: Number, required: true }, // ยอดเงินของรายการย่อย
     statusNote: { type: String, enum: ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'], required: true }, // สถานะ/หมายเหตุ
     isAutoVat: { type: Boolean, default: false } // ระบุว่ารายการนี้ถูกสร้างอัตโนมัติจากการคำนวณ VAT หรือไม่

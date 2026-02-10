@@ -1,3 +1,10 @@
+/* Highlight columns */
+.col-gg {
+  background: #fff7e6;
+}
+.col-fb {
+  background: #e6f4ff;
+}
 .ledger-page {
   padding: 24px;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
@@ -377,11 +384,11 @@
 }
 
 .col-gg {
-  background: rgba(234, 67, 53, 0.05);
+  background: #fff7e6;
 }
 
 .col-fb {
-  background: rgba(24, 119, 242, 0.05);
+  background: #e6f4ff;
 }
 
 .col-net {

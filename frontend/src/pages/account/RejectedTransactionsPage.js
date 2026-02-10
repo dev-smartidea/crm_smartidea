@@ -129,7 +129,9 @@ export default function RejectedTransactionsPage() {
       '15': 'ค่าบริการบางส่วน',
       '16': 'คูปอง Google',
       '17': 'Vat ค่าบริการ Facebook',
-      '18': 'ค่าบริการ Facebook'
+      '18': 'ค่าบริการ Facebook',
+      '19': 'Vat ค่าบริการ Hosting Domain',
+      '20': 'ค่าบริการ Hosting Domain'
     };
     return labels[code] || code;
   };

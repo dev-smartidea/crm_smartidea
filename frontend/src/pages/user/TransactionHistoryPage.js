@@ -152,7 +152,9 @@ export default function TransactionHistoryPage() {
     { value: '15', label: '15 : ค่าบริการบางส่วน' },
     { value: '16', label: '16 : คูปอง Google' },
     { value: '17', label: '17 : Vat ค่าบริการ Facebook' },
-    { value: '18', label: '18 : ค่าบริการ Facebook' }
+    { value: '18', label: '18 : ค่าบริการ Facebook' },
+    { value: '19', label: '19 : Vat ค่าบริการ Hosting Domain' },
+    { value: '20', label: '20 : ค่าบริการ Hosting Domain' }
   ];
   const STATUS_OPTIONS = [
     { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },

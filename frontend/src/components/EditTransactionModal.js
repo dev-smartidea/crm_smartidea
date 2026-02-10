@@ -84,8 +84,13 @@ export default function EditTransactionModal({
       const rows = [...(prev.breakdowns || [])];
       const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบบันทึกบัญชี', isAutoVat: false };
       
-      // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่
-      if (current.code === '12' || current.code === '13' || current.code === '17') {
+      // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่ (เพิ่ม logic สำหรับ 19/20)
+      if (
+        current.code === '12' ||
+        current.code === '13' ||
+        current.code === '17' ||
+        current.code === '19'
+      ) {
         alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
         return prev;
       }
@@ -98,17 +103,19 @@ export default function EditTransactionModal({
       }
 
       const vat = Math.round(base * 0.07 * 100) / 100;
-      
+
       // กำหนดรหัส VAT ตามรหัสต้นทาง
       let vatCode = '12';
       let vatStatus = current.statusNote;
-      
+
       if (current.code === '11') {
         vatCode = '12';
       } else if (current.code === '14') {
         vatCode = '13';
       } else if (current.code === '18') {
         vatCode = '17';
+      } else if (current.code === '20') {
+        vatCode = '19';
       } else {
         vatCode = '12';
       }
@@ -120,9 +127,8 @@ export default function EditTransactionModal({
         statusNote: vatStatus,
         isAutoVat: true
       };
-      
+
       rows.splice(idx + 1, 0, newVatRow);
-      
       return { ...prev, breakdowns: rows };
     });
   };
@@ -245,6 +251,8 @@ export default function EditTransactionModal({
                   <option value="16">16 : คูปอง Google</option>
                   <option value="17">17 : Vat ค่าบริการ Facebook</option>
                   <option value="18">18 : ค่าบริการ Facebook</option>
+                  <option value="19">19 : Vat ค่าบริการ Hosting Domain</option>
+                  <option value="20">20 : ค่าบริการ Hosting Domain</option>
                 </select>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
                   <input type="number" step="0.01" placeholder="ยอดเงิน" value={row.amount}

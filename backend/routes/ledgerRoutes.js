@@ -126,6 +126,8 @@ router.get('/ledger', async (req, res) => {
       const code16 = breakdowns.find(b => b.code === '16')?.amount || 0; // คูปอง
       const code17 = breakdowns.find(b => b.code === '17')?.amount || 0; // Vat ค่าบริการ Facebook
       const code18 = breakdowns.find(b => b.code === '18')?.amount || 0; // ค่าบริการ Facebook
+      const code19 = breakdowns.find(b => b.code === '19')?.amount || 0; // Vat Hosting Domain
+      const code20 = breakdowns.find(b => b.code === '20')?.amount || 0; // Hosting Domain
 
       // กำหนดยอดตาม logic:
       // - ค่าบริการ Google (code 14) / Facebook (code 18) → ลูกค้าใหม่/ต่ออายุ GG/FB
@@ -189,6 +191,9 @@ router.get('/ledger', async (req, res) => {
         clickCost: code11, // ค่าคลิก (11)
         prepaid: code15, // โดนเบิกล่วงหน้า (15)
         coupon: code16, // คูปอง (16)
+        // Hosting Domain
+        hostingDomain: code20,
+        vatHostingDomain: code19,
         // Invoice (ยังไม่ใช้)
         invGG: null,
         invFB: null,
@@ -204,7 +209,9 @@ router.get('/ledger', async (req, res) => {
         notes: t.notes || '-',
         // ข้อมูลเพิ่มเติม
         createdAt: t.createdAt,
-        updatedAt: t.updatedAt
+        updatedAt: t.updatedAt,
+        // แนบ breakdowns array กลับไปด้วย
+        breakdowns
       };
     });
 

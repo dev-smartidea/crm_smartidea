@@ -164,7 +164,9 @@ export default function SubmittedTransactionsPage() {
     '15': 'ค่าบริการบางส่วน',
     '16': 'คูปอง Google',
     '17': 'Vat ค่าบริการ Facebook',
-    '18': 'ค่าบริการ Facebook'
+    '18': 'ค่าบริการ Facebook',
+    '19': 'Vat ค่าบริการ Hosting Domain',
+    '20': 'ค่าบริการ Hosting Domain'
   };
 
   const totalAmount = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
