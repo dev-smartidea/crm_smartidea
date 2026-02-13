@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { PersonPlusFill, TelephoneFill, Globe, BriefcaseFill, CheckCircleFill, ArrowCounterclockwise, Building, CreditCard, EnvelopeFill, TagFill, ExclamationTriangleFill } from 'react-bootstrap-icons';
+import { 
+  PersonPlusFill, TelephoneFill, Globe, BriefcaseFill, 
+  CheckCircleFill, ArrowCounterclockwise, Building, 
+  CreditCard, EnvelopeFill, TagFill, ExclamationTriangleFill 
+} from 'react-bootstrap-icons';
 import './AddCustomerPage.css';
-import '../shared/ImageGalleryPage.css'; // reuse gradient blue button style
+import '../shared/ImageGalleryPage.css'; 
 
 export default function AddCustomerPage() {
-  const customerTypeOptions = ['บุคคลธรรมดา', 'บริษัทจำกัด', 'หจก.'];
+  // 1. Initial States
+  const customerTypeOptions = ['บุคคลธรรมดา', 'นิติบุคคล'];
   const businessSizeOptions = ['ธุรกิจขนาดเล็ก', 'ธุรกิจขนาดกลาง'];
   const initialFormState = {
     customerCode: '',
@@ -20,22 +25,96 @@ export default function AddCustomerPage() {
   };
 
   const [formData, setFormData] = useState(initialFormState);
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [nameQuery, setNameQuery] = useState('');
+  const [showNameDropdown, setShowNameDropdown] = useState(false);
+  const [nameDuplicate, setNameDuplicate] = useState(false);
+  
+  const [taxIdQuery, setTaxIdQuery] = useState('');
+  const [showTaxIdDropdown, setShowTaxIdDropdown] = useState(false);
+  const [taxIdDuplicate, setTaxIdDuplicate] = useState(false);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [touched, setTouched] = useState({});
-  // Combo-style dropdown local states (like Image Gallery)
+  
   const [typeQuery, setTypeQuery] = useState('');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [sizeQuery, setSizeQuery] = useState('');
   const [showSizeDropdown, setShowSizeDropdown] = useState(false);
 
+  const nameInputRef = useRef(null);
+  const taxIdInputRef = useRef(null);
+
+  // 2. Effects
+  // ดึงข้อมูลลูกค้าทั้งหมดเพื่อใช้ตรวจสอบชื่อซ้ำและ Autocomplete
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/customers?search=`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setAllCustomers(res.data || []);
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setAllCustomers([]);
+      }
+    };
+    fetchCustomers();
+  }, []);
+
+  // ตรวจสอบชื่อซ้ำ Real-time
+  useEffect(() => {
+    const name = formData.name.trim().toLowerCase();
+    setNameDuplicate(
+      !!name && allCustomers.some(c => (c.name || '').trim().toLowerCase() === name)
+    );
+  }, [formData.name, allCustomers]);
+
+  // ตรวจสอบ Tax ID ซ้ำ Real-time
+  useEffect(() => {
+    const taxId = formData.taxId.trim();
+    setTaxIdDuplicate(
+      !!taxId && allCustomers.some(c => (c.taxId || '').trim() === taxId)
+    );
+  }, [formData.taxId, allCustomers]);
+
+  // 3. Handlers
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === 'name') {
+      setNameQuery(value);
+      setShowNameDropdown(true);
+    }
+    if (name === 'taxId') {
+      setTaxIdQuery(value);
+      setShowTaxIdDropdown(true);
+    }
+  };
+
+  const handleSelectName = (nameValue) => {
+    setFormData(prev => ({ ...prev, name: nameValue }));
+    setNameQuery(nameValue);
+    setShowNameDropdown(false);
+    setTouched(prev => ({ ...prev, name: true }));
+    if (nameInputRef.current) nameInputRef.current.blur();
+  };
+
+  const handleSelectTaxId = (taxIdValue) => {
+    setFormData(prev => ({ ...prev, taxId: taxIdValue }));
+    setTaxIdQuery(taxIdValue);
+    setShowTaxIdDropdown(false);
+    setTouched(prev => ({ ...prev, taxId: true }));
+    if (taxIdInputRef.current) taxIdInputRef.current.blur();
   };
 
   const handleBlur = (e) => {
-    setTouched({ ...touched, [e.target.name]: true });
+    const { name } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
   };
 
   const calculateProgress = () => {
@@ -44,55 +123,58 @@ export default function AddCustomerPage() {
     return Math.round((filled / requiredFields.length) * 100);
   };
 
-  const progress = calculateProgress();
-
   const handleReset = () => {
     setFormData(initialFormState);
     setSubmitSuccess(false);
     setSubmitError('');
     setTouched({});
     setTypeQuery('');
-    setShowTypeDropdown(false);
     setSizeQuery('');
+    setNameQuery('');
+    setShowNameDropdown(false);
+    setShowTypeDropdown(false);
     setShowSizeDropdown(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (nameDuplicate) {
+      setSubmitError('มีชื่อลูกค้านี้ในระบบแล้ว กรุณาใช้ชื่ออื่น');
+      setTouched(prev => ({ ...prev, name: true }));
+      return;
+    }
+
     setIsSubmitting(true);
-    setSubmitSuccess(false);
     setSubmitError('');
+
     try {
       const token = localStorage.getItem('token');
+      // ตรวจสอบค่าจาก Query State กรณีลืมเลือกจาก dropdown (ถ้ามี logic รองรับ custom text)
       const payload = { ...formData };
-      if (!payload.customerType && typeQuery) payload.customerType = typeQuery;
-      if (!payload.businessSize && sizeQuery) payload.businessSize = sizeQuery;
+      
       await axios.post(`${process.env.REACT_APP_API_URL}/api/customers`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
       setSubmitSuccess(true);
       setTimeout(() => {
         handleReset();
         setIsSubmitting(false);
       }, 2000);
     } catch (error) {
-      console.error(error);
       const status = error?.response?.status;
       const message = error?.response?.data?.error;
-      if (status === 409) {
-        setSubmitError('มีลูกค้าคนนี้ในระบบแล้ว - ' + (message || 'รหัสลูกค้านี้ถูกใช้ไปแล้ว กรุณาใช้รหัสอื่น'));
-      } else {
-        setSubmitError(message || 'เกิดข้อผิดพลาดในการเพิ่มลูกค้า');
-      }
+      setSubmitError(status === 409 ? `มีลูกค้าคนนี้ในระบบแล้ว - ${message || 'รหัสซ้ำ'}` : (message || 'เกิดข้อผิดพลาด'));
       setIsSubmitting(false);
-      // Auto-hide error after 5 seconds
-      setTimeout(() => setSubmitError(''), 5000);
     }
   };
+
+  const progress = calculateProgress();
 
   return (
     <div className="add-customer-page">
       <div className="form-container">
+        {/* Header Section */}
         <div className="form-header">
           <div className="header-content">
             <PersonPlusFill className="form-header-icon" />
@@ -101,7 +183,6 @@ export default function AddCustomerPage() {
               <p className="form-header-subtitle">กรอกข้อมูลลูกค้าเพื่อเพิ่มเข้าสู่ระบบ</p>
             </div>
           </div>
-
           <div className="progress-container">
             <div className="progress-info">
               <span className="progress-label">ความสมบูรณ์ของข้อมูล</span>
@@ -113,6 +194,7 @@ export default function AddCustomerPage() {
           </div>
         </div>
 
+        {/* Status Messages */}
         {submitSuccess && (
           <div className="success-message">
             <CheckCircleFill className="success-icon" />
@@ -140,16 +222,15 @@ export default function AddCustomerPage() {
               <h3 className="card-title">ข้อมูลลูกค้า (หลัก)</h3>
             </div>
             <div className="card-body">
+              {/* Row 1: Code & Name */}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="customerCode">
-                    <TagFill /> รหัสลูกค้า <span className="required">*</span>
-                  </label>
+                  <label htmlFor="customerCode"><TagFill /> รหัสลูกค้า <span className="required">*</span></label>
                   <input
                     type="text"
                     id="customerCode"
-                    className={`form-input ${touched.customerCode && formData.customerCode ? 'valid' : ''} ${touched.customerCode && !formData.customerCode ? 'invalid' : ''}`}
                     name="customerCode"
+                    className={`form-input ${touched.customerCode && (formData.customerCode ? 'valid' : 'invalid')}`}
                     value={formData.customerCode}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -158,54 +239,67 @@ export default function AddCustomerPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="name">
-                    <PersonPlusFill /> ชื่อลูกค้า <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    className={`form-input ${touched.name && formData.name ? 'valid' : ''} ${touched.name && !formData.name ? 'invalid' : ''}`}
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="ชื่อลูกค้า"
-                    required
-                  />
+                  <label htmlFor="name"><PersonPlusFill /> ชื่อบริษัท <span className="required">*</span></label>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <input
+                      type="text"
+                      id="name"
+                      ref={nameInputRef}
+                      name="name"
+                      className={`form-input ${touched.name && (formData.name && !nameDuplicate ? 'valid' : 'invalid')}`}
+                      value={formData.name}
+                      onChange={handleChange}
+                      onFocus={() => setShowNameDropdown(true)}
+                      onBlur={(e) => {
+                        handleBlur(e);
+                        setTimeout(() => setShowNameDropdown(false), 200);
+                      }}
+                      placeholder="ชื่อบริษัท"
+                      autoComplete="off"
+                      required
+                      style={{ width: '100%' }}
+                    />
+                    {showNameDropdown && nameQuery && (
+                      <div className="combo-panel" style={{ zIndex: 10, maxHeight: 180, overflowY: 'auto', position: 'absolute', left: 0, right: 0 }}>
+                        {allCustomers
+                          .filter(c => c.name?.toLowerCase().includes(nameQuery.toLowerCase()) && c.name !== formData.name)
+                          .slice(0, 10)
+                          .map(c => (
+                            <div key={c._id} className="combo-item" onMouseDown={() => handleSelectName(c.name)}>
+                              {c.name}
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
+                    {nameDuplicate && <div className="input-error-text" style={{color: 'red', fontSize: '12px'}}>มีชื่อลูกค้านี้ในระบบแล้ว</div>}
+                  </div>
                 </div>
               </div>
 
+              {/* Row 2: Type & Size */}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="customerType">
-                    <Building /> ประเภทลูกค้า <span className="required">*</span>
-                  </label>
+                  <label htmlFor="customerType"><Building /> ประเภทลูกค้า <span className="required">*</span></label>
                   <div className="combo">
                     <input
                       type="text"
-                      id="customerType"
-                      name="customerType"
                       className={`form-control combo-input ${touched.customerType && !formData.customerType ? 'invalid' : ''}`}
                       placeholder="เลือกประเภทลูกค้า..."
-                      value={typeQuery}
+                      value={formData.customerType}
                       onFocus={() => setShowTypeDropdown(true)}
-                      onClick={() => setShowTypeDropdown(true)}
                       readOnly
-                      onChange={() => {}}
-                      onBlur={handleBlur}
-                      required
                     />
                     {showTypeDropdown && (
                       <div className="combo-panel" onMouseLeave={() => setShowTypeDropdown(false)}>
                         {customerTypeOptions.map(opt => (
-                          <div
-                            key={opt}
+                          <div 
+                            key={opt} 
                             className={`combo-item ${formData.customerType === opt ? 'selected' : ''}`}
                             onMouseDown={() => {
-                              setFormData({ ...formData, customerType: opt });
-                              setTypeQuery(opt);
+                              setFormData(prev => ({ ...prev, customerType: opt }));
                               setShowTypeDropdown(false);
-                              setTouched({ ...touched, customerType: true });
+                              setTouched(prev => ({ ...prev, customerType: true }));
                             }}
                           >
                             {opt}
@@ -216,35 +310,26 @@ export default function AddCustomerPage() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="businessSize">
-                    <BriefcaseFill /> ขนาดธุรกิจ <span className="required">*</span>
-                  </label>
+                  <label htmlFor="businessSize"><BriefcaseFill /> ขนาดธุรกิจ <span className="required">*</span></label>
                   <div className="combo">
                     <input
                       type="text"
-                      id="businessSize"
-                      name="businessSize"
                       className={`form-control combo-input ${touched.businessSize && !formData.businessSize ? 'invalid' : ''}`}
                       placeholder="เลือกขนาดธุรกิจ..."
-                      value={sizeQuery}
+                      value={formData.businessSize}
                       onFocus={() => setShowSizeDropdown(true)}
-                      onClick={() => setShowSizeDropdown(true)}
                       readOnly
-                      onChange={() => {}}
-                      onBlur={handleBlur}
-                      required
                     />
                     {showSizeDropdown && (
                       <div className="combo-panel" onMouseLeave={() => setShowSizeDropdown(false)}>
                         {businessSizeOptions.map(opt => (
-                          <div
-                            key={opt}
+                          <div 
+                            key={opt} 
                             className={`combo-item ${formData.businessSize === opt ? 'selected' : ''}`}
                             onMouseDown={() => {
-                              setFormData({ ...formData, businessSize: opt });
-                              setSizeQuery(opt);
+                              setFormData(prev => ({ ...prev, businessSize: opt }));
                               setShowSizeDropdown(false);
-                              setTouched({ ...touched, businessSize: true });
+                              setTouched(prev => ({ ...prev, businessSize: true }));
                             }}
                           >
                             {opt}
@@ -256,35 +341,33 @@ export default function AddCustomerPage() {
                 </div>
               </div>
 
+              {/* Row 3: Address */}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="address">
-                    <Globe /> ที่อยู่ <span className="required">*</span>
-                  </label>
+                  <label htmlFor="address"><Globe /> ที่อยู่ <span className="required">*</span></label>
                   <textarea
                     id="address"
                     name="address"
-                    className={`form-input ${touched.address && formData.address ? 'valid' : ''} ${touched.address && !formData.address ? 'invalid' : ''}`}
+                    className={`form-input ${touched.address && (formData.address ? 'valid' : 'invalid')}`}
                     value={formData.address}
                     onChange={handleChange}
                     onBlur={handleBlur}
                     rows={3}
-                    placeholder="บ้านเลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
+                    placeholder="บ้านเลขที่ ถนน ตำบล อำเภอ จังหวัด"
                     required
                   />
                 </div>
               </div>
 
+              {/* Row 4: Phone & Email */}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="phone">
-                    <TelephoneFill /> เบอร์โทรศัพท์ <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
+                  <label htmlFor="phone"><TelephoneFill /> เบอร์โทรศัพท์ <span className="required">*</span></label>
+                    <input
+                      type="number"
                     id="phone"
-                    className={`form-input ${touched.phone && formData.phone ? 'valid' : ''} ${touched.phone && !formData.phone ? 'invalid' : ''}`}
                     name="phone"
+                    className={`form-input ${touched.phone && (formData.phone ? 'valid' : 'invalid')}`}
                     value={formData.phone}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -293,14 +376,12 @@ export default function AddCustomerPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="email">
-                    <EnvelopeFill /> Email <span className="required">*</span>
-                  </label>
+                  <label htmlFor="email"><EnvelopeFill /> Email <span className="required">*</span></label>
                   <input
                     type="email"
                     id="email"
-                    className={`form-input ${touched.email && formData.email ? 'valid' : ''} ${touched.email && !formData.email ? 'invalid' : ''}`}
                     name="email"
+                    className={`form-input ${touched.email && (formData.email ? 'valid' : 'invalid')}`}
                     value={formData.email}
                     onChange={handleChange}
                     onBlur={handleBlur}
@@ -310,39 +391,61 @@ export default function AddCustomerPage() {
                 </div>
               </div>
 
+              {/* Row 5: Tax ID & Product */}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="taxId">
-                    <CreditCard /> Tax ID <span className="required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="taxId"
-                    className={`form-input ${touched.taxId && formData.taxId ? 'valid' : ''} ${touched.taxId && !formData.taxId ? 'invalid' : ''}`}
-                    name="taxId"
-                    value={formData.taxId}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    placeholder="เลขประจำตัวผู้เสียภาษี"
-                    required
-                  />
+                  <label htmlFor="taxId"><CreditCard /> Tax ID <span className="required">*</span></label>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <input
+                      type="number"
+                      id="taxId"
+                      ref={taxIdInputRef}
+                      name="taxId"
+                      className={`form-input ${touched.taxId && (formData.taxId && !taxIdDuplicate ? 'valid' : 'invalid')}`}
+                      value={formData.taxId}
+                      onChange={handleChange}
+                      onFocus={() => setShowTaxIdDropdown(true)}
+                      onBlur={e => {
+                        handleBlur(e);
+                        setTimeout(() => setShowTaxIdDropdown(false), 200);
+                      }}
+                      placeholder="เลขประจำตัวผู้เสียภาษี"
+                      autoComplete="off"
+                      required
+                      style={{ width: '100%' }}
+                    />
+                    {showTaxIdDropdown && taxIdQuery && (
+                      <div className="combo-panel" style={{ zIndex: 10, maxHeight: 180, overflowY: 'auto', position: 'absolute', left: 0, right: 0 }}>
+                        {allCustomers
+                          .filter(c => (c.taxId || '').includes(taxIdQuery) && c.taxId !== formData.taxId)
+                          .slice(0, 10)
+                          .map(c => (
+                            <div key={c._id} className="combo-item" onMouseDown={() => handleSelectTaxId(c.taxId)}>
+                              {c.taxId}
+                            </div>
+                          ))
+                        }
+                        {allCustomers.filter(c => (c.taxId || '').includes(taxIdQuery) && c.taxId !== formData.taxId).length === 0 && (
+                          <div className="combo-item disabled">ไม่พบ Tax ID ที่คล้ายกัน</div>
+                        )}
+                      </div>
+                    )}
+                    {taxIdDuplicate && <div className="input-error-text" style={{color: 'red', fontSize: '12px'}}>มี Tax ID นี้ในระบบแล้ว</div>}
+                  </div>
                 </div>
               </div>
-
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="productService">
-                    <BriefcaseFill /> สินค้า / บริการของลูกค้า <span className="required">*</span>
-                  </label>
+                  <label htmlFor="productService"><BriefcaseFill /> สินค้า / บริการ <span className="required">*</span></label>
                   <textarea
                     id="productService"
                     name="productService"
-                    className={`form-input ${touched.productService && formData.productService ? 'valid' : ''} ${touched.productService && !formData.productService ? 'invalid' : ''}`}
+                    className={`form-input ${touched.productService && (formData.productService ? 'valid' : 'invalid')}`}
                     value={formData.productService}
                     onChange={handleChange}
                     onBlur={handleBlur}
                     rows={3}
-                    placeholder="ระบุสินค้าหรือบริการที่ลูกค้าประกอบธุรกิจ"
+                    placeholder="ระบุสินค้าหรือบริการ"
                     required
                   />
                 </div>
@@ -350,14 +453,12 @@ export default function AddCustomerPage() {
             </div>
           </div>
 
-          
-
           <div className="form-actions">
             <button type="button" className="btn-secondary" onClick={handleReset} disabled={isSubmitting}>
               <ArrowCounterclockwise /> ล้างข้อมูล
             </button>
-            <button type="submit" className="btn-header-upload" disabled={isSubmitting}>
-              {isSubmitting ? <>กำลังบันทึก...</> : (<><CheckCircleFill /> บันทึกข้อมูล</>)}
+            <button type="submit" className="btn-header-upload" disabled={isSubmitting || nameDuplicate}>
+              {isSubmitting ? 'กำลังบันทึก...' : <><CheckCircleFill /> บันทึกข้อมูล</>}
             </button>
           </div>
         </form>

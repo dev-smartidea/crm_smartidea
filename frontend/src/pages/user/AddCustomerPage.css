@@ -220,7 +220,7 @@
 /* Form Layout */
 .form-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin-bottom: 20px;
 }
@@ -232,6 +232,7 @@
 .form-group {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .form-group label {

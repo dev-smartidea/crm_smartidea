@@ -6,7 +6,7 @@ const customerSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   customerType: { 
     type: String, 
-    enum: ['บุคคลธรรมดา', 'บริษัทจำกัด', 'หจก.'],
+    enum: ['บุคคลธรรมดา', 'นิติบุคคล'],
     required: true
   },
   address: { type: String, required: true, trim: true },

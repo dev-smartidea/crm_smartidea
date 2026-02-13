@@ -20,6 +20,7 @@ export default function CustomerServicesPage() {
     status: 'อยู่ระหว่างบริการ', 
     acquisitionRole: 'sale',
     acquisitionPerson: 'จิมมี่',
+    caretaker: '',
     ownership: 'ลูกค้า',
     price: '',
     notes: '', 
@@ -111,12 +112,12 @@ export default function CustomerServicesPage() {
       const payload = {
         ...form,
         status: typeof form.status === 'string' ? form.status.trim() : form.status,
-        // เข้ากันได้ย้อนหลัง
         name: form.serviceType,
         serviceType: form.serviceType,
         customerIdField: form.cid,
         cid: form.cid,
         price: form.price !== '' ? Number(form.price) : undefined,
+        caretaker: form.caretaker || '',
       };
       const res = await axios.post(`${api}/api/customers/${id}/services`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setServices([res.data, ...services]);
@@ -126,6 +127,7 @@ export default function CustomerServicesPage() {
         status: 'อยู่ระหว่างบริการ',
         acquisitionRole: 'sale',
         acquisitionPerson: 'จิมมี่',
+        caretaker: '',
         ownership: 'ลูกค้า',
         price: '',
         notes: '',
@@ -266,26 +268,10 @@ export default function CustomerServicesPage() {
               </button>
               <button 
                 className="btn-add-service" 
-                onClick={() => {
-                  const maxServices = activities.length;
-                  const currentServices = services.length;
-                  if (maxServices === 0) {
-                    alert('กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ');
-                    return;
-                  }
-                  if (currentServices >= maxServices) {
-                    alert(`จำนวนบริการครบตามจำนวนกิจกรรมแล้ว (กิจกรรม ${maxServices}, บริการ ${currentServices})`);
-                    return;
-                  }
-                  setShowCreate(true);
-                }}
-                disabled={activities.length === 0 || services.length >= activities.length}
-                style={{ opacity: (activities.length === 0 || services.length >= activities.length) ? 0.5 : 1 }}
-                title={activities.length === 0
-                  ? 'ต้องมีอย่างน้อย 1 กิจกรรม'
-                  : services.length >= activities.length
-                    ? `เพิ่มบริการไม่ได้ (กิจกรรม ${activities.length}, บริการ ${services.length})`
-                    : ''}
+                onClick={() => setShowCreate(true)}
+                disabled={false}
+                style={{ opacity: 1 }}
+                title=""
               >
                 <Plus /> เพิ่มบริการ
               </button>
@@ -297,12 +283,12 @@ export default function CustomerServicesPage() {
             <strong>โทร:</strong> {customer.phone} {customer.service && <em style={{ marginLeft: 8, color: '#888' }}>(บริการเดิม: {customer.service})</em>}
           </div>
         )}
-        {activities.length === 0 && (
+        {activities.length === 0 && false && (
           <div style={{ marginBottom: '15px', padding: '15px', background: '#fff3cd', borderRadius: 8, color: '#856404' }}>
             ⚠️ กรุณาเพิ่มกิจกรรมก่อนเพิ่มบริการ กดปุ่ม "จัดการกิจกรรม" เพื่อเริ่มเพิ่มกิจกรรม
           </div>
         )}
-        {activities.length > 0 && services.length >= activities.length && (
+        {activities.length > 0 && services.length >= activities.length && false && (
           <div style={{ marginBottom: '15px', padding: '15px', background: '#ffe5e5', borderRadius: 8, color: '#842029' }}>
             ⛔ จำนวนบริการครบตามกิจกรรมแล้ว (กิจกรรม {activities.length}, บริการ {services.length}) — เพิ่มกิจกรรมใหม่เพื่อเพิ่มบริการต่อไป
           </div>
@@ -334,7 +320,7 @@ export default function CustomerServicesPage() {
                     </select>
                   </label>
                   <label>
-                    ผู้ขาย/ผู้ดูแล
+                    ผู้ขาย
                     <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
                       {form.acquisitionRole === 'admin' ? (
                         <>
@@ -356,6 +342,18 @@ export default function CustomerServicesPage() {
                     </select>
                   </label>
                 </div>
+                <label>
+                  ผู้ดูแล
+                  <select value={form.caretaker || ''} onChange={e => setForm({ ...form, caretaker: e.target.value })}>
+                    <option value="">เลือกผู้ดูแล</option>
+                    <option value="บิว">บิว</option>
+                    <option value="น้ำ">น้ำ</option>
+                    <option value="ครีม">ครีม</option>
+                    <option value="มิกซ์">มิกซ์</option>
+                    <option value="ปาน">ปาน</option>
+                    <option value="อุ้ม">อุ้ม</option>
+                  </select>
+                </label>
                 <label>
                   Website / Facebook Page
                   <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="" />
@@ -530,7 +528,7 @@ export default function CustomerServicesPage() {
                       </select>
                     </label>
                     <label>
-                      ผู้ขาย/ผู้ดูแล
+                      ผู้ขาย
                       <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
                         {detailForm.acquisitionRole === 'admin' ? (
                           <>
@@ -774,7 +772,7 @@ export default function CustomerServicesPage() {
                   </select>
                 </label>
                 <label>
-                  ผู้ขาย/ผู้ดูแล
+                  ผู้ขาย
                   <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
                     {form.acquisitionRole === 'admin' ? (
                       <>
@@ -796,6 +794,18 @@ export default function CustomerServicesPage() {
                   </select>
                 </label>
               </div>
+              <label>
+                ผู้ดูแล
+                <select value={form.caretaker || ''} onChange={e => setForm({ ...form, caretaker: e.target.value })}>
+                  <option value="">เลือกผู้ดูแล</option>
+                  <option value="บิว">บิว</option>
+                  <option value="น้ำ">น้ำ</option>
+                  <option value="ครีม">ครีม</option>
+                  <option value="มิกซ์">มิกซ์</option>
+                  <option value="ปาน">ปาน</option>
+                  <option value="อุ้ม">อุ้ม</option>
+                </select>
+              </label>
               <label>
                 Website / Facebook Page
                 <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="" />
@@ -897,7 +907,9 @@ export default function CustomerServicesPage() {
                 <div style={{ marginBottom: 12 }}><strong>สิทธิการเป็นเจ้าของ:</strong> {selectedService.ownership || '-'}</div>
                 <div style={{ marginBottom: 12 }}><strong>Website / Facebook Page:</strong> {selectedService.pageUrl || '-'}</div>
                 <div style={{ marginBottom: 12 }}><strong>CID:</strong> {selectedService.cid || selectedService.customerIdField || '-'}</div>
-                <div style={{ marginBottom: 12 }}><strong>ราคาบริการ (บาท):</strong> {(typeof selectedService.price === 'number' || selectedService.price === 0) ? Number(selectedService.price).toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>ราคาบริการ (บาท):</strong> {(
+                  typeof selectedService.price === 'number' || selectedService.price === 0
+                ) ? Number(selectedService.price).toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '-'}</div>
                 <div style={{ marginBottom: 12 }}>
                   <strong>สถานะ:</strong>{' '}
                   <span className={
@@ -967,7 +979,7 @@ export default function CustomerServicesPage() {
                     </select>
                   </label>
                   <label>
-                    ผู้ขาย/ผู้ดูแล
+                    ผู้ขาย
                     <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
                       {detailForm.acquisitionRole === 'admin' ? (
                         <>

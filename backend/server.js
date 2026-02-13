@@ -8,7 +8,10 @@ const http = require('http');
 const { setupSocket } = require('./socket');
 const mongoose = require('mongoose');
 
+
 const app = express();
+// Enable trust proxy for Render.com and other proxies
+app.set('trust proxy', 1); // trust first proxy
 const server = http.createServer(app);
 
 // Security Headers
