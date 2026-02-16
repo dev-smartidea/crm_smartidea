@@ -18,7 +18,11 @@ const customerSchema = new mongoose.Schema({
     enum: ['ธุรกิจขนาดเล็ก', 'ธุรกิจขนาดกลาง'],
     required: true
   },
+
   productService: { type: String, trim: true, required: true }, // สินค้า/บริการของลูกค้า (บังคับกรอก)
+
+  // ผู้ติดต่อ (Contact Person)
+  contactPerson: { type: String, trim: true, required: true },
 
   // ฟิลด์เดิม (คงไว้เพื่อความเข้ากันได้ของฟีเจอร์อื่น เช่น คลังรูปภาพ)
   lineId: { type: String, trim: true },

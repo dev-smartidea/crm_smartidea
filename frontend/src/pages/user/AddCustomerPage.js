@@ -21,7 +21,8 @@ export default function AddCustomerPage() {
     email: '',
     taxId: '',
     businessSize: '',
-    productService: ''
+    productService: '',
+    contactPerson: '' // ผู้ติดต่อ
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -33,6 +34,8 @@ export default function AddCustomerPage() {
   const [taxIdQuery, setTaxIdQuery] = useState('');
   const [showTaxIdDropdown, setShowTaxIdDropdown] = useState(false);
   const [taxIdDuplicate, setTaxIdDuplicate] = useState(false);
+  
+  const [customerCodeDuplicate, setCustomerCodeDuplicate] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -81,6 +84,14 @@ export default function AddCustomerPage() {
     );
   }, [formData.taxId, allCustomers]);
 
+  // ตรวจสอบรหัสลูกค้าซ้ำ Real-time
+  useEffect(() => {
+    const code = formData.customerCode.trim();
+    setCustomerCodeDuplicate(
+      !!code && allCustomers.some(c => (c.customerCode || '').trim() === code)
+    );
+  }, [formData.customerCode, allCustomers]);
+
   // 3. Handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -118,7 +129,7 @@ export default function AddCustomerPage() {
   };
 
   const calculateProgress = () => {
-    const requiredFields = ['customerCode', 'name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize', 'productService'];
+    const requiredFields = ['customerCode', 'name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize', 'productService', 'contactPerson'];
     const filled = requiredFields.filter((field) => String(formData[field] || '').trim()).length;
     return Math.round((filled / requiredFields.length) * 100);
   };
@@ -138,9 +149,19 @@ export default function AddCustomerPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (customerCodeDuplicate) {
+      setSubmitError('มีรหัสลูกค้านี้ในระบบแล้ว กรุณาใช้รหัสอื่น');
+      setTouched(prev => ({ ...prev, customerCode: true }));
+      return;
+    }
     if (nameDuplicate) {
       setSubmitError('มีชื่อลูกค้านี้ในระบบแล้ว กรุณาใช้ชื่ออื่น');
       setTouched(prev => ({ ...prev, name: true }));
+      return;
+    }
+    if (taxIdDuplicate) {
+      setSubmitError('มี Tax ID นี้ในระบบแล้ว กรุณาใช้เลขอื่น');
+      setTouched(prev => ({ ...prev, taxId: true }));
       return;
     }
 
@@ -359,12 +380,12 @@ export default function AddCustomerPage() {
                 </div>
               </div>
 
-              {/* Row 4: Phone & Email */}
+              {/* Row 4: Phone, Email */}
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="phone"><TelephoneFill /> เบอร์โทรศัพท์ <span className="required">*</span></label>
-                    <input
-                      type="number"
+                  <input
+                    type="number"
                     id="phone"
                     name="phone"
                     className={`form-input ${touched.phone && (formData.phone ? 'valid' : 'invalid')}`}
@@ -388,6 +409,64 @@ export default function AddCustomerPage() {
                     placeholder="name@example.com"
                     required
                   />
+                </div>
+              </div>
+
+              {/* Row 5: Contact Person & Tax ID */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="contactPerson"><PersonPlusFill /> ผู้ติดต่อ <span className="required">*</span></label>
+                  <input
+                    type="text"
+                    id="contactPerson"
+                    name="contactPerson"
+                    className={`form-input ${touched.contactPerson && (formData.contactPerson ? 'valid' : 'invalid')}`}
+                    value={formData.contactPerson}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    placeholder="ชื่อ-นามสกุลผู้ติดต่อ"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="taxId"><CreditCard /> Tax ID <span className="required">*</span></label>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <input
+                      type="number"
+                      id="taxId"
+                      ref={taxIdInputRef}
+                      name="taxId"
+                      className={`form-input ${touched.taxId && (formData.taxId && !taxIdDuplicate ? 'valid' : 'invalid')}`}
+                      value={formData.taxId}
+                      onChange={handleChange}
+                      onFocus={() => setShowTaxIdDropdown(true)}
+                      onBlur={e => {
+                        handleBlur(e);
+                        setTimeout(() => setShowTaxIdDropdown(false), 200);
+                      }}
+                      placeholder="เลขประจำตัวผู้เสียภาษี"
+                      autoComplete="off"
+                      required
+                      style={{ width: '100%' }}
+                    />
+                    {showTaxIdDropdown && taxIdQuery && (
+                      <div className="combo-panel" style={{ zIndex: 10, maxHeight: 180, overflowY: 'auto', position: 'absolute', left: 0, right: 0 }}>
+                        {allCustomers
+                          .filter(c => (c.taxId || '').includes(taxIdQuery) && c.taxId !== formData.taxId)
+                          .slice(0, 10)
+                          .map(c => (
+                            <div key={c._id} className="combo-item" onMouseDown={() => handleSelectTaxId(c.taxId)}>
+                              {c.taxId}
+                            </div>
+                          ))
+                        }
+                        {allCustomers.filter(c => (c.taxId || '').includes(taxIdQuery) && c.taxId !== formData.taxId).length === 0 && (
+                          <div className="combo-item disabled">ไม่พบ Tax ID ที่คล้ายกัน</div>
+                        )}
+                      </div>
+                    )}
+                    {taxIdDuplicate && <div className="input-error-text" style={{color: 'red', fontSize: '12px'}}>มี Tax ID นี้ในระบบแล้ว</div>}
+                  </div>
                 </div>
               </div>
 
