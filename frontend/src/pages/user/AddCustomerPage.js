@@ -471,7 +471,7 @@ export default function AddCustomerPage() {
               </div>
 
               {/* Row 5: Tax ID & Product */}
-              <div className="form-row">
+              {/* <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="taxId"><CreditCard /> Tax ID <span className="required">*</span></label>
                   <div style={{ position: 'relative', width: '100%' }}>
@@ -512,7 +512,7 @@ export default function AddCustomerPage() {
                     {taxIdDuplicate && <div className="input-error-text" style={{color: 'red', fontSize: '12px'}}>มี Tax ID นี้ในระบบแล้ว</div>}
                   </div>
                 </div>
-              </div>
+              </div> */}
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="productService"><BriefcaseFill /> สินค้า / บริการ <span className="required">*</span></label>
