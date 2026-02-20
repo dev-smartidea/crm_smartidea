@@ -9,10 +9,15 @@ import '../user/TransactionHistoryPage.css';
 
 export default function AccountTransactionsPage() {
   const [items, setItems] = useState([]);
+  const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  const [showCutModal, setShowCutModal] = useState(false);
+  const [selectedTxForCut, setSelectedTxForCut] = useState(null);
+  const [selectedCardForCut, setSelectedCardForCut] = useState('');
+  const [loadingCards, setLoadingCards] = useState(false);
   
   // Pagination
   const pageSize = 6;
@@ -46,6 +51,39 @@ export default function AccountTransactionsPage() {
     fetchSubmitted();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchCards = async () => {
+    try {
+      setLoadingCards(true);
+      const res = await axios.get(`${api}/api/cards`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCards(res.data || []);
+    } catch (e) {
+      console.error('Load cards failed:', e);
+      setCards([]);
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
+  const openCutModal = async (txId) => {
+    setSelectedTxForCut(txId);
+    setShowCutModal(true);
+    // fetch cards when opening
+    await fetchCards();
+  };
+
+  const closeCutModal = () => {
+    setShowCutModal(false);
+    setSelectedTxForCut(null);
+    setSelectedCardForCut('');
+  };
+
+  const handleConfirmCut = () => {
+    // For now do nothing — UI only. Close modal.
+    closeCutModal();
+  };
 
   const handleApprove = async (txId) => {
     try {
@@ -374,14 +412,22 @@ export default function AccountTransactionsPage() {
                         className="btn-approve"
                         title={!tx.slipImage ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
                       >
-                        <CheckCircle size={18} /> อนุมัติ
+                        <CheckCircle size={20} /> อนุมัติ
                       </button>
                       <button
                         onClick={() => handleReject(tx._id)}
                         disabled={processingId === tx._id}
                         className="btn-reject"
                       >
-                        <XCircle size={18} /> ปฏิเสธ
+                        <XCircle size={20} /> ปฏิเสธ
+                      </button>
+                      <button
+                        className="btn-cut"
+                        disabled={processingId === tx._id}
+                        title="ตัดเงิน"
+                        onClick={() => openCutModal(tx._id)}
+                      >
+                        <CashCoin size={20} /> ตัดเงิน
                       </button>
                     </div>
                   </div>
@@ -436,6 +482,36 @@ export default function AccountTransactionsPage() {
               <button className="btn-action-delete" onClick={handleDeleteSlip}>
                 ลบสลิป
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Cut Money Modal (UI only) */}
+      {showCutModal && (
+        <div className="modal-backdrop" onClick={closeCutModal} style={{ zIndex: 10000 }}>
+          <div className="modal-content cut-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0 }}>ตัดเงินจากบัตร</h3>
+              <button onClick={closeCutModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+                <XCircle />
+              </button>
+            </div>
+            <div className="modal-body">
+              <label style={{ display: 'block', marginBottom: '8px', color: '#374151' }}>เลือกบัตรที่จะตัดเงิน</label>
+              {loadingCards ? (
+                <div>กำลังโหลดบัตร...</div>
+              ) : (
+                <select value={selectedCardForCut} onChange={e => setSelectedCardForCut(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                  <option value="">-- เลือกบัตร --</option>
+                  {cards.map(c => (
+                    <option key={c._id} value={c._id}>{c.displayName || c.name || 'Card'} {c.last4 ? `(${c.last4})` : ''}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="btn-reject" onClick={closeCutModal}>ยกเลิก</button>
+              <button className="btn-approve" onClick={handleConfirmCut} disabled={!selectedCardForCut}>ยืนยัน</button>
             </div>
           </div>
         </div>

@@ -654,7 +654,8 @@ export default function CustomerServicesPage() {
                   const isExpired = svc.dueDate && new Date(svc.dueDate) < new Date();
                   
                   return (
-                    <tr key={svc._id} className={isExpired ? 'expired-service' : ''}>
+                    <tr key={svc._id} className={isExpired ? 'expired-service' : ''} style={{ cursor: 'pointer' }}
+                      onClick={() => { setSelectedService(svc); setShowDetail(true); }}>
                       <td>{svc.serviceType || svc.name}</td>
                     <td>{svc.cid || svc.customerIdField || '-'}</td>
                     <td>

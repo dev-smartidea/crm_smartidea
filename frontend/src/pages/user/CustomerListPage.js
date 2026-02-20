@@ -144,6 +144,7 @@ export default function CustomerListPage() {
                 <th>ลูกค้า</th>
                 <th>รหัสลูกค้า</th>
                 <th>สินค้า/บริการ</th>
+                <th>ผู้ติดต่อ</th>
                 <th>เบอร์โทรศัพท์</th>
                 <th>วันที่เพิ่ม</th>
                 <th>การจัดการ</th>
@@ -179,6 +180,7 @@ export default function CustomerListPage() {
                         <span className="badge badge-product">-</span>
                       )}
                     </td>
+                    <td>{cust.contactPerson || '-'}</td>
                     <td>{cust.phone}</td>
                     <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
                     <td>

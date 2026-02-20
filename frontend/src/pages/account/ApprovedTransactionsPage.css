@@ -1,3 +1,101 @@
+.card-actions .btn-approve svg,
+.card-actions .btn-reject svg,
+.card-actions .btn-cut svg {
+  width: 24px;
+  height: 24px;
+  vertical-align: middle;
+  margin-right: 8px;
+  flex: 0 0 auto;
+  display: inline-block;
+  fill: currentColor;
+  color: inherit;
+}
+/* Transaction Card Action Buttons */
+.card-actions .btn-approve {
+  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s;
+  box-shadow: 0 6px 14px rgba(34, 197, 94, 0.18);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+.card-actions .btn-approve:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.card-actions .btn-reject {
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s;
+  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.18);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+.card-actions .btn-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.card-actions .btn-cut {
+  background: linear-gradient(135deg, #fbbf24 0%, #fde68a 100%);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s;
+  box-shadow: 0 6px 14px rgba(251, 191, 36, 0.18);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.card-actions .btn-cut:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Disable hover/focus/active visual effects for action buttons */
+.card-actions .btn-approve:not(:disabled):hover,
+.card-actions .btn-reject:not(:disabled):hover,
+.card-actions .btn-cut:not(:disabled):hover,
+.card-actions .btn-approve:not(:disabled):focus,
+.card-actions .btn-reject:not(:disabled):focus,
+.card-actions .btn-cut:not(:disabled):focus,
+.card-actions .btn-approve:not(:disabled):active,
+.card-actions .btn-reject:not(:disabled):active,
+.card-actions .btn-cut:not(:disabled):active {
+  transform: translateY(-4px);
+  /* stronger, but subtle shadow while hovered */
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+  filter: none;
+  opacity: 1;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  outline: none;
+}
+
+/* Ensure each button keeps its intended gradient on hover */
+.card-actions .btn-approve:not(:disabled):hover { background-image: linear-gradient(135deg, #22c55e 0%, #4ade80 100%) !important; }
+.card-actions .btn-reject:not(:disabled):hover { background-image: linear-gradient(135deg, #ef4444 0%, #f87171 100%) !important; }
+.card-actions .btn-cut:not(:disabled):hover { background-image: linear-gradient(135deg, #fbbf24 0%, #fde68a 100%) !important; }
 .all-transaction-page {
   padding: 2rem;
   background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
@@ -34,6 +132,14 @@
   height: 100%;
   background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
   pointer-events: none;
+}
+
+/* Cut modal tweaks */
+.cut-modal .modal-body {
+  padding: 16px 0 0 0;
+}
+.cut-modal select {
+  font-size: 0.95rem;
 }
 
 .all-transaction-page .gallery-header-title {
