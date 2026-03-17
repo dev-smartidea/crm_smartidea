@@ -107,10 +107,19 @@ router.post('/cards/charge', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { cardId, amount, channel, reference, note, chargeTime, serviceId } = req.body;
+    const { cardId, amount, channel, reference, note, chargeTime, serviceId, breakdowns } = req.body;
     const numericAmount = Number(amount || 0);
     if (!cardId || numericAmount <= 0) {
       return res.status(400).json({ error: 'Invalid cardId or amount' });
+    }
+
+    // ป้องกันตัดเงินซ้ำ: เช็คจาก reference (transactionId)
+    if (reference) {
+      const Transaction = require('../models/Transaction');
+      const existingTx = await Transaction.findById(reference);
+      if (existingTx && existingTx.cardCharged) {
+        return res.status(400).json({ error: 'รายการนี้ตัดเงินไปแล้ว' });
+      }
     }
 
     const card = await Card.findById(cardId);
@@ -158,11 +167,23 @@ router.post('/cards/charge', async (req, res) => {
       channel: channel === 'Google Ads' || channel === 'Facebook Ads' ? channel : 'Other',
       reference,
       note,
+      breakdowns: Array.isArray(breakdowns) ? breakdowns : [],
       chargeTime,
       serviceId: serviceId || undefined,
       balanceAfter: card.balance,
       createdBy: user.id
     });
+
+    // อัพเดท transaction ว่าตัดเงินแล้ว
+    if (reference) {
+      const Transaction = require('../models/Transaction');
+      await Transaction.findByIdAndUpdate(reference, {
+        cardCharged: true,
+        cardChargedAt: new Date(),
+        cardChargedBy: user.id,
+        cardChargedCardId: cardId
+      });
+    }
 
     res.json({ card, ledger });
   } catch (err) {
@@ -296,7 +317,7 @@ router.get('/cards/:id/ledger', async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50)
       .populate('createdBy', 'name email')
-      .populate('serviceId', 'name customerId');
+      .populate('serviceId', 'name cid customerId');
 
     res.json({ card, ledger });
   } catch (err) {
@@ -314,7 +335,18 @@ router.get('/cards/:id/ledger/export', async (req, res) => {
     const card = await Card.findById(req.params.id);
     if (!card) return res.status(404).json({ error: 'Card not found' });
 
-    const ledger = await CardLedger.find({ cardId: req.params.id }).sort({ createdAt: -1 }).populate('createdBy', 'name email');
+    const filter = { cardId: req.params.id };
+    if (req.query.type) filter.type = req.query.type;
+    if (req.query.dateFrom || req.query.dateTo) {
+      filter.createdAt = {};
+      if (req.query.dateFrom) filter.createdAt.$gte = new Date(req.query.dateFrom);
+      if (req.query.dateTo) {
+        const end = new Date(req.query.dateTo);
+        end.setDate(end.getDate() + 1);
+        filter.createdAt.$lte = end;
+      }
+    }
+    const ledger = await CardLedger.find(filter).sort({ createdAt: -1 }).populate('createdBy', 'name email');
 
     // Build CSV content
     const header = ['Date','Type','Direction','Amount','Channel','Reference','Note','BalanceAfter','CreatedByName','CreatedByEmail'];

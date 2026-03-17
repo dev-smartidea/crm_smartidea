@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { XCircle } from 'react-bootstrap-icons';
 import PropTypes from 'prop-types';
+import toast from '../utils/toast';
 import './ActivityForm.css';
 
 const ActivityForm = ({ activity = null, onSave = () => {}, onCancel = () => {} }) => {
+  const formRef = useRef(null);
   const [formData, setFormData] = useState({
     serviceCode: '',
     activityType: '',
@@ -12,6 +14,15 @@ const ActivityForm = ({ activity = null, onSave = () => {}, onCancel = () => {} 
     dueDate: ''
   });
   const today = new Date().toISOString().split('T')[0];
+
+  // Escape key handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
 
   useEffect(() => {
     if (activity) {
@@ -39,13 +50,13 @@ const ActivityForm = ({ activity = null, onSave = () => {}, onCancel = () => {} 
 
     // Validate
     if (!formData.activityType || !formData.projectName || !formData.projectStatus || !formData.dueDate || !formData.serviceCode) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+      toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
 
     // ตรวจสอบวันที่ครบกำหนดไม่ให้เป็นวันที่ผ่านมาแล้ว
     if (formData.dueDate < today) {
-      alert('ไม่สามารถกำหนดวันที่แล้วเสร็จเป็นวันที่ผ่านมาแล้วได้');
+      toast.warning('ไม่สามารถกำหนดวันที่แล้วเสร็จเป็นวันที่ผ่านมาแล้วได้');
       return;
     }
 
@@ -53,8 +64,11 @@ const ActivityForm = ({ activity = null, onSave = () => {}, onCancel = () => {} 
   };
 
   return (
-    <div className="activity-form">
-      <h3 style={{ marginTop: 0 }}>{activity ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรมใหม่'}</h3>
+    <div className="activity-form" ref={formRef} role="dialog" aria-modal="true" aria-label={activity ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรมใหม่'}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ marginTop: 0 }}>{activity ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรมใหม่'}</h3>
+        <button onClick={onCancel} type="button" style={{ background: 'none', border: '1px solid #e2e8f0', width: '34px', height: '34px', borderRadius: '10px', cursor: 'pointer', fontSize: '1.1rem', color: '#64748b' }} aria-label="ปิด">✕</button>
+      </div>
       <form onSubmit={handleSubmit} className="svc-form">
         <label>
           รหัสบริการ <span className="required">*</span>
@@ -65,6 +79,7 @@ const ActivityForm = ({ activity = null, onSave = () => {}, onCancel = () => {} 
             onChange={handleChange}
             placeholder="กรอกรหัสบริการ"
             required
+            aria-required="true"
           />
         </label>
 

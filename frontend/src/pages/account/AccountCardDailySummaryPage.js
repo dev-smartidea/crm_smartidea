@@ -94,6 +94,7 @@ export default function AccountCardDailySummaryPage() {
           onClick={() => navigate('/dashboard/account/cards')}
           style={{ cursor: 'pointer', border: 'none' }}
           title="กลับไปบัตร"
+          aria-label="กลับไปหน้าบัตร"
         >
           <ArrowLeft size={24} />
         </button>

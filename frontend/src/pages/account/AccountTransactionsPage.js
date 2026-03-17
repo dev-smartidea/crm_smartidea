@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { CheckCircle, XCircle, Google, Facebook, Wallet, CashCoin, Eye, Upload } from 'react-bootstrap-icons';
+import toast from '../../utils/toast';
 import '../shared/DashboardPage.css';
 import { getImageUrl } from '../../utils/imageHelper';
 import '../user/AllTransactionPage.css';
@@ -18,6 +19,7 @@ export default function AccountTransactionsPage() {
   const [selectedTxForCut, setSelectedTxForCut] = useState(null);
   const [selectedCardForCut, setSelectedCardForCut] = useState('');
   const [loadingCards, setLoadingCards] = useState(false);
+  const [cuttingMoney, setCuttingMoney] = useState(false);
   
   // Pagination
   const pageSize = 6;
@@ -80,36 +82,66 @@ export default function AccountTransactionsPage() {
     setSelectedCardForCut('');
   };
 
-  const handleConfirmCut = () => {
-    // For now do nothing — UI only. Close modal.
-    closeCutModal();
+  const handleConfirmCut = async () => {
+    const tx = items.find(t => t._id === selectedTxForCut);
+    if (!tx || !selectedCardForCut) return;
+
+    try {
+      setCuttingMoney(true);
+      await axios.post(`${api}/api/cards/charge`, {
+        cardId: selectedCardForCut,
+        amount: tx.amount,
+        channel: tx.serviceType || 'Other',
+        reference: tx._id,
+        note: `ตัดเงินจากรายการ ${tx.customer?.name || '-'}`,
+        chargeTime: new Date().toISOString(),
+        serviceId: tx.service?._id || undefined,
+        breakdowns: (tx.breakdowns || []).map(bd => ({
+          code: bd.code,
+          label: getBreakdownLabel(bd.code),
+          amount: bd.amount
+        }))
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('ตัดเงินจากบัตรสำเร็จ');
+      closeCutModal();
+      fetchSubmitted();
+    } catch (e) {
+      const msg = e?.response?.data?.error || 'ตัดเงินไม่สำเร็จ';
+      toast.error(msg);
+    } finally {
+      setCuttingMoney(false);
+    }
   };
 
   const handleApprove = async (txId) => {
+    if (!window.confirm('ยืนยันอนุมัติรายการนี้?')) return;
     try {
       setProcessingId(txId);
       await axios.put(`${api}/api/transactions/${txId}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('อนุมัติรายการสำเร็จ');
-      fetchSubmitted(); // รีโหลดรายการ
+      toast.success('อนุมัติรายการสำเร็จ');
+      fetchSubmitted();
     } catch (e) {
-      alert('อนุมัติไม่สำเร็จ');
+      toast.error('อนุมัติไม่สำเร็จ');
     } finally {
       setProcessingId(null);
     }
   };
 
   const handleReject = async (txId) => {
+    if (!window.confirm('ยืนยันปฏิเสธรายการนี้?')) return;
     try {
       setProcessingId(txId);
       await axios.put(`${api}/api/transactions/${txId}/reject`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('ปฏิเสธรายการสำเร็จ');
-      fetchSubmitted(); // รีโหลดรายการ
+      toast.success('ปฏิเสธรายการสำเร็จ');
+      fetchSubmitted();
     } catch (e) {
-      alert('ปฏิเสธไม่สำเร็จ');
+      toast.error('ปฏิเสธไม่สำเร็จ');
     } finally {
       setProcessingId(null);
     }
@@ -123,7 +155,7 @@ export default function AccountTransactionsPage() {
   const handleInlineSlipChange = async (txId, file) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      toast.warning('ขนาดไฟล์ต้องไม่เกิน 5MB');
       return;
     }
     try {
@@ -138,7 +170,7 @@ export default function AccountTransactionsPage() {
       return res.data;
     } catch (err) {
       const msg = err?.response?.data?.detail || err?.message || 'อัปโหลดสลิปไม่สำเร็จ';
-      alert(msg);
+      toast.error(msg);
     } finally {
       setUploadingId(null);
     }
@@ -160,7 +192,7 @@ export default function AccountTransactionsPage() {
       fetchSubmitted(); // รีโหลดรายการ
       setViewSlip(null);
     } catch (err) {
-      alert('ลบสลิปไม่สำเร็จ');
+      toast.error('ลบสลิปไม่สำเร็จ');
     }
   };
 
@@ -272,6 +304,7 @@ export default function AccountTransactionsPage() {
             <div className="no-data">
               <Wallet size={48} />
               <p>ยังไม่มีรายการที่ส่งมา</p>
+              <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '8px' }}>รายการที่ส่งมาจาก User จะแสดงที่นี่</p>
             </div>
           ) : (
             <>
@@ -297,8 +330,13 @@ export default function AccountTransactionsPage() {
                       </span>
                     </div>
 
+                    {/* Transaction ID */}
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '6px', fontFamily: 'monospace' }}>
+                      TX: {tx._id}
+                    </div>
+
                     {/* Customer Name */}
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '8px' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '4px' }}>
                       {tx.customer?.name || tx.service?.customerId?.name || '-'}
                     </div>
 
@@ -404,13 +442,13 @@ export default function AccountTransactionsPage() {
                       )}
                     </div>
 
-                    {/* Actions - Big Buttons */}
                     <div className="card-actions">
                       <button
                         onClick={() => handleApprove(tx._id)}
                         disabled={processingId === tx._id || !tx.slipImage}
                         className="btn-approve"
                         title={!tx.slipImage ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
+                        aria-label={`อนุมัติรายการ ${tx.customer?.name || ''}`}
                       >
                         <CheckCircle size={20} /> อนุมัติ
                       </button>
@@ -418,16 +456,18 @@ export default function AccountTransactionsPage() {
                         onClick={() => handleReject(tx._id)}
                         disabled={processingId === tx._id}
                         className="btn-reject"
+                        aria-label={`ปฏิเสธรายการ ${tx.customer?.name || ''}`}
                       >
                         <XCircle size={20} /> ปฏิเสธ
                       </button>
                       <button
-                        className="btn-cut"
-                        disabled={processingId === tx._id}
-                        title="ตัดเงิน"
-                        onClick={() => openCutModal(tx._id)}
+                        className={tx.cardCharged ? 'btn-cut-done' : 'btn-cut'}
+                        disabled={processingId === tx._id || tx.cardCharged}
+                        title={tx.cardCharged ? 'ตัดเงินแล้ว' : 'ตัดเงิน'}
+                        aria-label={`ตัดเงินรายการ ${tx.customer?.name || ''}`}
+                        onClick={() => !tx.cardCharged && openCutModal(tx._id)}
                       >
-                        <CashCoin size={20} /> ตัดเงิน
+                        <CashCoin size={20} /> {tx.cardCharged ? 'ตัดแล้ว ✓' : 'ตัดเงิน'}
                       </button>
                     </div>
                   </div>
@@ -440,16 +480,18 @@ export default function AccountTransactionsPage() {
                     className="pagination-btn"
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
+                    aria-label="หน้าก่อนหน้า"
                   >
                     ← ก่อนหน้า
                   </button>
                   <div className="pagination-info">
-                    หน้า {currentPage} จาก {totalPages}
+                    หน้า {currentPage} จาก {totalPages} (ทั้งหมด {items.length} รายการ)
                   </div>
                   <button
                     className="pagination-btn"
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
+                    aria-label="หน้าถัดไป"
                   >
                     ถัดไป →
                   </button>
@@ -463,11 +505,11 @@ export default function AccountTransactionsPage() {
 
       {/* Slip Preview Modal */}
       {viewSlip && (
-        <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }}>
+        <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="ดูสลิปโอนเงิน" onKeyDown={(e) => e.key === 'Escape' && setViewSlip(null)}>
           <div className="modal-content slip-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ justifyContent: 'space-between' }}>
               <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
-              <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+              <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }} aria-label="ปิดหน้าต่างสลิป">
                 <XCircle />
               </button>
             </div>
@@ -475,7 +517,7 @@ export default function AccountTransactionsPage() {
               <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
             </div>
             <div className="modal-footer slip-modal-footer">
-              <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
+              <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} aria-label="เลือกไฟล์สลิปใหม่" />
               <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()}>
                 <Upload /> อัปโหลดภาพใหม่
               </button>
@@ -488,30 +530,38 @@ export default function AccountTransactionsPage() {
       )}
       {/* Cut Money Modal (UI only) */}
       {showCutModal && (
-        <div className="modal-backdrop" onClick={closeCutModal} style={{ zIndex: 10000 }}>
+        <div className="modal-backdrop" onClick={closeCutModal} style={{ zIndex: 10000 }} role="dialog" aria-modal="true" aria-label="ตัดเงินจากบัตร" onKeyDown={(e) => e.key === 'Escape' && closeCutModal()}>
           <div className="modal-content cut-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ justifyContent: 'space-between' }}>
               <h3 style={{ margin: 0 }}>ตัดเงินจากบัตร</h3>
-              <button onClick={closeCutModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+              <button onClick={closeCutModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }} aria-label="ปิด">
                 <XCircle />
               </button>
             </div>
             <div className="modal-body">
-              <label style={{ display: 'block', marginBottom: '8px', color: '#374151' }}>เลือกบัตรที่จะตัดเงิน</label>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#374151' }}>เลือกบัตรที่จะตัดเงิน <span style={{ color: 'var(--color-danger, #ef4444)' }}>*</span></label>
               {loadingCards ? (
                 <div>กำลังโหลดบัตร...</div>
               ) : (
                 <select value={selectedCardForCut} onChange={e => setSelectedCardForCut(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e5e7eb' }}>
                   <option value="">-- เลือกบัตร --</option>
-                  {cards.map(c => (
-                    <option key={c._id} value={c._id}>{c.displayName || c.name || 'Card'} {c.last4 ? `(${c.last4})` : ''}</option>
-                  ))}
+                  {cards
+                    .filter(c => {
+                      const tx = items.find(t => t._id === selectedTxForCut);
+                      if (!tx?.serviceType || !c.channels?.length) return true;
+                      return c.channels.includes(tx.serviceType);
+                    })
+                    .map(c => (
+                      <option key={c._id} value={c._id}>{c.displayName || c.name || 'Card'} {c.last4 ? `(${c.last4})` : ''}</option>
+                    ))}
                 </select>
               )}
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button className="btn-reject" onClick={closeCutModal}>ยกเลิก</button>
-              <button className="btn-approve" onClick={handleConfirmCut} disabled={!selectedCardForCut}>ยืนยัน</button>
+              <button className="btn-approve" onClick={handleConfirmCut} disabled={!selectedCardForCut || cuttingMoney}>
+                {cuttingMoney ? 'กำลังตัดเงิน...' : 'ยืนยัน'}
+              </button>
             </div>
           </div>
         </div>

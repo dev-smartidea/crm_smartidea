@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { XCircle, Google, Facebook, Wallet, CashCoin, Eye, Upload } from 'react-bootstrap-icons';
+import toast from '../../utils/toast';
 import '../shared/DashboardPage.css';
 import { getImageUrl } from '../../utils/imageHelper';
 import '../user/AllTransactionPage.css';
@@ -54,7 +55,7 @@ export default function RejectedTransactionsPage() {
   const handleInlineSlipChange = async (txId, file) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      toast.warning('ขนาดไฟล์ต้องไม่เกิน 5MB');
       return;
     }
     try {
@@ -69,7 +70,7 @@ export default function RejectedTransactionsPage() {
       return res.data;
     } catch (err) {
       const msg = err?.response?.data?.detail || err?.message || 'อัปโหลดสลิปไม่สำเร็จ';
-      alert(msg);
+      toast.error(msg);
     } finally {
       setUploadingId(null);
     }
@@ -91,7 +92,7 @@ export default function RejectedTransactionsPage() {
       fetchRejected(); // รีโหลดรายการ
       setViewSlip(null);
     } catch (err) {
-      alert('ลบสลิปไม่สำเร็จ');
+      toast.error('ลบสลิปไม่สำเร็จ');
     }
   };
 
@@ -238,8 +239,13 @@ export default function RejectedTransactionsPage() {
                       </span>
                     </div>
 
+                    {/* Transaction ID */}
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '6px', fontFamily: 'monospace' }}>
+                      TX: {tx._id}
+                    </div>
+
                     {/* Customer Name */}
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '8px' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '4px' }}>
                       {tx.customer?.name || tx.service?.customerId?.name || '-'}
                     </div>
 
@@ -370,7 +376,7 @@ export default function RejectedTransactionsPage() {
                     ← ก่อนหน้า
                   </button>
                   <div className="pagination-info">
-                    หน้า {currentPage} จาก {totalPages}
+                    หน้า {currentPage} จาก {totalPages} (ทั้งหมด {items.length} รายการ)
                   </div>
                   <button
                     className="pagination-btn"
@@ -389,11 +395,11 @@ export default function RejectedTransactionsPage() {
 
       {/* Slip Preview Modal */}
       {viewSlip && (
-        <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }}>
+        <div className="modal-backdrop" onClick={() => setViewSlip(null)} style={{ zIndex: 9999 }} role="dialog" aria-modal="true" aria-label="ดูสลิป" onKeyDown={(e) => e.key === 'Escape' && setViewSlip(null)}>
           <div className="modal-content slip-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ justifyContent: 'space-between' }}>
               <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
-              <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+              <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }} aria-label="ปิด">
                 <XCircle />
               </button>
             </div>

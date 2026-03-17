@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Image as ImageIcon, Search, Upload, Trash, Eye, X, XCircle, Plus, Dash, ArrowCounterclockwise } from 'react-bootstrap-icons';
 import './ImageGalleryPage.css';
 import { getImageUrl } from '../../utils/imageHelper';
+import toast from '../../utils/toast';
 
 export default function ImageGalleryPage() {
   const [images, setImages] = useState([]);
@@ -174,7 +175,7 @@ export default function ImageGalleryPage() {
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!uploadForm.imageFile) {
-      alert('กรุณาเลือกรูปภาพ');
+      toast.warning('กรุณาเลือกรูปภาพ');
       return;
     }
 
@@ -199,8 +200,9 @@ export default function ImageGalleryPage() {
         description: ''
       });
       fetchImages();
+      toast.success('อัปโหลดรูปภาพสำเร็จ');
     } catch (err) {
-      alert('อัปโหลดรูปภาพไม่สำเร็จ');
+      toast.error('อัปโหลดรูปภาพไม่สำเร็จ');
     }
   };
 
@@ -219,8 +221,9 @@ export default function ImageGalleryPage() {
       setShowDeleteModal(false);
       setImageToDelete(null);
       fetchImages();
+      toast.success('ลบรูปภาพสำเร็จ');
     } catch (err) {
-      alert('ลบรูปภาพไม่สำเร็จ');
+      toast.error('ลบรูปภาพไม่สำเร็จ');
       setShowDeleteModal(false);
       setImageToDelete(null);
     }
@@ -265,6 +268,21 @@ export default function ImageGalleryPage() {
   };
   const stopDragging = () => setIsDragging(false);
 
+  // Escape key to close all modals
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setShowUploadModal(false);
+        setShowImageModal(false);
+        setShowDeleteModal(false);
+      }
+    };
+    if (showUploadModal || showImageModal || showDeleteModal) {
+      document.addEventListener('keydown', handleEsc);
+      return () => document.removeEventListener('keydown', handleEsc);
+    }
+  }, [showUploadModal, showImageModal, showDeleteModal]);
+
   return (
     <div className="image-gallery-page fade-up">
       <div className="gallery-container">
@@ -276,7 +294,7 @@ export default function ImageGalleryPage() {
               <p className="gallery-subtitle">พื้นที่จัดเก็บและค้นหารูปภาพของลูกค้า</p>
             </div>
           </div>
-          <button className="btn-header-upload" onClick={() => setShowUploadModal(true)}>
+          <button className="btn-header-upload" onClick={() => setShowUploadModal(true)} aria-label="อัปโหลดรูปภาพ">
             <Upload /> อัปโหลดรูปภาพ
           </button>
         </div>
@@ -410,6 +428,7 @@ export default function ImageGalleryPage() {
                       className="btn-icon-delete" 
                       onClick={() => handleDeleteClick(img)}
                       title="ลบ"
+                      aria-label={`ลบรูปภาพ ${img.customerName}`}
                     >
                       <Trash />
                     </button>
@@ -470,11 +489,11 @@ export default function ImageGalleryPage() {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="modal-backdrop" onClick={() => setShowUploadModal(false)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="อัปโหลดรูปภาพ" onClick={() => setShowUploadModal(false)}>
           <div className="modal-content upload-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>อัปโหลดรูปภาพ</h3>
-              <button className="btn-close" onClick={() => setShowUploadModal(false)}>
+              <button className="btn-close" onClick={() => setShowUploadModal(false)} aria-label="ปิด">
                 <X />
               </button>
             </div>
@@ -604,9 +623,9 @@ export default function ImageGalleryPage() {
 
       {/* Image View Modal */}
       {showImageModal && selectedImage && (
-        <div className="modal-backdrop" onClick={() => setShowImageModal(false)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ดูรูปภาพ" onClick={() => setShowImageModal(false)}>
           <div className="modal-content image-view-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="btn-close-image" onClick={() => setShowImageModal(false)}>
+            <button className="btn-close-image" onClick={() => setShowImageModal(false)} aria-label="ปิด">
               <X size={32} />
             </button>
             <div
@@ -629,13 +648,13 @@ export default function ImageGalleryPage() {
                 draggable={false}
               />
               <div className="zoom-controls">
-                <button className="zoom-btn" onClick={handleZoomOut} title="ซูมออก">
+                <button className="zoom-btn" onClick={handleZoomOut} title="ซูมออก" aria-label="ซูมออก">
                   <Dash />
                 </button>
-                <button className="zoom-btn" onClick={handleZoomIn} title="ซูมเข้า">
+                <button className="zoom-btn" onClick={handleZoomIn} title="ซูมเข้า" aria-label="ซูมเข้า">
                   <Plus />
                 </button>
-                <button className="zoom-btn" onClick={handleZoomReset} title="รีเซ็ต">
+                <button className="zoom-btn" onClick={handleZoomReset} title="รีเซ็ต" aria-label="รีเซ็ตการซูม">
                   <ArrowCounterclockwise />
                 </button>
               </div>
@@ -664,11 +683,11 @@ export default function ImageGalleryPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && imageToDelete && (
-        <div className="modal-backdrop" onClick={() => setShowDeleteModal(false)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ยืนยันการลบรูปภาพ" onClick={() => setShowDeleteModal(false)}>
           <div className="modal-content delete-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>ยืนยันการลบรูปภาพ</h3>
-              <button className="btn-close" onClick={() => setShowDeleteModal(false)}>
+              <button className="btn-close" onClick={() => setShowDeleteModal(false)} aria-label="ปิด">
                 <X />
               </button>
             </div>

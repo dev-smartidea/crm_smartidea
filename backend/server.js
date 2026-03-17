@@ -23,7 +23,6 @@ const allowedOrigins = [
   'http://192.168.1.65:3000', // Network IP
   'http://192.168.1.189:3000', // Additional Network IP
   'https://crm-smartidea.vercel.app', // Vercel Production
-  'https://crm-smartidea-foti4fw4t-smartidea-devs-projects.vercel.app', // Vercel Preview
 ];
 
 app.use(cors({
@@ -32,7 +31,11 @@ app.use(cors({
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
+    } else if (origin && /^https:\/\/crm-smartidea[a-z0-9-]*\.vercel\.app$/.test(origin)) {
+      // อนุญาต Vercel preview deployments ทุก URL ของโปรเจกต์นี้
+      callback(null, true);
     } else {
+      console.warn('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },

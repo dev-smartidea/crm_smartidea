@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import PropTypes from 'prop-types';
+import toast from '../utils/toast';
 import '../pages/user/TransactionHistoryPage.css';
 
 export default function EditTransactionModal({
@@ -22,6 +23,34 @@ export default function EditTransactionModal({
   });
   const [slipFile, setSlipFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef(null);
+  const previousFocusRef = useRef(null);
+
+  // Focus trap & Escape key
+  useEffect(() => {
+    if (!open) return;
+    previousFocusRef.current = document.activeElement;
+    const timer = setTimeout(() => modalRef.current?.focus(), 50);
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab') return;
+      const focusable = modalRef.current?.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(timer);
+      previousFocusRef.current?.focus();
+    };
+  }, [open, onClose]);
 
   // คำนวณผลรวม breakdowns
   const breakdownSum = (form.breakdowns || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
@@ -91,14 +120,14 @@ export default function EditTransactionModal({
         current.code === '17' ||
         current.code === '19'
       ) {
-        alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
+        toast.warning('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
         return prev;
       }
 
       // ใช้ค่าที่กรอกในช่องนี้เป็นฐาน
       let base = parseFloat(current.amount);
       if (Number.isNaN(base) || base <= 0) {
-        alert('กรุณากรอกยอดเงินในช่องนี้ก่อนคำนวณ VAT');
+        toast.warning('กรุณากรอกยอดเงินในช่องนี้ก่อนคำนวณ VAT');
         return prev;
       }
 
@@ -150,9 +179,10 @@ export default function EditTransactionModal({
         headers: { Authorization: `Bearer ${token}` }
       });
       onSaved && onSaved(res.data);
+      toast.success('บันทึกรายการสำเร็จ');
       onClose && onClose();
     } catch (err) {
-      alert(err?.response?.data?.detail || err?.message || 'บันทึกไม่สำเร็จ');
+      toast.error(err?.response?.data?.detail || err?.message || 'บันทึกไม่สำเร็จ');
     } finally {
       setSaving(false);
     }
@@ -166,9 +196,10 @@ export default function EditTransactionModal({
         headers: { Authorization: `Bearer ${token}` }
       });
       onResubmitted && onResubmitted(res.data);
+      toast.success('ส่งรายการใหม่สำเร็จ');
       onClose && onClose();
     } catch (err) {
-      alert(err?.response?.data?.detail || err?.message || 'ส่งใหม่ไม่สำเร็จ');
+      toast.error(err?.response?.data?.detail || err?.message || 'ส่งใหม่ไม่สำเร็จ');
     } finally {
       setSaving(false);
     }
@@ -177,18 +208,22 @@ export default function EditTransactionModal({
   if (!open) return null;
 
   return (
-    <div className="svc-modal-overlay" onClick={onClose}>
-      <div className="svc-modal-card" onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ marginTop: 0 }}>แก้ไขรายการโอนเงิน</h3>
+    <div className="svc-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="แก้ไขรายการโอนเงิน">
+      <div className="svc-modal-card" onClick={(e) => e.stopPropagation()} ref={modalRef} tabIndex={-1}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 style={{ margin: 0 }}>แก้ไขรายการโอนเงิน</h3>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--color-border, #e2e8f0)', width: '34px', height: '34px', borderRadius: '10px', cursor: 'pointer', fontSize: '1.1rem', color: '#64748b' }} aria-label="ปิด" type="button">✕</button>
+        </div>
         <form className="svc-form" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
           <label>
-            จำนวนเงิน (บาท)
+            จำนวนเงิน (บาท) <span style={{ color: 'var(--color-danger, #ef4444)' }}>*</span>
             <input
               type="number"
               step="0.01"
               value={form.amount}
               onChange={(e) => updateField('amount', e.target.value)}
               placeholder="0.00"
+              aria-required="true"
               style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
             />
           </label>
@@ -215,14 +250,14 @@ export default function EditTransactionModal({
           </label>
           <label>
             บัญชีธนาคาร
-            <select value={form.bank} onChange={(e) => updateField('bank', e.target.value)}>
-              <option value="KBANK">KBANK (กสิกรไทย)</option>
-              <option value="SCB">SCB (ไทยพาณิชย์)</option>
-              <option value="BBL">BBL (กรุงเทพ)</option>
-              <option value="BAY-4396">BAY-4396</option>
-              <option value="BAY-7146">BAY-7146</option>
-              <option value="Cr.-8508">Cr.-8508</option>
-              <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
+            <select value={form.bank} onChange={(e) => updateField('bank', e.target.value)} aria-label="เลือกบัญชีธนาคาร">
+              <option value="KBANK">กสิกรไทย (KBANK)</option>
+              <option value="SCB">ไทยพาณิชย์ (SCB)</option>
+              <option value="BBL">กรุงเทพ (BBL)</option>
+              <option value="BAY-4396">กรุงศรี (BAY-4396)</option>
+              <option value="BAY-7146">กรุงศรี (BAY-7146)</option>
+              <option value="Cr.-8508">เครดิต (Cr.-8508)</option>
+              <option value="BBL-ส่วนตัว">กรุงเทพ - ส่วนตัว</option>
             </select>
           </label>
 

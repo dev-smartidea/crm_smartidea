@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Wallet, ArrowLeft, CheckCircle, DashCircle, Google, Facebook } from 'react-bootstrap-icons';
+import toast from '../../utils/toast';
 import '../shared/DashboardPage.css';
 import '../user/AllTransactionPage.css';
 import '../shared/ImageGalleryPage.css';
@@ -14,34 +15,74 @@ export default function AccountCardLedgerPage() {
   const [ledger, setLedger] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterChannel, setFilterChannel] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
-  const downloadCsv = async () => {
-    try {
-      const url = `${api}/api/cards/${cardId}/ledger/export`;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-      if (!res.ok) {
-        throw new Error('ดาวน์โหลดไฟล์ไม่สำเร็จ');
+  const channelOptions = useMemo(() => {
+    const set = new Set(ledger.map(e => e.channel).filter(Boolean));
+    return [...set].sort();
+  }, [ledger]);
+
+  const filteredLedger = useMemo(() => {
+    return ledger.filter(entry => {
+      if (filterType && entry.type !== filterType) return false;
+      if (filterChannel && entry.channel !== filterChannel) return false;
+      if (dateFrom) {
+        const entryDate = new Date(entry.createdAt).toISOString().split('T')[0];
+        if (entryDate < dateFrom) return false;
       }
-      const blob = await res.blob();
-      const link = document.createElement('a');
-      const filename = `card_ledger_${card?.last4 || cardId}.csv`;
-      link.href = window.URL.createObjectURL(blob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (e) {
-      alert(e.message || 'ดาวน์โหลดไฟล์ไม่สำเร็จ');
+      if (dateTo) {
+        const entryDate = new Date(entry.createdAt).toISOString().split('T')[0];
+        if (entryDate > dateTo) return false;
+      }
+      return true;
+    });
+  }, [ledger, filterType, filterChannel, dateFrom, dateTo]);
+
+  const downloadCsv = () => {
+    if (filteredLedger.length === 0) {
+      toast.error('ไม่มีข้อมูลให้ดาวน์โหลด');
+      return;
     }
+    const escapeCsv = (val) => {
+      const s = String(val ?? '');
+      if (s.includes(',') || s.includes('\n') || s.includes('"')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+    const header = ['Date','Type','Direction','Amount','Channel','CID','Reference','Note','BalanceAfter','CreatedBy'];
+    const rows = filteredLedger.map(l => [
+      new Date(l.createdAt).toISOString(),
+      l.type || '',
+      l.direction || '',
+      l.amount || 0,
+      l.channel || '',
+      l.serviceId?.cid || '',
+      l.reference || '',
+      l.note || '',
+      l.balanceAfter || 0,
+      l.createdBy?.name || ''
+    ]);
+    const csv = [header.join(','), ...rows.map(r => r.map(escapeCsv).join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `card_ledger_${card?.last4 || cardId}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const summary = useMemo(() => {
-    const credit = ledger.filter(l => l.direction === 'credit').reduce((s, l) => s + (l.amount || 0), 0);
-    const debit = ledger.filter(l => l.direction === 'debit').reduce((s, l) => s + (l.amount || 0), 0);
+    const credit = filteredLedger.filter(l => l.direction === 'credit').reduce((s, l) => s + (l.amount || 0), 0);
+    const debit = filteredLedger.filter(l => l.direction === 'debit').reduce((s, l) => s + (l.amount || 0), 0);
     return { credit, debit };
-  }, [ledger]);
+  }, [filteredLedger]);
 
   useEffect(() => {
     const fetchLedger = async () => {
@@ -128,6 +169,7 @@ export default function AccountCardLedgerPage() {
               className="btn-slip-upload"
               style={{ padding: '10px 14px', minWidth: '110px' }}
               onClick={() => navigate('/dashboard/account/cards')}
+              aria-label="กลับหน้าบัตร"
             >
               <ArrowLeft /> กลับหน้าบัตร
             </button>
@@ -135,10 +177,62 @@ export default function AccountCardLedgerPage() {
               className="btn-slip-upload"
               style={{ padding: '10px 14px', minWidth: '140px' }}
               onClick={downloadCsv}
+              aria-label="ดาวน์โหลด CSV"
             >
               📥 ดาวน์โหลด CSV
             </button>
           </div>
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem', background: '#fff' }}
+            aria-label="กรองประเภท"
+          >
+            <option value="">ทุกประเภท</option>
+            <option value="topup">เติมเงิน</option>
+            <option value="charge">ตัดยอด</option>
+          </select>
+          <select
+            value={filterChannel}
+            onChange={(e) => setFilterChannel(e.target.value)}
+            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem', background: '#fff' }}
+            aria-label="กรองช่องทาง"
+          >
+            <option value="">ทุกช่องทาง</option>
+            {channelOptions.map(ch => (
+              <option key={ch} value={ch}>{ch}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem' }}
+            aria-label="วันที่เริ่มต้น"
+          />
+          <span style={{ color: '#737373', fontSize: '0.85rem' }}>ถึง</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem' }}
+            aria-label="วันที่สิ้นสุด"
+          />
+          {(filterType || filterChannel || dateFrom || dateTo) && (
+            <button
+              onClick={() => { setFilterType(''); setFilterChannel(''); setDateFrom(''); setDateTo(''); }}
+              style={{ padding: '7px 14px', borderRadius: '6px', border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', color: '#737373' }}
+            >
+              ล้างตัวกรอง
+            </button>
+          )}
+          <span style={{ color: '#737373', fontSize: '0.8rem', marginLeft: 'auto' }}>
+            แสดง {filteredLedger.length} / {ledger.length} รายการ
+          </span>
         </div>
 
         {error && (
@@ -148,30 +242,33 @@ export default function AccountCardLedgerPage() {
         )}
 
         <div className="transactions-section">
-          {ledger.length === 0 ? (
+          {filteredLedger.length === 0 ? (
             <div className="no-data">
               <Wallet size={48} />
-              <p>ยังไม่มีประวัติรายการ</p>
+              <p>{ledger.length === 0 ? 'ยังไม่มีประวัติรายการ' : 'ไม่พบรายการที่ตรงกับตัวกรอง'}</p>
             </div>
           ) : (
             <div className="table-responsive">
               <table className="transaction-table">
                 <thead>
                   <tr>
-                    <th>วันที่</th>
-                    <th>ประเภท</th>
-                    <th>ช่องทาง</th>
-                    <th>อ้างอิง</th>
-                    <th>จำนวนเงิน</th>
-                    <th>ยอดหลังรายการ</th>
-                    <th>ผู้ทำรายการ</th>
+                    <th scope="col">วันที่</th>
+                    <th scope="col">ประเภท</th>
+                    <th scope="col">CID</th>
+                    <th scope="col">ช่องทาง</th>
+                    <th scope="col">อ้างอิง</th>
+                    <th scope="col">จำนวนเงิน</th>
+                    <th scope="col">รายละเอียด</th>
+                    <th scope="col">ยอดหลังรายการ</th>
+                    <th scope="col">ผู้ทำรายการ</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ledger.map((entry) => (
+                  {filteredLedger.map((entry) => (
                     <tr key={entry._id}>
                       <td>{formatDate(entry.createdAt)}</td>
                       <td>{typeBadge(entry)}</td>
+                      <td>{entry.serviceId?.cid || '-'}</td>
                       <td>
                         <span className={`service-badge ${
                           entry.channel === 'Facebook Ads' ? 'facebook' :
@@ -187,6 +284,19 @@ export default function AccountCardLedgerPage() {
                         <span style={{ color: entry.direction === 'credit' ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
                           {formatAmount(entry)}
                         </span>
+                      </td>
+                      <td>
+                        {entry.breakdowns && entry.breakdowns.length > 0 ? (
+                          <div style={{ fontSize: '0.78rem', lineHeight: '1.6' }}>
+                            {entry.breakdowns.map((bd, idx) => (
+                              <div key={idx}>
+                                {bd.label || bd.code}: <strong>{bd.amount?.toLocaleString('th-TH')}</strong> ฿
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94a3b8' }}>-</span>
+                        )}
                       </td>
                       <td>{entry.balanceAfter?.toLocaleString('th-TH')} ฿</td>
                       <td>{entry.createdBy?.name || '-'}</td>

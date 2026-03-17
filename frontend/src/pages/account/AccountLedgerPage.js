@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import toast from '../../utils/toast';
 import { 
   FileEarmarkSpreadsheet, Search, Download, 
-  ChevronLeft, ChevronRight, Funnel, X,
-  Google, Facebook
+  ChevronLeft, ChevronRight, Funnel, X
 } from 'react-bootstrap-icons';
 import './AccountLedgerPage.css';
 
@@ -46,7 +46,7 @@ const getBreakdownAmount = (item, code) => {
 
 export default function AccountLedgerPage() {
   const [ledgerData, setLedgerData] = useState([]);
-  const [summary, setSummary] = useState({});
+  const [, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -109,7 +109,15 @@ export default function AccountLedgerPage() {
 
   const handleExport = async () => {
     try {
-      const res = await axios.get(`${api}/api/ledger/export`, {
+      const params = new URLSearchParams();
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.bank) params.append('bank', filters.bank);
+      if (filters.serviceType) params.append('serviceType', filters.serviceType);
+      if (filters.search) params.append('search', filters.search);
+      const qs = params.toString();
+
+      const res = await axios.get(`${api}/api/ledger/export${qs ? `?${qs}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
@@ -123,7 +131,7 @@ export default function AccountLedgerPage() {
       link.remove();
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Export ไม่สำเร็จ');
+      toast.error('ส่งออกไฟล์ไม่สำเร็จ');
     }
   };
 
@@ -161,7 +169,7 @@ export default function AccountLedgerPage() {
       ));
     } catch (err) {
       console.error('Update failed:', err);
-      alert('บันทึกไม่สำเร็จ');
+      toast.error('บันทึกไม่สำเร็จ');
     }
     
     setEditingCell(null);
@@ -259,8 +267,8 @@ export default function AccountLedgerPage() {
           <button className="btn-filter" onClick={() => setShowFilters(!showFilters)}>
             <Funnel /> ตัวกรอง
           </button>
-          <button className="btn-export" onClick={handleExport}>
-            <Download /> Export CSV
+          <button className="btn-export" onClick={handleExport} aria-label="ส่งออกไฟล์ CSV">
+            <Download /> ส่งออก CSV
           </button>
         </div>
       </div>
@@ -355,35 +363,41 @@ export default function AccountLedgerPage() {
         {loading ? (
           <div className="ledger-loading">กำลังโหลดข้อมูล...</div>
         ) : ledgerData.length === 0 ? (
-          <div className="ledger-empty">ไม่พบข้อมูล</div>
+          <div className="ledger-empty">
+            <FileEarmarkSpreadsheet size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+            <p style={{ fontWeight: '600', marginBottom: '4px' }}>ไม่พบข้อมูล</p>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+              {(filters.startDate || filters.endDate || filters.bank || filters.serviceType || filters.search) ? 'ลองเปลี่ยนเงื่อนไขการค้นหา หรือล้างตัวกรอง' : 'ยังไม่มีรายการยอดเดินบัญชี'}
+            </p>
+          </div>
         ) : (
           <div className="table-wrapper">
             <table className="ledger-table">
               <thead>
                 <tr>
-                  <th className="col-index">#</th>
-                  <th className="col-account">บัญชี</th>
-                  <th className="col-code">รหัส</th>
-                  <th className="col-bank">ธนาคาร</th>
-                  <th className="col-date">วันที่</th>
-                  <th className="col-time">เวลา</th>
-                  <th className="col-amount">ยอดเงิน</th>
-                  <th className="col-status">สถานะ</th>
-                  <th className="col-card">บัตรเลขที่</th>
-                  <th className="col-cardtime">เวลาที่ตัดบัตร</th>
-                  <th className="col-gg">ลูกค้าใหม่ GG</th>
-                  <th className="col-gg">ต่ออายุ GG</th>
-                  <th className="col-fb">ลูกค้าใหม่ FB</th>
-                  <th className="col-fb">ต่ออายุ FB</th>
-                                    <th className="col-hosting">Hosting Domain</th>
-                  <th className="col-click">ค่าคลิก</th>
-                  <th className="col-prepaid">เบิกล่วงหน้า</th>
-                  <th className="col-coupon">คูปอง</th>
-                  <th className="col-inv">Inv. Gg</th>
-                  <th className="col-inv">Inv. Fb</th>
-                  <th className="col-vat">Vat 36</th>
-                  <th className="col-vat">Vat 30</th>
-                  <th className="col-net">ยอดสุทธิ</th>
+                  <th className="col-index" scope="col">#</th>
+                  <th className="col-account" scope="col">บัญชี</th>
+                  <th className="col-code" scope="col">รหัส</th>
+                  <th className="col-bank" scope="col">ธนาคาร</th>
+                  <th className="col-date" scope="col">วันที่</th>
+                  <th className="col-time" scope="col">เวลา</th>
+                  <th className="col-amount" scope="col">ยอดเงิน</th>
+                  <th className="col-status" scope="col">สถานะ</th>
+                  <th className="col-card" scope="col">บัตรเลขที่</th>
+                  <th className="col-cardtime" scope="col">เวลาที่ตัดบัตร</th>
+                  <th className="col-gg" scope="col">ลูกค้าใหม่ GG</th>
+                  <th className="col-gg" scope="col">ต่ออายุ GG</th>
+                  <th className="col-fb" scope="col">ลูกค้าใหม่ FB</th>
+                  <th className="col-fb" scope="col">ต่ออายุ FB</th>
+                  <th className="col-hosting" scope="col">Hosting Domain</th>
+                  <th className="col-click" scope="col">ค่าคลิก</th>
+                  <th className="col-prepaid" scope="col">เบิกล่วงหน้า</th>
+                  <th className="col-coupon" scope="col">คูปอง</th>
+                  <th className="col-inv" scope="col">Inv. Gg</th>
+                  <th className="col-inv" scope="col">Inv. Fb</th>
+                  <th className="col-vat" scope="col">Vat 36</th>
+                  <th className="col-vat" scope="col">Vat 30</th>
+                  <th className="col-net" scope="col">ยอดสุทธิ</th>
                 </tr>
               </thead>
               <tbody>

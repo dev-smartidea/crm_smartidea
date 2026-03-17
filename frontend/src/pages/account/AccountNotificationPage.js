@@ -6,6 +6,7 @@ import {
 } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
 import useNotificationSocket from '../../hooks/useNotificationSocket';
+import toast from '../../utils/toast';
 import './AccountNotificationPage.css';
 
 export default function AccountNotificationPage() {
@@ -64,7 +65,7 @@ export default function AccountNotificationPage() {
       });
       setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
     } catch (err) {
-      console.error('Mark as read failed:', err);
+      toast.error('ทำเครื่องหมายอ่านแล้วไม่สำเร็จ');
     }
   };
 
@@ -77,7 +78,7 @@ export default function AccountNotificationPage() {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       setSelectedIds(new Set());
     } catch (err) {
-      console.error('Mark all as read failed:', err);
+      toast.error('ทำเครื่องหมายอ่านทั้งหมดไม่สำเร็จ');
     }
   };
 
@@ -94,8 +95,9 @@ export default function AccountNotificationPage() {
         updated.delete(id);
         return updated;
       });
+      toast.success('ลบการแจ้งเตือนแล้ว');
     } catch (err) {
-      console.error('Delete failed:', err);
+      toast.error('ลบไม่สำเร็จ');
     }
   };
 
@@ -110,8 +112,9 @@ export default function AccountNotificationPage() {
       });
       setNotifications(prev => prev.filter(n => !selectedIds.has(n._id)));
       setSelectedIds(new Set());
+      toast.success(`ลบ ${selectedIds.size} รายการแล้ว`);
     } catch (err) {
-      console.error('Bulk delete failed:', err);
+      toast.error('ลบไม่สำเร็จ');
     }
   };
 
@@ -266,6 +269,7 @@ export default function AccountNotificationPage() {
               type="checkbox" 
               checked={selectedIds.size === filtered.length && filtered.length > 0}
               onChange={handleSelectAll}
+              aria-label="เลือกทั้งหมด"
             />
             <span>เลือกทั้งหมด</span>
           </label>
@@ -299,6 +303,7 @@ export default function AccountNotificationPage() {
                     checked={selectedIds.has(notif._id)}
                     onChange={() => handleToggleSelect(notif._id)}
                     onClick={(e) => e.stopPropagation()}
+                    aria-label={`เลือกการแจ้งเตือน: ${notif.title}`}
                   />
                 </div>
 
@@ -334,6 +339,7 @@ export default function AccountNotificationPage() {
                         handleMarkAsRead(notif._id);
                       }}
                       title="ทำเครื่องหมายว่าอ่านแล้ว"
+                      aria-label="ทำเครื่องหมายว่าอ่านแล้ว"
                     >
                       <Check size={18} />
                     </button>
@@ -345,6 +351,7 @@ export default function AccountNotificationPage() {
                       handleDelete(notif._id);
                     }}
                     title="ลบ"
+                    aria-label="ลบการแจ้งเตือน"
                   >
                     <Trash size={18} />
                   </button>

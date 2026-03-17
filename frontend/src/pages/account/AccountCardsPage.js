@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { CreditCard2BackFill, Google, Facebook, DashCircle, PlusCircle, Trash2, Eye, Calendar3 } from 'react-bootstrap-icons';
+import toast from '../../utils/toast';
 import './AccountCardsPage.css';
 
 const CHANNEL_OPTIONS = ['Google Ads', 'Facebook Ads', 'Other'];
@@ -33,6 +34,25 @@ export default function AccountCardsPage() {
   const [editCardForm, setEditCardForm] = useState({ displayName: '', last4: '', status: 'active', channels: [] });
   const api = process.env.REACT_APP_API_URL;
 
+  // Escape key handler for all modals
+  const closeAllModals = useCallback(() => {
+    setShowAddCard(false);
+    setShowEditCard(null);
+    setShowDeleteConfirm(null);
+    setActionCard(null);
+    setError('');
+  }, []);
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') closeAllModals();
+    };
+    if (showAddCard || showEditCard || showDeleteConfirm || actionCard) {
+      document.addEventListener('keydown', handleEsc);
+      return () => document.removeEventListener('keydown', handleEsc);
+    }
+  }, [showAddCard, showEditCard, showDeleteConfirm, actionCard, closeAllModals]);
+
   const totals = useMemo(() => ({
     totalCards: cards.length,
     totalBalance: cards.reduce((sum, c) => sum + (c.balance || 0), 0),
@@ -53,7 +73,6 @@ export default function AccountCardsPage() {
         const res = await axios.get(`${api}/api/cards`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
-        console.log('Fetched cards:', res.data);
         setCards(res.data || []);
         setError('');
       } catch (err) {
@@ -128,6 +147,7 @@ export default function AccountCardsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCards(res.data || []);
+      toast.success(actionCard.type === 'topup' ? 'เติมเงินสำเร็จ' : 'ตัดยอดสำเร็จ');
     } catch (err) {
       setError(err.response?.data?.error || 'ดำเนินการไม่สำเร็จ');
     } finally {
@@ -164,6 +184,7 @@ export default function AccountCardsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCards(res.data || []);
+      toast.success('เพิ่มบัตรสำเร็จ');
     } catch (err) {
       setError(err.response?.data?.error || 'เพิ่มบัตรไม่สำเร็จ');
     } finally {
@@ -183,6 +204,7 @@ export default function AccountCardsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCards(res.data || []);
+      toast.success('ลบบัตรสำเร็จ');
     } catch (err) {
       setError(err.response?.data?.error || 'ลบบัตรไม่สำเร็จ');
     } finally {
@@ -191,7 +213,6 @@ export default function AccountCardsPage() {
   };
 
   const openEditCard = (card) => {
-    console.log('Opening edit for card:', card, 'channels:', card.channels);
     setError(''); // Clear error first
     setEditCardForm({
       displayName: card.displayName || '',
@@ -202,23 +223,15 @@ export default function AccountCardsPage() {
     setShowEditCard(card._id);
   };
 
-  useEffect(() => {
-    if (showEditCard && editCardForm.channels && editCardForm.channels.length > 0) {
-      console.log('Edit form channels:', editCardForm.channels);
-    }
-  }, [showEditCard, editCardForm.channels]);
-
   const toggleEditChannel = (channel) => {
     setEditCardForm(prev => {
       const exists = prev.channels.includes(channel);
       const channels = exists ? prev.channels.filter(c => c !== channel) : [...prev.channels, channel];
-      console.log('Toggle channel, now channels:', channels);
       return { ...prev, channels };
     });
   };
 
   const submitEditCard = async () => {
-    console.log('submitEditCard - editCardForm:', editCardForm);
     if (!editCardForm.displayName.trim() || !editCardForm.last4.trim()) {
       setError('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
@@ -237,6 +250,7 @@ export default function AccountCardsPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCards(res.data || []);
+      toast.success('แก้ไขบัตรสำเร็จ');
     } catch (err) {
       setError(err.response?.data?.error || 'แก้ไขบัตรไม่สำเร็จ');
     } finally {
@@ -283,6 +297,14 @@ export default function AccountCardsPage() {
               <SummaryCard label="Facebook Ads" value={totals.facebook} tone="d" note="บัตร" />
             </div>
 
+            {cards.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '48px 20px', color: '#94a3b8' }}>
+                <CreditCard2BackFill size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '4px' }}>ยังไม่มีบัตร</p>
+                <p style={{ fontSize: '0.85rem' }}>กดปุ่ม "เพิ่มบัตร" เพื่อเริ่มต้นใช้งาน</p>
+              </div>
+            )}
+
             <div className="cards-grid">
               {cards.map(card => (
                 <div key={card._id} className="card-panel">
@@ -319,10 +341,10 @@ export default function AccountCardsPage() {
                   </div>
 
                   <div className="card-actions">
-                    <button className="ghost-btn" onClick={() => navigate(`/dashboard/account/cards/${card._id}/ledger`)}>
+                    <button className="ghost-btn" onClick={() => navigate(`/dashboard/account/cards/${card._id}/ledger`)} aria-label="ดูประวัติ">
                       <Eye /> ประวัติ
                     </button>
-                    <button className="ghost-btn" onClick={() => openEditCard(card)}>
+                    <button className="ghost-btn" onClick={() => openEditCard(card)} aria-label="แก้ไขบัตร">
                       ✏️ แก้ไข
                     </button>
                     <button
@@ -341,7 +363,7 @@ export default function AccountCardsPage() {
                     >
                       <PlusCircle /> เติมเงิน
                     </button>
-                    <button className="danger-btn" onClick={() => { setShowDeleteConfirm(card._id); setError(''); }} title="ลบบัตร">
+                    <button className="danger-btn" onClick={() => { setShowDeleteConfirm(card._id); setError(''); }} title="ลบบัตร" aria-label="ลบบัตร">
                       <Trash2 />
                     </button>
                   </div>
@@ -353,7 +375,7 @@ export default function AccountCardsPage() {
       </div>
 
       {showAddCard && (
-        <div className="modal-backdrop" onClick={() => setShowAddCard(false)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="เพิ่มบัตรใหม่" onClick={() => setShowAddCard(false)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <div className="modal-icon topup">
@@ -363,7 +385,7 @@ export default function AccountCardsPage() {
                 <div className="modal-title">เพิ่มบัตรใหม่</div>
                 <div className="modal-hint">กรอกข้อมูลบัตรของคุณ</div>
               </div>
-              <button className="modal-close" onClick={() => setShowAddCard(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowAddCard(false)} aria-label="ปิด">✕</button>
             </div>
             <div className="modal-body">
               <label className="field">
@@ -439,7 +461,7 @@ export default function AccountCardsPage() {
       )}
 
       {showEditCard && (
-        <div className="modal-backdrop" onClick={() => setShowEditCard(null)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="แก้ไขบัตร" onClick={() => setShowEditCard(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <div className="modal-icon topup">
@@ -449,7 +471,7 @@ export default function AccountCardsPage() {
                 <div className="modal-title">แก้ไขบัตร</div>
                 <div className="modal-hint">อัปเดตข้อมูลบัตรของคุณ</div>
               </div>
-              <button className="modal-close" onClick={() => setShowEditCard(null)}>✕</button>
+              <button className="modal-close" onClick={() => setShowEditCard(null)} aria-label="ปิด">✕</button>
             </div>
             <div className="modal-body">
               <label className="field">
@@ -489,7 +511,6 @@ export default function AccountCardsPage() {
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   {['Google Ads', 'Facebook Ads'].map(ch => {
                     const isSelected = Array.isArray(editCardForm.channels) && editCardForm.channels.includes(ch);
-                    console.log(`Button ${ch}: isSelected=${isSelected}, channels=`, editCardForm.channels);
                     return (
                       <button
                         key={ch}
@@ -529,7 +550,7 @@ export default function AccountCardsPage() {
       )}
 
       {showDeleteConfirm && (
-        <div className="modal-backdrop" onClick={() => setShowDeleteConfirm(null)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ยืนยันการลบบัตร" onClick={() => setShowDeleteConfirm(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <div className="modal-icon charge">
@@ -539,7 +560,7 @@ export default function AccountCardsPage() {
                 <div className="modal-title">ยืนยันการลบบัตร</div>
                 <div className="modal-hint">คุณแน่ใจหรือไม่ว่าต้องการลบบัตรนี้</div>
               </div>
-              <button className="modal-close" onClick={() => setShowDeleteConfirm(null)}>✕</button>
+              <button className="modal-close" onClick={() => setShowDeleteConfirm(null)} aria-label="ปิด">✕</button>
             </div>
             <div className="modal-body">
               {error && <div className="inline-error">⚠️ {error}</div>}
@@ -555,7 +576,7 @@ export default function AccountCardsPage() {
       )}
 
       {actionCard && (
-        <div className="modal-backdrop" onClick={() => setActionCard(null)}>
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={actionCard.type === 'topup' ? 'เติมเงินเข้าบัตร' : 'ตัดยอดจากบัตร'} onClick={() => setActionCard(null)}>
           <div className="modal-sheet" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <div className={`modal-icon ${actionCard.type}`}>
@@ -565,7 +586,7 @@ export default function AccountCardsPage() {
                 <div className="modal-title">{actionCard.type === 'topup' ? 'เติมเงินเข้าบัตร' : 'ตัดยอดจากบัตร'}</div>
                 <div className="modal-hint">กรอกจำนวนเงินและยืนยันการทำรายการ</div>
               </div>
-              <button className="modal-close" onClick={() => setActionCard(null)}>✕</button>
+              <button className="modal-close" onClick={() => setActionCard(null)} aria-label="ปิด">✕</button>
             </div>
 
             <div className="modal-body">

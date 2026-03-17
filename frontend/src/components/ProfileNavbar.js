@@ -25,10 +25,10 @@ const ProfileNavbar = ({ user }) => {
       position: 'sticky',
       top: 0,
       zIndex: 200
-    }}>
+    }} aria-label="โปรไฟล์ผู้ใช้">
       <img
         src={getAvatarUrl(user?.avatar)}
-        alt="avatar"
+        alt={user?.name ? `รูปโปรไฟล์ของ ${user.name}` : 'รูปโปรไฟล์'}
         style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', background: '#eee', marginRight: 16 }}
         onError={e => { e.target.onerror = null; e.target.src = require('../img/blank-profile.png'); }}
       />

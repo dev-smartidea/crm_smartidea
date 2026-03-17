@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { EyeFill, CheckCircle, TrashFill, ThreeDotsVertical } from 'react-bootstrap-icons';
+import { EyeFill, CheckCircle, TrashFill, ThreeDotsVertical, ClockHistory } from 'react-bootstrap-icons';
 import './ActivityList.css';
 import '../pages/user/CustomerListPage.css'; // reuse dropdown styles
 
@@ -43,6 +43,7 @@ const ActivityList = ({ activities, onEdit, onDelete, onComplete }) => {
   if (!activities || activities.length === 0) {
     return (
       <div className="no-activities">
+        <ClockHistory size={36} style={{ opacity: 0.3, marginBottom: '8px' }} />
         <p>ยังไม่มีกิจกรรมสำหรับลูกค้านี้</p>
       </div>
     );
@@ -53,13 +54,13 @@ const ActivityList = ({ activities, onEdit, onDelete, onComplete }) => {
       <table>
         <thead>
           <tr>
-            <th>รหัสบริการ</th>
-            <th>ประเภทงาน</th>
-            <th>ชื่อ Project</th>
-            <th>สถานะ</th>
-            <th>กำหนดเสร็จ</th>
-            <th>สร้างเมื่อ</th>
-            <th>จัดการ</th>
+            <th scope="col">รหัสบริการ</th>
+            <th scope="col">ประเภทงาน</th>
+            <th scope="col">ชื่อ Project</th>
+            <th scope="col">สถานะ</th>
+            <th scope="col">กำหนดเสร็จ</th>
+            <th scope="col">สร้างเมื่อ</th>
+            <th scope="col">จัดการ</th>
           </tr>
         </thead>
         <tbody>
@@ -119,6 +120,8 @@ const ActivityRowMenu = ({ activity, onEdit, onDelete, onComplete, openMenuId, s
       <button 
         className="btn-dropdown-toggle" 
         onClick={toggle}
+        aria-label="เมนูจัดการ"
+        aria-expanded={isOpen}
       >
         <ThreeDotsVertical />
       </button>

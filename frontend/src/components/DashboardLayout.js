@@ -71,9 +71,9 @@ export default function DashboardLayout() {
     <>
       <ProfileNavbar user={user} />
       <div className="dashboard-layout">
-        <aside className="sidebar">
+        <aside className="sidebar" role="navigation" aria-label="เมนูหลัก">
           <ul className="nav-menu"> 
-            <li><NavLink to="/dashboard" end><HouseDoor /> Dashboard</NavLink></li>
+            <li><NavLink to="/dashboard" end><HouseDoor /> แดชบอร์ด</NavLink></li>
             <li><NavLink to="add"><PersonPlus /> เพิ่มลูกค้า</NavLink></li>
             <li><NavLink to="list"><People /> รายชื่อลูกค้า</NavLink></li>
             <li>

@@ -281,6 +281,8 @@ router.get('/ledger/export', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
+    const { startDate, endDate, bank, serviceType, search } = req.query;
+
     // ดึงข้อมูลทั้งหมด (ไม่ pagination) - เฉพาะรายการที่อนุมัติแล้ว
     const filter = {
       submissionStatus: 'approved'
@@ -289,11 +291,39 @@ router.get('/ledger/export', async (req, res) => {
       filter.userId = user.id;
     }
 
-    const transactions = await Transaction.find(filter)
+    // Filter by date range
+    if (startDate || endDate) {
+      filter.transactionDate = {};
+      if (startDate) filter.transactionDate.$gte = new Date(startDate);
+      if (endDate) filter.transactionDate.$lte = new Date(endDate);
+    }
+
+    // Filter by bank
+    if (bank) {
+      filter.bank = bank;
+    }
+
+    let transactions = await Transaction.find(filter)
       .populate('serviceId', 'name serviceType pageUrl price customerIdField cid')
       .populate('customerId', 'name customerCode')
       .sort({ transactionDate: -1 })
       .lean();
+
+    // Filter by serviceType (ต้องทำหลัง populate)
+    if (serviceType) {
+      transactions = transactions.filter(t => t.serviceId?.serviceType === serviceType);
+    }
+
+    // Filter by search keyword
+    if (search) {
+      const kw = search.toLowerCase();
+      transactions = transactions.filter(t =>
+        (t.customerId?.name || '').toLowerCase().includes(kw) ||
+        (t.serviceId?.pageUrl || '').toLowerCase().includes(kw) ||
+        (t.serviceId?.cid || '').toLowerCase().includes(kw) ||
+        (t.serviceId?.customerIdField || '').toLowerCase().includes(kw)
+      );
+    }
 
     // หา transaction แรกของแต่ละ service
     const serviceIds = [...new Set(transactions.map(t => t.serviceId?._id?.toString()).filter(Boolean))];

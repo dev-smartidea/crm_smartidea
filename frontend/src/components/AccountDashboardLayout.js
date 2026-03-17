@@ -50,9 +50,9 @@ export default function AccountDashboardLayout() {
     <>
       <ProfileNavbar user={user} />
       <div className="dashboard-layout">
-        <aside className="sidebar">
+        <aside className="sidebar" role="navigation" aria-label="เมนูบัญชี">
           <ul className="nav-menu"> 
-            <li><NavLink to="/dashboard/account" end><HouseDoor /> Dashboard</NavLink></li>
+            <li><NavLink to="/dashboard/account" end><HouseDoor /> แดชบอร์ด</NavLink></li>
             <li><NavLink to="alltransactions"><Wallet /> รายการรอพิจารณา</NavLink></li>
             <li><NavLink to="approved"><CheckCircleFill /> รายการที่อนุมัติแล้ว</NavLink></li>
             <li><NavLink to="rejected"><XCircleFill /> รายการที่ปฏิเสธ</NavLink></li>

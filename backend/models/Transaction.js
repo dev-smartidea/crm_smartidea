@@ -24,7 +24,12 @@ const transactionSchema = new mongoose.Schema({
   // สถานะการส่งให้ทีมบัญชี
   submissionStatus: { type: String, enum: ['none', 'submitted', 'approved', 'rejected'], default: 'none' },
   submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  submittedAt: { type: Date }
+  submittedAt: { type: Date },
+  // สถานะการตัดเงินจากบัตร
+  cardCharged: { type: Boolean, default: false },
+  cardChargedAt: { type: Date },
+  cardChargedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  cardChargedCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' }
 }, { timestamps: true });
 
 // Indexes to speed up typical queries (by service/user and recent first)

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { CheckCircleFill, Google, Facebook, Search, CashCoin, Wallet, Eye, Upload, XCircle } from 'react-bootstrap-icons';
+import toast from '../../utils/toast';
 import './ApprovedTransactionsPage.css';
 import '../shared/DashboardPage.css';
 import { getImageUrl } from '../../utils/imageHelper';
@@ -36,7 +37,7 @@ export default function ApprovedTransactionsPage() {
   const handleInlineSlipChange = async (txId, file) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert('ขนาดไฟล์ต้องไม่เกิน 5MB');
+      toast.warning('ขนาดไฟล์ต้องไม่เกิน 5MB');
       return;
     }
     try {
@@ -51,7 +52,7 @@ export default function ApprovedTransactionsPage() {
       return res.data;
     } catch (err) {
       const msg = err?.response?.data?.detail || err?.message || 'อัปโหลดสลิปไม่สำเร็จ';
-      alert(msg);
+      toast.error(msg);
     } finally {
       setUploadingId(null);
     }
@@ -73,7 +74,7 @@ export default function ApprovedTransactionsPage() {
       fetchAllData();
       setViewSlip(null);
     } catch (err) {
-      alert('ลบสลิปไม่สำเร็จ');
+      toast.error('ลบสลิปไม่สำเร็จ');
     }
   };
 
@@ -243,7 +244,16 @@ export default function ApprovedTransactionsPage() {
     return bankMap[bank] || 'badge-bank';
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>กำลังโหลด...</div>;
+  if (loading) return (
+    <div className="all-transaction-page fade-up">
+      <div className="transaction-container">
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="all-transaction-page">
@@ -399,9 +409,10 @@ export default function ApprovedTransactionsPage() {
 
         {/* Cards Grid */}
         {filteredTransactions.length === 0 ? (
-          <div className="empty-state">
+          <div className="empty-state" style={{ textAlign: 'center', padding: '64px 24px' }}>
             <CheckCircleFill size={64} color="#cbd5e1" />
-            <p>ไม่พบรายการที่อนุมัติ</p>
+            <p style={{ fontSize: '1.1rem', fontWeight: '600', color: '#475569', marginTop: '16px' }}>ไม่พบรายการที่อนุมัติ</p>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{(selectedCustomerId || selectedServiceId) ? 'ลองเปลี่ยนเงื่อนไขการค้นหา หรือล้างตัวกรอง' : 'รายการที่ผ่านการอนุมัติจะแสดงที่นี่'}</p>
           </div>
         ) : (
           <>
@@ -427,8 +438,13 @@ export default function ApprovedTransactionsPage() {
                     </span>
                   </div>
 
+                  {/* Transaction ID */}
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '6px', fontFamily: 'monospace' }}>
+                    TX: {tx._id}
+                  </div>
+
                   {/* Customer Name */}
-                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '8px' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '4px' }}>
                     {tx.customerName || '-'}
                   </div>
 
@@ -564,7 +580,7 @@ export default function ApprovedTransactionsPage() {
                   ← ก่อนหน้า
                 </button>
                 <div className="pagination-info">
-                  หน้า {currentPage} จาก {totalPages}
+                  หน้า {currentPage} จาก {totalPages} (ทั้งหมด {filteredTransactions.length} รายการ)
                 </div>
                 <button
                   className="pagination-btn"

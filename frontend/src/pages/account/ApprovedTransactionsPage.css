@@ -73,6 +73,21 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+.card-actions .btn-cut-done {
+  background: linear-gradient(135deg, #94a3b8 0%, #cbd5e1 100%);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: not-allowed;
+  opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 /* Disable hover/focus/active visual effects for action buttons */
 .card-actions .btn-approve:not(:disabled):hover,
 .card-actions .btn-reject:not(:disabled):hover,
