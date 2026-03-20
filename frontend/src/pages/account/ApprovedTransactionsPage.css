@@ -12,7 +12,7 @@
 }
 /* Transaction Card Action Buttons */
 .card-actions .btn-approve {
-  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  background: var(--color-success);
   color: #fff;
   border: none;
   padding: 8px 18px;
@@ -21,7 +21,6 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.16s;
-  box-shadow: 0 6px 14px rgba(34, 197, 94, 0.18);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -33,7 +32,7 @@
   cursor: not-allowed;
 }
 .card-actions .btn-reject {
-  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  background: var(--color-danger);
   color: #fff;
   border: none;
   padding: 8px 18px;
@@ -42,7 +41,6 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.16s;
-  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.18);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -54,7 +52,7 @@
   cursor: not-allowed;
 }
 .card-actions .btn-cut {
-  background: linear-gradient(135deg, #fbbf24 0%, #fde68a 100%);
+  background: var(--color-warning);
   color: #fff;
   border: none;
   padding: 8px 18px;
@@ -63,7 +61,6 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.16s;
-  box-shadow: 0 6px 14px rgba(251, 191, 36, 0.18);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -74,7 +71,7 @@
   cursor: not-allowed;
 }
 .card-actions .btn-cut-done {
-  background: linear-gradient(135deg, #94a3b8 0%, #cbd5e1 100%);
+  background: var(--color-text-placeholder);
   color: #fff;
   border: none;
   padding: 8px 18px;
@@ -98,55 +95,42 @@
 .card-actions .btn-approve:not(:disabled):active,
 .card-actions .btn-reject:not(:disabled):active,
 .card-actions .btn-cut:not(:disabled):active {
-  transform: translateY(-4px);
-  /* stronger, but subtle shadow while hovered */
-  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
   filter: none;
   opacity: 1;
   transition: transform 180ms ease, box-shadow 180ms ease;
   outline: none;
 }
 
-/* Ensure each button keeps its intended gradient on hover */
-.card-actions .btn-approve:not(:disabled):hover { background-image: linear-gradient(135deg, #22c55e 0%, #4ade80 100%) !important; }
-.card-actions .btn-reject:not(:disabled):hover { background-image: linear-gradient(135deg, #ef4444 0%, #f87171 100%) !important; }
-.card-actions .btn-cut:not(:disabled):hover { background-image: linear-gradient(135deg, #fbbf24 0%, #fde68a 100%) !important; }
+/* Ensure each button keeps its intended color on hover */
+.card-actions .btn-approve:not(:disabled):hover { background: var(--color-success-hover) !important; }
+.card-actions .btn-reject:not(:disabled):hover { background: var(--color-danger-hover) !important; }
+.card-actions .btn-cut:not(:disabled):hover { background: #d97706 !important; }
 .all-transaction-page {
   padding: 2rem;
-  background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--color-bg-page);
   min-height: 100vh;
 }
 
 .all-transaction-page .transaction-container {
   max-width: 1400px;
   margin: 0 auto;
-  background: #ffffff;
+  background: var(--color-bg-card);
   padding: 2.5rem;
-  border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
 }
 
 /* Override gallery header spacing inside transaction container */
 .all-transaction-page .gallery-header {
   margin: -2.5rem -2.5rem 2rem;
   padding: 2rem 2.5rem;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
+  background: var(--color-primary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   position: relative;
   overflow: hidden;
-}
-
-.all-transaction-page .gallery-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 400px;
-  height: 100%;
-  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
-  pointer-events: none;
 }
 
 /* Cut modal tweaks */
@@ -193,33 +177,32 @@
 
 .all-transaction-page .gallery-header .summary-card {
   background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 0.875rem 1.125rem !important;
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
   min-width: 160px !important;
 }
 
 .all-transaction-page .gallery-header .summary-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 1);
+  box-shadow: var(--shadow-md);
+  background: #ffffff;
 }
 
 .all-transaction-page .gallery-header .summary-card svg {
-  color: #3b82f6;
+  color: var(--color-primary);
   font-size: 1.5rem;
   flex-shrink: 0;
 }
 
 .all-transaction-page .gallery-header .summary-label {
   font-size: 0.6875rem !important;
-  color: #64748b;
+  color: var(--color-text-muted);
   margin-bottom: 0.25rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -229,7 +212,7 @@
 .all-transaction-page .gallery-header .summary-value {
   font-size: 1.125rem !important;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -239,32 +222,6 @@
   gap: 1.25rem;
   position: relative;
   z-index: 1;
-}
-
-.all-transaction-page .gallery-icon {
-  font-size: 2.5rem;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 1rem;
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-.all-transaction-page .gallery-header h2 {
-  margin: 0;
-  font-size: 1.875rem;
-  font-weight: 700;
-  color: #ffffff;
-  letter-spacing: -0.02em;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.all-transaction-page .gallery-subtitle {
-  margin: 0.375rem 0 0 0;
-  font-size: 0.9375rem;
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 400;
 }
 
 .all-transaction-page .header-content {
@@ -281,27 +238,27 @@
 
 .all-transaction-page .page-header-icon {
   font-size: 2.5rem;
-  color: #1976d2;
+  color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   width: 64px;
   height: 64px;
-  background: rgba(25, 118, 210, 0.1);
-  border-radius: 16px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius-lg);
 }
 
 .all-transaction-page .page-header h1 {
   margin: 0;
   font-size: 2rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text-primary);
 }
 
 .all-transaction-page .subtitle {
   margin: 4px 0 0 0;
   font-size: 0.95rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
 }
 
 .all-transaction-page .header-buttons {
@@ -310,25 +267,23 @@
 }
 
 .all-transaction-page .btn-add {
-  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  background: var(--color-success);
   color: white;
   border: none;
   padding: 12px 28px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
 .all-transaction-page .btn-add:hover {
-  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+  background: var(--color-success-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
 }
 
 /* Search Section */
@@ -343,28 +298,20 @@
   align-items: end;
 }
 
-.all-transaction-page .search-item .search-label {
-  display: block;
-  font-size: 0.9rem;
-  color: #6b7280;
-  margin-bottom: 6px;
-}
-
 .all-transaction-page .select-elevated {
   height: 44px;
   padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid #d7deea;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.08);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
   transition: all 0.2s ease;
 }
 
 .all-transaction-page .select-elevated:focus {
   outline: none;
-  border-color: #90b4ff;
-  box-shadow: 0 8px 22px rgba(13, 110, 253, 0.18), 0 0 0 4px rgba(13, 110, 253, 0.12);
-  background: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  background: var(--color-bg-card);
 }
 
 .all-transaction-page .btn-search {
@@ -382,10 +329,9 @@
   gap: 1rem;
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
 }
 
 .all-transaction-page .filter-group {
@@ -396,7 +342,7 @@
 .all-transaction-page .filter-label {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--color-text-secondary);
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
@@ -412,19 +358,19 @@
 .all-transaction-page .combobox-input {
   width: 100%;
   padding: 0.625rem 1rem;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
-  background: #ffffff;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--color-bg-card);
+  transition: all 0.2s ease;
   font-weight: 500;
 }
 
 .all-transaction-page .combobox-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
-  background: #ffffff;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  background: var(--color-bg-card);
 }
 
 .all-transaction-page .combobox-dropdown {
@@ -432,13 +378,13 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   margin-top: 4px;
   max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   z-index: 100;
 }
 
@@ -459,7 +405,7 @@
 }
 
 .all-transaction-page .combobox-option:hover {
-  background: #f3f4f6;
+  background: var(--color-bg-hover);
 }
 
 /* Stats Row */
@@ -471,29 +417,28 @@
 }
 
 .all-transaction-page .stat-card {
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .all-transaction-page .stat-value {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--color-text-primary);
   margin-bottom: 4px;
 }
 
 .all-transaction-page .stat-label {
   font-size: 0.9rem;
-  color: #6b7280;
+  color: var(--color-text-muted);
 }
 
 /* Transactions Table */
 .all-transaction-page .transactions-section {
-  background: white;
-  border-radius: 12px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   overflow: hidden;
   margin-bottom: 24px;
 }
@@ -508,15 +453,15 @@
 }
 
 .all-transaction-page .transaction-table thead {
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  border-bottom: 2px solid #e2e8f0;
+  background: var(--color-bg-hover);
+  border-bottom: 2px solid var(--color-border);
 }
 
 .all-transaction-page .transaction-table th {
   padding: 1rem 1.25rem;
   text-align: left;
   font-weight: 600;
-  color: #334155;
+  color: var(--color-text-secondary);
   font-size: 0.8125rem;
   white-space: nowrap;
   text-transform: uppercase;
@@ -526,41 +471,40 @@
 
 .all-transaction-page .transaction-table td {
   padding: 1.125rem 1.25rem;
-  border-bottom: 1px solid #f1f5f9;
-  color: #475569;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   vertical-align: middle;
 }
 
 .all-transaction-page .transaction-table tbody tr {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
   border-left: 3px solid transparent;
 }
 
 .all-transaction-page .transaction-table tbody tr:hover {
-  background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
-  border-left-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transform: translateX(2px);
+  background: var(--color-bg-hover);
+  border-left-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .all-transaction-page .customer-name {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary);
 }
 
 .all-transaction-page .service-name {
-  color: #6b7280;
+  color: var(--color-text-muted);
 }
 
 .all-transaction-page .amount {
   font-weight: 700;
-  color: #22c55e;
+  color: var(--color-success);
   font-size: 1.05rem;
 }
 
 .all-transaction-page .notes {
-  color: #6b7280;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
@@ -569,7 +513,7 @@
 }
 
 .all-transaction-page .note-text {
-  color: #374151;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   margin-bottom: 8px;
 }
@@ -582,7 +526,7 @@
 
 .all-transaction-page .breakdown-item {
   font-size: 0.85rem;
-  color: #374151;
+  color: var(--color-text-secondary);
   padding: 2px 0;
   background: none;
   border-radius: 0;
@@ -590,29 +534,29 @@
 }
 
 .all-transaction-page .breakdown-item strong {
-  color: #1976d2;
+  color: var(--color-primary);
   font-weight: 700;
 }
 
 /* New fine-grained breakdown span styles */
 .all-transaction-page .bd-code {
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 .all-transaction-page .bd-sep {
-  color: #6b7280;
+  color: var(--color-text-muted);
   font-weight: 500;
 }
 .all-transaction-page .bd-label {
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 .all-transaction-page .bd-amount {
-  color: #0d6efd;
+  color: var(--color-primary);
   font-weight: 600;
 }
 .all-transaction-page .bd-status {
-  color: #6b7280;
+  color: var(--color-text-muted);
 }
 
 .all-transaction-page .badge {
@@ -633,54 +577,52 @@
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.15s;
 }
 
 .all-transaction-page .badge-bank:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .all-transaction-page .badge-bank.kbank {
-  background: linear-gradient(135deg, #138F63 0%, #0ea76e 100%);
+  background: #138F63;
   color: #fff;
 }
 
 .all-transaction-page .badge-bank.scb {
-  background: linear-gradient(135deg, #4E2C8F 0%, #5a35a3 100%);
+  background: #4E2C8F;
   color: #fff;
 }
 
 .all-transaction-page .badge-bank.bbl {
-  background: linear-gradient(135deg, #1E4598 0%, #2351b5 100%);
+  background: #1E4598;
   color: #fff;
 }
 
 .all-transaction-page .badge-bank.ktb {
-  background: linear-gradient(135deg, #1BA5E1 0%, #24b8f5 100%);
+  background: #1BA5E1;
   color: #fff;
 }
 
 .all-transaction-page .badge-bank.ttb {
-  background: linear-gradient(135deg, #FF6A13 0%, #ff7d2e 100%);
+  background: #FF6A13;
   color: #fff;
 }
 
 .all-transaction-page .badge-bank.bay {
-  background: linear-gradient(135deg, #FEC43B 0%, #ffd058 100%);
+  background: #FEC43B;
   color: #333;
 }
 
 .all-transaction-page .badge-bank.other {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-border);
+  color: var(--color-text-secondary);
 }
 
 .all-transaction-page .btn-view-slip {
-  background: #fff;
-  color: #1976d2;
-  border: 1.5px solid #1976d2;
+  background: var(--color-bg-card);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-primary);
   padding: 6px 14px;
   border-radius: 8px;
   font-size: 0.85rem;
@@ -693,15 +635,14 @@
 }
 
 .all-transaction-page .btn-view-slip:hover {
-  background: #1976d2;
+  background: var(--color-primary);
   color: #fff;
-  transform: translateY(-2px);
 }
 
 .all-transaction-page .btn-delete-small {
-  background: #fff;
-  color: #dc3545;
-  border: 1.5px solid #dc3545;
+  background: var(--color-bg-card);
+  color: var(--color-danger);
+  border: 1.5px solid var(--color-danger);
   padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
@@ -709,13 +650,12 @@
 }
 
 .all-transaction-page .btn-delete-small:hover {
-  background: #dc3545;
+  background: var(--color-danger);
   color: #fff;
-  transform: translateY(-2px);
 }
 
 .all-transaction-page .text-muted {
-  color: #9ca3af;
+  color: var(--color-text-placeholder);
   font-size: 0.9rem;
 }
 
@@ -732,8 +672,8 @@
 .all-transaction-page .spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid #f3f4f6;
-  border-top-color: #1976d2;
+  border: 4px solid var(--color-border);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -743,7 +683,7 @@
 }
 
 .all-transaction-page .loading-state p {
-  color: #666;
+  color: var(--color-text-muted);
   font-size: 1rem;
   margin: 0;
 }
@@ -754,7 +694,7 @@
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  color: #9ca3af;
+  color: var(--color-text-placeholder);
   gap: 16px;
 }
 
@@ -772,42 +712,32 @@
 }
 
 .all-transaction-page .summary-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 1.75rem;
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-}
-
-.all-transaction-page .summary-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
+  border-left: 3px solid var(--color-primary);
 }
 
 .all-transaction-page .summary-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-md);
 }
 
 .all-transaction-page .summary-card svg {
-  color: #3b82f6;
+  color: var(--color-primary);
   font-size: 2rem;
 }
 
 .all-transaction-page .summary-label {
   font-size: 0.8125rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   margin-bottom: 0.375rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -817,7 +747,7 @@
 .all-transaction-page .summary-value {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--color-text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -833,34 +763,32 @@
 
 .all-transaction-page .pagination-btn {
   padding: 0.625rem 1.5rem;
-  border: 2px solid #e2e8f0;
-  background: #ffffff;
-  border-radius: 10px;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-weight: 600;
-  color: #475569;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
   font-size: 0.875rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .all-transaction-page .pagination-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--color-primary);
   color: white;
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
 .all-transaction-page .pagination-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-  background: #f8fafc;
+  background: var(--color-bg-hover);
 }
 
 .all-transaction-page .pagination-info {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 600;
   padding: 0 0.5rem;
 }
@@ -868,21 +796,21 @@
 /* Additional styles for table cells */
 .all-transaction-page .amount-cell {
   font-weight: 700;
-  color: #16a34a;
+  color: var(--color-success);
   font-size: 1.0625rem;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
 .all-transaction-page .notes-text {
-  color: #374151;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   margin-bottom: 6px;
 }
 
 .all-transaction-page .breakdown-list {
   font-size: 0.85rem;
-  color: #475569;
+  color: var(--color-text-secondary);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -897,17 +825,17 @@
 
 .all-transaction-page .breakdown-code {
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .all-transaction-page .breakdown-amount {
-  color: #0d6efd;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 .all-transaction-page .breakdown-status {
   opacity: 0.8;
-  color: #6b7280;
+  color: var(--color-text-muted);
 }
 
 /* Status badges */
@@ -925,28 +853,27 @@
 }
 
 .all-transaction-page .status-approved {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  color: #065f46;
-  border: 1.5px solid #6ee7b7;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  background: var(--color-success-light);
+  color: var(--color-success-hover);
+  border: 1px solid var(--color-success);
 }
 
 .all-transaction-page .status-submitted {
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #3b82f6;
+  background: var(--color-info-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
 }
 
 .all-transaction-page .status-rejected {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #ef4444;
+  background: var(--color-danger-light);
+  color: var(--color-danger-hover);
+  border: 1px solid var(--color-danger);
 }
 
 .all-transaction-page .status-draft {
-  background: #f9fafb;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
+  background: var(--color-bg-hover);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
 }
 
 /* Empty state */
@@ -957,16 +884,16 @@
   justify-content: center;
   padding: 5rem 2rem;
   gap: 1rem;
-  color: #94a3b8;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 16px;
-  border: 2px dashed #cbd5e1;
+  color: var(--color-text-placeholder);
+  background: var(--color-bg-hover);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--color-border);
 }
 
 .all-transaction-page .empty-state p {
   font-size: 1rem;
   margin: 0.5rem 0 0 0;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-weight: 500;
 }
 

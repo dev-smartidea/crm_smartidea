@@ -66,6 +66,10 @@ router.get('/ledger', async (req, res) => {
           path: 'userId',
           select: 'name username'
         })
+        .populate({
+          path: 'cardChargedCardId',
+          select: 'displayName last4'
+        })
         .sort({ transactionDate: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -174,8 +178,8 @@ router.get('/ledger', async (req, res) => {
         customerCode: service.customerIdField || service.cid || customer.customerCode || '-',
         customerName: customer.name || '-',
         // บัตรเลขที่
-        cardNumber: t.cardNumber || '-',
-        cardTime: t.cardTime || '-',
+        cardNumber: t.cardNumber || (t.cardChargedCardId ? `${t.cardChargedCardId.displayName} (${t.cardChargedCardId.last4})` : '-'),
+        cardTime: t.cardTime || (t.cardChargedAt ? new Date(t.cardChargedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'),
         // ธนาคารและวันเวลา
         bank: t.bank || '-',
         transactionDate: t.transactionDate,
@@ -189,14 +193,14 @@ router.get('/ledger', async (req, res) => {
         newCustomerFB: newCustomerFB, // ลูกค้าใหม่ FB
         renewFB: renewFB, // ต่ออายุ FB
         clickCost: code11, // ค่าคลิก (11)
-        prepaid: code15, // โดนเบิกล่วงหน้า (15)
-        coupon: code16, // คูปอง (16)
+        prepaid: t.prepaid != null ? t.prepaid : code15, // สำรอง
+        coupon: t.coupon != null ? t.coupon : code16, // คูปอง
         // Hosting Domain
         hostingDomain: code20,
         vatHostingDomain: code19,
-        // Invoice (ยังไม่ใช้)
-        invGG: null,
-        invFB: null,
+        // Invoice
+        invGG: t.invGG != null ? t.invGG : null,
+        invFB: t.invFB != null ? t.invFB : null,
         // VAT
         vat36: vat36 > 0 ? vat36 : null,
         vat30: vat30 > 0 ? vat30 : null,
@@ -252,11 +256,15 @@ router.patch('/ledger/:id', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { cardNumber, cardTime } = req.body;
+    const { cardNumber, cardTime, prepaid, coupon, invGG, invFB } = req.body;
     const updateData = {};
     
     if (cardNumber !== undefined) updateData.cardNumber = cardNumber;
     if (cardTime !== undefined) updateData.cardTime = cardTime;
+    if (prepaid !== undefined) updateData.prepaid = prepaid === '' ? null : Number(prepaid);
+    if (coupon !== undefined) updateData.coupon = coupon === '' ? null : Number(coupon);
+    if (invGG !== undefined) updateData.invGG = invGG === '' ? null : Number(invGG);
+    if (invFB !== undefined) updateData.invFB = invFB === '' ? null : Number(invFB);
 
     const transaction = await Transaction.findByIdAndUpdate(
       req.params.id,
@@ -306,6 +314,7 @@ router.get('/ledger/export', async (req, res) => {
     let transactions = await Transaction.find(filter)
       .populate('serviceId', 'name serviceType pageUrl price customerIdField cid')
       .populate('customerId', 'name customerCode')
+      .populate('cardChargedCardId', 'displayName last4')
       .sort({ transactionDate: -1 })
       .lean();
 
@@ -408,17 +417,17 @@ router.get('/ledger/export', async (req, res) => {
         t.transactionTime || '-',
         t.amount,
         t.submissionStatus || 'none',
-        t.cardNumber || '-',
-        t.cardTime || '-',
+        t.cardNumber || (t.cardChargedCardId ? `${t.cardChargedCardId.displayName} (${t.cardChargedCardId.last4})` : '-'),
+        t.cardTime || (t.cardChargedAt ? new Date(t.cardChargedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'),
         newCustomerGG || '',
         renewGG || '',
         newCustomerFB || '',
         renewFB || '',
         code11 || '',
-        code15 || '',
-        code16 || '',
-        '', // Inv. GG (ยังไม่ใช้)
-        '', // Inv. FB (ยังไม่ใช้)
+        (t.prepaid != null ? t.prepaid : code15) || '',
+        (t.coupon != null ? t.coupon : code16) || '',
+        t.invGG != null ? t.invGG : '',
+        t.invFB != null ? t.invFB : '',
         vat36 ? vat36.toFixed(2) : '',
         vat30 ? vat30.toFixed(2) : '',
         netAmount.toFixed(2),

@@ -39,11 +39,11 @@ export default function AccountDashboardPage() {
       data: [],
       backgroundColor: [
         '#2563eb',
-        '#3b82f6', 
-        '#60a5fa',
-        '#93c5fd',
-        '#1e40af',
-        '#1e3a8a'
+        '#22c55e', 
+        '#f59e0b',
+        '#ef4444',
+        '#3b82f6',
+        '#6366f1'
       ],
       borderWidth: 0
     }]
@@ -62,7 +62,7 @@ export default function AccountDashboardPage() {
     labels: [],
     datasets: [{
       data: [],
-      backgroundColor: ['#1976d2', '#43a047', '#fb8500'],
+      backgroundColor: ['#2563eb', '#22c55e', '#f59e0b'],
       borderWidth: 0
     }]
   });
@@ -72,15 +72,15 @@ export default function AccountDashboardPage() {
       {
         label: 'โอนเข้า',
         data: [],
-        backgroundColor: '#43a047',
-        borderColor: '#43a047',
+        backgroundColor: '#22c55e',
+        borderColor: '#22c55e',
         borderWidth: 1
       },
       {
         label: 'โอนออก',
         data: [],
-        backgroundColor: '#f44336',
-        borderColor: '#f44336',
+        backgroundColor: '#ef4444',
+        borderColor: '#ef4444',
         borderWidth: 1
       }
     ]
@@ -217,12 +217,12 @@ export default function AccountDashboardPage() {
         // ใช้ข้อมูล sales by service จาก backend
         if (dashboardData.salesByService && dashboardData.salesByService.labels.length > 0) {
           // กำหนดสีตามชื่อบริการ
-          const colors = dashboardData.salesByService.labels.map(label => {
-            if (label.toLowerCase().includes('google')) return '#10b981'; // สีเขียว
+          const colors = dashboardData.salesByService.labels.map((label, idx) => {
+            if (label.toLowerCase().includes('google')) return '#22c55e'; // สีเขียว
             if (label.toLowerCase().includes('facebook')) return '#3b82f6'; // สีฟ้า
             // สีเริ่มต้นสำหรับบริการอื่นๆ
-            const defaultColors = ['#2563eb', '#60a5fa', '#93c5fd', '#1e40af', '#1e3a8a', '#6366f1'];
-            return defaultColors[Math.floor(Math.random() * defaultColors.length)];
+            const defaultColors = ['#2563eb', '#f59e0b', '#ef4444', '#6366f1', '#3b82f6', '#22c55e'];
+            return defaultColors[idx % defaultColors.length];
           });
 
           setSalesByProduct({
@@ -280,15 +280,15 @@ export default function AccountDashboardPage() {
             {
               label: 'โอนเข้า',
               data: topupTrend,
-              backgroundColor: '#43a047',
-              borderColor: '#43a047',
+              backgroundColor: '#22c55e',
+              borderColor: '#22c55e',
               borderWidth: 1
             },
             {
               label: 'โอนออก',
               data: chargeTrend,
-              backgroundColor: '#f44336',
-              borderColor: '#f44336',
+              backgroundColor: '#ef4444',
+              borderColor: '#ef4444',
               borderWidth: 1
             }
           ]
@@ -360,9 +360,9 @@ export default function AccountDashboardPage() {
     
     // กำหนดสีตามช่องทาง
     const channelColors = filteredChannels.map(([label]) => {
-      if (label === 'Google Ads') return '#10b981'; // สีเขียว
+      if (label === 'Google Ads') return '#22c55e'; // สีเขียว
       if (label === 'Facebook Ads') return '#3b82f6'; // สีฟ้า
-      return '#fb8500'; // สีส้มสำหรับ Other
+      return '#f59e0b'; // สีส้มสำหรับ Other
     });
     
     setChannelBreakdown({
@@ -379,7 +379,7 @@ export default function AccountDashboardPage() {
     return (
       <div className="account-dashboard-container">
         <div className="dashboard-loading">
-          <div className="spinner" style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <div className="spinner" style={{ width: 36, height: 36, border: '3px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           กำลังโหลดข้อมูล...
         </div>
       </div>
@@ -565,7 +565,7 @@ export default function AccountDashboardPage() {
                     ticks: { font: { size: 10 } }
                   },
                   y: {
-                    grid: { color: '#f0f0f0' },
+                    grid: { color: '#e2e8f0' },
                     beginAtZero: true,
                     ticks: {
                       callback: (value) => `${(value / 1000).toFixed(0)}K`
@@ -639,9 +639,9 @@ export default function AccountDashboardPage() {
                 }
               },
               scales: {
-                x: { grid: { color: '#f0f0f0' } },
+                x: { grid: { color: '#e2e8f0' } },
                 y: {
-                  grid: { color: '#f0f0f0' },
+                  grid: { color: '#e2e8f0' },
                   beginAtZero: true,
                   ticks: {
                     callback: (value) => `฿${value.toLocaleString()}`

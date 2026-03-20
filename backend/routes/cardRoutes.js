@@ -181,7 +181,9 @@ router.post('/cards/charge', async (req, res) => {
         cardCharged: true,
         cardChargedAt: new Date(),
         cardChargedBy: user.id,
-        cardChargedCardId: cardId
+        cardChargedCardId: cardId,
+        cardNumber: card.last4 || card.displayName,
+        cardTime: chargeTime || ''
       });
     }
 
@@ -189,6 +191,30 @@ router.post('/cards/charge', async (req, res) => {
   } catch (err) {
     console.error('Charge failed:', err);
     res.status(500).json({ error: 'Charge failed', detail: err.message });
+  }
+});
+
+// GET /api/cards/charge-history/:transactionId - charge history for a transaction
+router.get('/cards/charge-history/:transactionId', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!requireAccountOrAdmin(user)) return res.status(403).json({ error: 'Forbidden' });
+
+    const charges = await CardLedger.find({
+      reference: req.params.transactionId,
+      type: 'charge'
+    })
+      .sort({ createdAt: -1 })
+      .populate('cardId', 'displayName last4')
+      .lean();
+
+    res.json({
+      count: charges.length,
+      last: charges[0] || null
+    });
+  } catch (err) {
+    console.error('Charge history failed:', err);
+    res.status(500).json({ error: 'Failed to fetch charge history' });
   }
 });
 
@@ -393,6 +419,101 @@ router.get('/cards/ledger/all', async (req, res) => {
   } catch (err) {
     console.error('Get all ledger failed:', err);
     res.status(500).json({ error: 'Failed to fetch ledger', detail: err.message });
+  }
+});
+
+// GET /api/cards/daily-summary?date=YYYY-MM-DD
+// Approach C: Transactions (cardCharged=true) for charges + CardLedger (type=topup) for topups
+router.get('/cards/daily-summary', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!requireAccountOrAdmin(user)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { date } = req.query; // YYYY-MM-DD
+    if (!date) return res.status(400).json({ error: 'date is required' });
+
+    const dayStart = new Date(date + 'T00:00:00.000Z');
+    const dayEnd = new Date(date + 'T23:59:59.999Z');
+
+    const Transaction = require('../models/Transaction');
+
+    // Charges: from CardLedger (type=charge) to get the actual charged amount,
+    // then join with Transaction (via reference) for detail info
+    const chargeLedgers = await CardLedger.find({
+      type: 'charge',
+      createdAt: { $gte: dayStart, $lte: dayEnd }
+    })
+      .populate('cardId', 'displayName last4')
+      .populate('createdBy', 'name')
+      .sort({ createdAt: -1 });
+
+    // Fetch related transactions for detail
+    const txIds = chargeLedgers.map(l => l.reference).filter(Boolean);
+    const transactions = await Transaction.find({ _id: { $in: txIds } })
+      .populate('serviceId', 'pageUrl serviceType cid customerIdField')
+      .populate('customerId', 'name customerCode');
+    const txMap = {};
+    transactions.forEach(t => { txMap[String(t._id)] = t; });
+
+    const chargeItems = chargeLedgers.map(l => {
+      const t = txMap[l.reference] || {};
+      return {
+        _id: l._id,
+        type: 'charge',
+        amount: l.amount, // ยอดที่ตัดจริงจาก CardLedger
+        transactionAmount: t.amount || null, // ยอด Transaction เดิม
+        cardName: l.cardId?.displayName || '-',
+        cardLast4: l.cardId?.last4 || '',
+        cardId: l.cardId?._id || null,
+        cardTime: l.chargeTime || t.cardTime || '',
+        channel: l.channel || t.serviceId?.serviceType || '-',
+        accountName: t.serviceId?.pageUrl || t.customerId?.name || '-',
+        cid: t.serviceId?.customerIdField || t.serviceId?.cid || '-',
+        bank: t.bank || '-',
+        transactionDate: t.transactionDate || l.createdAt,
+        chargedAt: l.createdAt,
+        chargedBy: l.createdBy?.name || '-',
+        note: l.note || '',
+        balanceAfter: l.balanceAfter,
+        breakdowns: (l.breakdowns || []).map(bd => ({ code: bd.code, amount: bd.amount }))
+      };
+    });
+
+    // Topups: card ledger entries of type topup on the selected date
+    const topups = await CardLedger.find({
+      type: 'topup',
+      createdAt: { $gte: dayStart, $lte: dayEnd }
+    })
+      .populate('cardId', 'displayName last4')
+      .populate('createdBy', 'name')
+      .sort({ createdAt: -1 });
+
+    const topupItems = topups.map(l => ({
+      _id: l._id,
+      type: 'topup',
+      amount: l.amount,
+      cardName: l.cardId?.displayName || '-',
+      cardLast4: l.cardId?.last4 || '',
+      cardId: l.cardId?._id || null,
+      cardTime: '',
+      channel: '-',
+      accountName: '-',
+      cid: '-',
+      bank: '-',
+      transactionDate: l.createdAt,
+      chargedAt: l.createdAt,
+      chargedBy: l.createdBy?.name || '-',
+      note: l.note || '',
+      balanceAfter: l.balanceAfter,
+      breakdowns: []
+    }));
+
+    res.json({ charges: chargeItems, topups: topupItems });
+  } catch (err) {
+    console.error('Daily summary failed:', err);
+    res.status(500).json({ error: 'Failed to fetch daily summary', detail: err.message });
   }
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { CheckCircle, XCircle, Google, Facebook, Wallet, CashCoin, Eye, Upload } from 'react-bootstrap-icons';
 import toast from '../../utils/toast';
@@ -10,16 +10,10 @@ import '../user/TransactionHistoryPage.css';
 
 export default function AccountTransactionsPage() {
   const [items, setItems] = useState([]);
-  const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
-  const [showCutModal, setShowCutModal] = useState(false);
-  const [selectedTxForCut, setSelectedTxForCut] = useState(null);
-  const [selectedCardForCut, setSelectedCardForCut] = useState('');
-  const [loadingCards, setLoadingCards] = useState(false);
-  const [cuttingMoney, setCuttingMoney] = useState(false);
   
   // Pagination
   const pageSize = 6;
@@ -54,66 +48,7 @@ export default function AccountTransactionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchCards = async () => {
-    try {
-      setLoadingCards(true);
-      const res = await axios.get(`${api}/api/cards`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setCards(res.data || []);
-    } catch (e) {
-      console.error('Load cards failed:', e);
-      setCards([]);
-    } finally {
-      setLoadingCards(false);
-    }
-  };
 
-  const openCutModal = async (txId) => {
-    setSelectedTxForCut(txId);
-    setShowCutModal(true);
-    // fetch cards when opening
-    await fetchCards();
-  };
-
-  const closeCutModal = () => {
-    setShowCutModal(false);
-    setSelectedTxForCut(null);
-    setSelectedCardForCut('');
-  };
-
-  const handleConfirmCut = async () => {
-    const tx = items.find(t => t._id === selectedTxForCut);
-    if (!tx || !selectedCardForCut) return;
-
-    try {
-      setCuttingMoney(true);
-      await axios.post(`${api}/api/cards/charge`, {
-        cardId: selectedCardForCut,
-        amount: tx.amount,
-        channel: tx.serviceType || 'Other',
-        reference: tx._id,
-        note: `ตัดเงินจากรายการ ${tx.customer?.name || '-'}`,
-        chargeTime: new Date().toISOString(),
-        serviceId: tx.service?._id || undefined,
-        breakdowns: (tx.breakdowns || []).map(bd => ({
-          code: bd.code,
-          label: getBreakdownLabel(bd.code),
-          amount: bd.amount
-        }))
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('ตัดเงินจากบัตรสำเร็จ');
-      closeCutModal();
-      fetchSubmitted();
-    } catch (e) {
-      const msg = e?.response?.data?.error || 'ตัดเงินไม่สำเร็จ';
-      toast.error(msg);
-    } finally {
-      setCuttingMoney(false);
-    }
-  };
 
   const handleApprove = async (txId) => {
     if (!window.confirm('ยืนยันอนุมัติรายการนี้?')) return;
@@ -460,15 +395,6 @@ export default function AccountTransactionsPage() {
                       >
                         <XCircle size={20} /> ปฏิเสธ
                       </button>
-                      <button
-                        className={tx.cardCharged ? 'btn-cut-done' : 'btn-cut'}
-                        disabled={processingId === tx._id || tx.cardCharged}
-                        title={tx.cardCharged ? 'ตัดเงินแล้ว' : 'ตัดเงิน'}
-                        aria-label={`ตัดเงินรายการ ${tx.customer?.name || ''}`}
-                        onClick={() => !tx.cardCharged && openCutModal(tx._id)}
-                      >
-                        <CashCoin size={20} /> {tx.cardCharged ? 'ตัดแล้ว ✓' : 'ตัดเงิน'}
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -528,44 +454,7 @@ export default function AccountTransactionsPage() {
           </div>
         </div>
       )}
-      {/* Cut Money Modal (UI only) */}
-      {showCutModal && (
-        <div className="modal-backdrop" onClick={closeCutModal} style={{ zIndex: 10000 }} role="dialog" aria-modal="true" aria-label="ตัดเงินจากบัตร" onKeyDown={(e) => e.key === 'Escape' && closeCutModal()}>
-          <div className="modal-content cut-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header" style={{ justifyContent: 'space-between' }}>
-              <h3 style={{ margin: 0 }}>ตัดเงินจากบัตร</h3>
-              <button onClick={closeCutModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }} aria-label="ปิด">
-                <XCircle />
-              </button>
-            </div>
-            <div className="modal-body">
-              <label style={{ display: 'block', marginBottom: '8px', color: '#374151' }}>เลือกบัตรที่จะตัดเงิน <span style={{ color: 'var(--color-danger, #ef4444)' }}>*</span></label>
-              {loadingCards ? (
-                <div>กำลังโหลดบัตร...</div>
-              ) : (
-                <select value={selectedCardForCut} onChange={e => setSelectedCardForCut(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-                  <option value="">-- เลือกบัตร --</option>
-                  {cards
-                    .filter(c => {
-                      const tx = items.find(t => t._id === selectedTxForCut);
-                      if (!tx?.serviceType || !c.channels?.length) return true;
-                      return c.channels.includes(tx.serviceType);
-                    })
-                    .map(c => (
-                      <option key={c._id} value={c._id}>{c.displayName || c.name || 'Card'} {c.last4 ? `(${c.last4})` : ''}</option>
-                    ))}
-                </select>
-              )}
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button className="btn-reject" onClick={closeCutModal}>ยกเลิก</button>
-              <button className="btn-approve" onClick={handleConfirmCut} disabled={!selectedCardForCut || cuttingMoney}>
-                {cuttingMoney ? 'กำลังตัดเงิน...' : 'ยืนยัน'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

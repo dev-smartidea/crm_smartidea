@@ -22,9 +22,7 @@ export default function ApprovedTransactionsPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [serviceQuery, setServiceQuery] = useState('');
-  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
+  const [transactionIdQuery, setTransactionIdQuery] = useState('');
   
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -113,66 +111,32 @@ export default function ApprovedTransactionsPage() {
       result = result.filter(tx => tx.serviceId?.customerId?._id === selectedCustomerId);
     }
     
-    // กรองตามบริการ
-    if (selectedServiceId) {
-      result = result.filter(tx => tx.serviceId?._id === selectedServiceId);
+    // กรองตาม Transaction ID
+    if (transactionIdQuery.trim()) {
+      const q = transactionIdQuery.trim().toLowerCase();
+      result = result.filter(tx => tx._id?.toLowerCase().includes(q));
     }
     
     setFilteredTransactions(result);
     setCurrentPage(1);
-  }, [transactions, selectedCustomerId, selectedServiceId]);
+  }, [transactions, selectedCustomerId, transactionIdQuery]);
 
   // ฟังก์ชันล้างค่าการค้นหา
   const handleClearFilters = () => {
     setSelectedCustomerId('');
     setCustomerQuery('');
-    setSelectedServiceId('');
-    setServiceQuery('');
+    setTransactionIdQuery('');
   };
 
   useEffect(() => {
     handleSearch();
   }, [handleSearch]);
 
-  // เคลียร์บริการเมื่อเปลี่ยนลูกค้า
-  useEffect(() => {
-    setSelectedServiceId('');
-    setServiceQuery('');
-  }, [selectedCustomerId]);
-
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const pageItems = filteredTransactions.slice(startIndex, endIndex);
-
-  // Filter services และ customers ที่มีใน transactions
-  // ถ้าเลือกลูกค้าแล้ว จะแสดงเฉพาะบริการของลูกค้านั้น
-  const uniqueServices = transactions
-    .filter(tx => {
-      if (!selectedCustomerId) return true; // ถ้าไม่ได้เลือกลูกค้า แสดงทั้งหมด
-      return tx.serviceId?.customerId?._id === selectedCustomerId;
-    })
-    .filter(tx => tx.serviceId?._id && tx.serviceName)
-    .reduce((acc, tx) => {
-      const serviceId = tx.serviceId._id;
-      if (!acc.find(s => s.id === serviceId)) {
-        acc.push({
-          id: serviceId,
-          name: tx.serviceName,
-          customerIdField: tx.serviceId.customerIdField || '',
-          displayText: tx.serviceId.customerIdField 
-            ? `${tx.serviceName} : ${tx.serviceId.customerIdField}`
-            : tx.serviceName
-        });
-      }
-      return acc;
-    }, [])
-    .sort((a, b) => a.name.localeCompare(b.name, 'th'));
-  
-  const filteredServices = uniqueServices.filter(s =>
-    s.displayText.toLowerCase().includes(serviceQuery.toLowerCase())
-  );
 
   // ลูกค้าที่มีใน transactions เท่านั้น
   const uniqueCustomers = transactions
@@ -336,59 +300,30 @@ export default function ApprovedTransactionsPage() {
               </div>
             </div>
 
-            {/* ค้นหาตามบริการ */}
+            {/* ค้นหาตาม Transaction ID */}
             <div className="filter-group">
               <label className="filter-label">
                 <Search size={16} />
-                ค้นหาตามบริการ
+                ค้นหาตาม Transaction ID
               </label>
-              <div className="combobox-wrapper">
-                <input
-                  type="text"
-                  className="combobox-input"
-                  placeholder="พิมพ์ชื่อบริการ..."
-                  value={serviceQuery}
-                  onChange={(e) => setServiceQuery(e.target.value)}
-                  onFocus={() => setShowServiceDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowServiceDropdown(false), 300)}
-                />
-                {showServiceDropdown && filteredServices.length > 0 && (
-                  <div className="combobox-dropdown">
-                    <div
-                      className="combobox-option"
-                      onClick={() => {
-                        setSelectedServiceId('');
-                        setServiceQuery('');
-                      }}
-                    >
-                      ทั้งหมด
-                    </div>
-                    {filteredServices.map(s => (
-                      <div
-                        key={s.id}
-                        className="combobox-option"
-                        onClick={() => {
-                          setSelectedServiceId(s.id);
-                          setServiceQuery(s.displayText);
-                        }}
-                      >
-                        {s.displayText}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <input
+                type="text"
+                className="combobox-input"
+                placeholder="พิมพ์ Transaction ID..."
+                value={transactionIdQuery}
+                onChange={(e) => setTransactionIdQuery(e.target.value)}
+              />
             </div>
 
             {/* ปุ่มล้างค่าการค้นหา */}
-            {(selectedCustomerId || selectedServiceId) && (
+            {(selectedCustomerId || transactionIdQuery) && (
               <div className="filter-group" style={{ alignSelf: 'flex-end' }}>
                 <button
                   className="btn-clear-filters"
                   onClick={handleClearFilters}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#64748b',
+                    backgroundColor: 'var(--color-text-muted)',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
@@ -397,8 +332,8 @@ export default function ApprovedTransactionsPage() {
                     fontWeight: '500',
                     transition: 'all 0.2s'
                   }}
-                  onMouseOver={(e) => e.target.style.backgroundColor = '#475569'}
-                  onMouseOut={(e) => e.target.style.backgroundColor = '#64748b'}
+                  onMouseOver={(e) => e.target.style.backgroundColor = 'var(--color-text-secondary)'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = 'var(--color-text-muted)'}
                 >
                   ล้างตัวกรอง
                 </button>
@@ -410,9 +345,9 @@ export default function ApprovedTransactionsPage() {
         {/* Cards Grid */}
         {filteredTransactions.length === 0 ? (
           <div className="empty-state" style={{ textAlign: 'center', padding: '64px 24px' }}>
-            <CheckCircleFill size={64} color="#cbd5e1" />
-            <p style={{ fontSize: '1.1rem', fontWeight: '600', color: '#475569', marginTop: '16px' }}>ไม่พบรายการที่อนุมัติ</p>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{(selectedCustomerId || selectedServiceId) ? 'ลองเปลี่ยนเงื่อนไขการค้นหา หรือล้างตัวกรอง' : 'รายการที่ผ่านการอนุมัติจะแสดงที่นี่'}</p>
+            <CheckCircleFill size={64} color="var(--color-border-hover)" />
+            <p style={{ fontSize: '1.1rem', fontWeight: '600', color: 'var(--color-text-secondary)', marginTop: '16px' }}>ไม่พบรายการที่อนุมัติ</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-placeholder)' }}>{(selectedCustomerId || transactionIdQuery) ? 'ลองเปลี่ยนเงื่อนไขการค้นหา หรือล้างตัวกรอง' : 'รายการที่ผ่านการอนุมัติจะแสดงที่นี่'}</p>
           </div>
         ) : (
           <>
@@ -422,7 +357,7 @@ export default function ApprovedTransactionsPage() {
                   {/* Header: Date & Bank */}
                   <div className="card-header-simple">
                     <div>
-                      <div style={{ fontSize: '0.85rem', color: '#1e293b' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--color-text-primary)' }}>
                         <span style={{ fontWeight: '400' }}>วันที่โอน </span>
                         <span style={{ fontWeight: '600' }}>{formatDate(tx.transactionDate)}</span>
                         {tx.transactionTime && (
@@ -439,12 +374,12 @@ export default function ApprovedTransactionsPage() {
                   </div>
 
                   {/* Transaction ID */}
-                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '6px', fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--color-text-placeholder)', marginTop: '6px', fontFamily: 'monospace' }}>
                     TX: {tx._id}
                   </div>
 
                   {/* Customer Name */}
-                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginTop: '4px' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-text-primary)', marginTop: '4px' }}>
                     {tx.customerName || '-'}
                   </div>
 
@@ -467,12 +402,12 @@ export default function ApprovedTransactionsPage() {
                   <div style={{ 
                     fontSize: '1.75rem', 
                     fontWeight: '700', 
-                    color: '#10b981',
+                    color: 'var(--color-success)',
                     textAlign: 'center',
                     padding: '16px 0',
                     margin: '12px 0',
-                    borderTop: '1px solid #f1f5f9',
-                    borderBottom: '1px solid #f1f5f9'
+                    borderTop: '1px solid var(--color-border)',
+                    borderBottom: '1px solid var(--color-border)'
                   }}>
                     {formatCurrency(tx.amount)}
                   </div>
@@ -480,14 +415,14 @@ export default function ApprovedTransactionsPage() {
                   {/* Breakdowns */}
                   {tx.breakdowns && tx.breakdowns.length > 0 && (
                     <div style={{ marginBottom: '12px' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
                         📋 รายละเอียดการโอน:
                       </div>
-                      <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: '6px' }}>
+                      <div style={{ background: 'var(--color-bg-hover)', padding: '8px 10px', borderRadius: '6px' }}>
                         {tx.breakdowns.map((bd, idx) => (
-                          <div key={idx} style={{ fontSize: '0.8rem', color: '#475569', marginBottom: '4px' }}>
+                          <div key={idx} style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
                             <span style={{ fontWeight: '600' }}>{bd.code} : {getBreakdownLabel(bd.code)}</span> - {formatNumber(bd.amount)} บาท
-                            {bd.statusNote && <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}> — {bd.statusNote}</span>}
+                            {bd.statusNote && <span style={{ color: 'var(--color-text-placeholder)', fontSize: '0.75rem' }}> — {bd.statusNote}</span>}
                           </div>
                         ))}
                       </div>
@@ -497,10 +432,10 @@ export default function ApprovedTransactionsPage() {
                   {/* Notes */}
                   {tx.notes && (
                     <div style={{ marginBottom: '12px' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
                         📝 หมายเหตุ:
                       </div>
-                      <div style={{ background: '#fffbeb', padding: '8px 10px', borderRadius: '6px', fontSize: '0.85rem', color: '#475569' }}>
+                      <div style={{ background: 'var(--color-warning-light)', padding: '8px 10px', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                         {tx.notes}
                       </div>
                     </div>
@@ -512,13 +447,13 @@ export default function ApprovedTransactionsPage() {
                     justifyContent: 'space-between', 
                     alignItems: 'center',
                     fontSize: '0.75rem',
-                    color: '#94a3b8',
+                    color: 'var(--color-text-placeholder)',
                     paddingTop: '8px',
-                    borderTop: '1px solid #f1f5f9',
+                    borderTop: '1px solid var(--color-border)',
                     marginBottom: '12px'
                   }}>
                     <div>
-                      ส่งโดย: <strong style={{ color: '#64748b' }}>{tx.submittedBy?.name || '-'}</strong>
+                      ส่งโดย: <strong style={{ color: 'var(--color-text-muted)' }}>{tx.submittedBy?.name || '-'}</strong>
                     </div>
                     {tx.slipImage ? (
                       <button
@@ -555,12 +490,12 @@ export default function ApprovedTransactionsPage() {
                     <span style={{
                       display: 'inline-block',
                       padding: '8px 16px',
-                      background: '#dcfce7',
-                      color: '#16a34a',
+                      background: 'var(--color-success-light)',
+                      color: 'var(--color-success-hover)',
                       borderRadius: '8px',
                       fontSize: '0.875rem',
                       fontWeight: '600',
-                      border: '1px solid #86efac'
+                      border: '1px solid var(--color-success)'
                     }}>
                       ✓ อนุมัติแล้ว
                     </span>
@@ -617,7 +552,7 @@ export default function ApprovedTransactionsPage() {
             maxHeight: '90vh',
             overflow: 'auto'
           }}>
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--color-border)' }}>
               <h3 style={{ margin: 0 }}>สลิปโอนเงิน</h3>
               <button onClick={() => setViewSlip(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
                 <XCircle />
@@ -626,10 +561,10 @@ export default function ApprovedTransactionsPage() {
             <div className="modal-body slip-modal-body" style={{ padding: '20px' }}>
               <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px' }} />
             </div>
-            <div className="modal-footer slip-modal-footer" style={{ display: 'flex', gap: '12px', padding: '16px 20px', borderTop: '1px solid #e5e7eb', justifyContent: 'center' }}>
+            <div className="modal-footer slip-modal-footer" style={{ display: 'flex', gap: '12px', padding: '16px 20px', borderTop: '1px solid var(--color-border)', justifyContent: 'center' }}>
               <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
               <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()} style={{
-                background: '#3b82f6',
+                background: 'var(--color-primary)',
                 color: 'white',
                 border: 'none',
                 padding: '10px 20px',
@@ -643,7 +578,7 @@ export default function ApprovedTransactionsPage() {
                 <Upload /> อัปโหลดภาพใหม่
               </button>
               <button className="btn-action-delete" onClick={handleDeleteSlip} style={{
-                background: '#ef4444',
+                background: 'var(--color-danger)',
                 color: 'white',
                 border: 'none',
                 padding: '10px 20px',

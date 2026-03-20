@@ -3,7 +3,7 @@ import axios from 'axios';
 import toast from '../../utils/toast';
 import { 
   FileEarmarkSpreadsheet, Search, Download, 
-  ChevronLeft, ChevronRight, Funnel, X
+  ChevronLeft, ChevronRight, Funnel, X, CreditCard2Back, CheckCircleFill
 } from 'react-bootstrap-icons';
 import './AccountLedgerPage.css';
 
@@ -66,6 +66,16 @@ export default function AccountLedgerPage() {
   const [editingCell, setEditingCell] = useState(null); // { id, field }
   const [editValue, setEditValue] = useState('');
 
+  // Card charging
+  const [cards, setCards] = useState([]);
+  const [chargingId, setChargingId] = useState(null);
+  const [chargeModal, setChargeModal] = useState(null); // item to charge
+  const [chargeCardId, setChargeCardId] = useState('');
+  const [chargeTime, setChargeTime] = useState('');
+  const [chargeAmount, setChargeAmount] = useState('');
+  const [chargeNote, setChargeNote] = useState('');
+  const [chargeHistory, setChargeHistory] = useState(null);
+
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
@@ -101,6 +111,41 @@ export default function AccountLedgerPage() {
   useEffect(() => {
     fetchLedger(1);
   }, [fetchLedger]);
+
+  // โหลดประวัติการตัดเงินเมื่อเปิด modal
+  useEffect(() => {
+    if (!chargeModal) {
+      setChargeHistory(null);
+      return;
+    }
+    const fetchHistory = async () => {
+      try {
+        const res = await axios.get(`${api}/api/cards/charge-history/${chargeModal._id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setChargeHistory(res.data);
+      } catch (err) {
+        console.error('Failed to fetch charge history:', err);
+        setChargeHistory(null);
+      }
+    };
+    fetchHistory();
+  }, [chargeModal, api, token]);
+
+  // โหลดรายการบัตร
+  useEffect(() => {
+    const fetchCards = async () => {
+      try {
+        const res = await axios.get(`${api}/api/cards`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setCards((res.data || []).filter(c => c.status === 'active'));
+      } catch (err) {
+        console.error('Failed to fetch cards:', err);
+      }
+    };
+    fetchCards();
+  }, [api, token]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -162,9 +207,13 @@ export default function AccountLedgerPage() {
       );
       
       // อัพเดต local state
+      const numericFields = ['prepaid', 'coupon', 'invGG', 'invFB'];
+      const newValue = numericFields.includes(editingCell.field)
+        ? (editValue === '' ? null : Number(editValue))
+        : (editValue || '-');
       setLedgerData(prev => prev.map(item => 
         item._id === editingCell.id 
-          ? { ...item, [editingCell.field]: editValue || '-' }
+          ? { ...item, [editingCell.field]: newValue }
           : item
       ));
     } catch (err) {
@@ -174,6 +223,66 @@ export default function AccountLedgerPage() {
     
     setEditingCell(null);
     setEditValue('');
+  };
+
+  // ตัดเงินจากบัตร
+  const handleChargeConfirm = () => {
+    if (!chargeCardId) {
+      toast.warning('กรุณาเลือกบัตร');
+      return;
+    }
+    if (!chargeTime) {
+      toast.warning('กรุณาระบุเวลาที่ตัดเงิน');
+      return;
+    }
+    const numAmount = Number(chargeAmount);
+    if (!numAmount || numAmount <= 0) {
+      toast.warning('กรุณาระบุจำนวนเงินที่ต้องการตัด');
+      return;
+    }
+    const selectedCard = cards.find(c => c._id === chargeCardId);
+    const cardName = selectedCard ? `${selectedCard.displayName} (${selectedCard.last4})` : '';
+    const ok = window.confirm(
+      `ยืนยันตัดเงินจากบัตร?\n\n` +
+      `บัญชี: ${chargeModal.accountName}\n` +
+      `บริการ: ${chargeModal.serviceType || '-'}\n` +
+      `จำนวนเงิน: ${formatNumber(numAmount)} บาท\n` +
+      `บัตร: ${cardName}\n` +
+      `เวลาตัด: ${chargeTime}`
+    );
+    if (ok) handleCharge();
+  };
+
+  const handleCharge = async () => {
+    const item = chargeModal;
+    if (!item) return;
+    try {
+      setChargingId(item._id);
+      await axios.post(`${api}/api/cards/charge`, {
+        cardId: chargeCardId,
+        amount: Number(chargeAmount),
+        channel: item.serviceType || 'Other',
+        reference: item._id,
+        note: chargeNote || `ตัดเงินจาก Ledger: ${item.accountName}`,
+        chargeTime: chargeTime,
+        serviceId: item.serviceId,
+        breakdowns: item.breakdowns || []
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('ตัดเงินจากบัตรสำเร็จ');
+      setChargeModal(null);
+      setChargeCardId('');
+      setChargeTime('');
+      setChargeAmount('');
+      setChargeNote('');
+      fetchLedger(currentPage);
+    } catch (err) {
+      const msg = err?.response?.data?.error || 'ตัดเงินไม่สำเร็จ';
+      toast.error(msg);
+    } finally {
+      setChargingId(null);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -366,7 +475,7 @@ export default function AccountLedgerPage() {
           <div className="ledger-empty">
             <FileEarmarkSpreadsheet size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
             <p style={{ fontWeight: '600', marginBottom: '4px' }}>ไม่พบข้อมูล</p>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-placeholder)' }}>
               {(filters.startDate || filters.endDate || filters.bank || filters.serviceType || filters.search) ? 'ลองเปลี่ยนเงื่อนไขการค้นหา หรือล้างตัวกรอง' : 'ยังไม่มีรายการยอดเดินบัญชี'}
             </p>
           </div>
@@ -376,11 +485,13 @@ export default function AccountLedgerPage() {
               <thead>
                 <tr>
                   <th className="col-index" scope="col">#</th>
+                  <th className="col-txid" scope="col">Transaction ID</th>
                   <th className="col-account" scope="col">บัญชี</th>
+                  <th className="col-service" scope="col">บริการ</th>
                   <th className="col-code" scope="col">รหัส</th>
                   <th className="col-bank" scope="col">ธนาคาร</th>
-                  <th className="col-date" scope="col">วันที่</th>
-                  <th className="col-time" scope="col">เวลา</th>
+                  <th className="col-date" scope="col">วันที่โอน</th>
+                  <th className="col-time" scope="col">เวลาโอน</th>
                   <th className="col-amount" scope="col">ยอดเงิน</th>
                   <th className="col-status" scope="col">สถานะ</th>
                   <th className="col-card" scope="col">บัตรเลขที่</th>
@@ -391,20 +502,26 @@ export default function AccountLedgerPage() {
                   <th className="col-fb" scope="col">ต่ออายุ FB</th>
                   <th className="col-hosting" scope="col">Hosting Domain</th>
                   <th className="col-click" scope="col">ค่าคลิก</th>
-                  <th className="col-prepaid" scope="col">เบิกล่วงหน้า</th>
+                  <th className="col-prepaid" scope="col">สำรอง</th>
                   <th className="col-coupon" scope="col">คูปอง</th>
                   <th className="col-inv" scope="col">Inv. Gg</th>
                   <th className="col-inv" scope="col">Inv. Fb</th>
                   <th className="col-vat" scope="col">Vat 36</th>
                   <th className="col-vat" scope="col">Vat 30</th>
-                  <th className="col-net" scope="col">ยอดสุทธิ</th>
+                  <th className="col-charge" scope="col">ตัดเงิน</th>
                 </tr>
               </thead>
               <tbody>
                 {ledgerData.map((item) => (
                   <tr key={item._id} data-service={item.serviceType}>
                     <td className="col-index">{item.index}</td>
+                    <td className="col-txid">{item._id}</td>
                     <td className="col-account" title={item.accountName}>{item.accountName}</td>
+                    <td className="col-service">
+                      {item.serviceType === 'Google Ads' && <span className="service-tag google">Google</span>}
+                      {item.serviceType === 'Facebook Ads' && <span className="service-tag facebook">Facebook</span>}
+                      {item.serviceType !== 'Google Ads' && item.serviceType !== 'Facebook Ads' && <span className="service-tag">{item.serviceType || '-'}</span>}
+                    </td>
                     <td className="col-code">{item.customerCode}</td>
                     <td className="col-bank">{item.bank}</td>
                     <td className="col-date">{formatDate(item.transactionDate)}</td>
@@ -437,8 +554,20 @@ export default function AccountLedgerPage() {
                     <td className="col-hosting">{formatNumber(getBreakdownAmount(item, 20))}</td>
                     {/* ค่าคลิก */}
                     <td className="col-click">{formatNumber(getBreakdownAmount(item, 11))}</td>
-                    <td className="col-prepaid">{formatNumber(getBreakdownAmount(item, 15))}</td>
-                    <td className="col-coupon">{formatNumber(getBreakdownAmount(item, 16))}</td>
+                    <td className="col-prepaid editable-cell" onClick={() => handleCellClick(item._id, 'prepaid', item.prepaid)}>
+                      {editingCell?.id === item._id && editingCell?.field === 'prepaid' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
+                      ) : (
+                        <span className="editable-text">{formatNumber(item.prepaid)}</span>
+                      )}
+                    </td>
+                    <td className="col-coupon editable-cell" onClick={() => handleCellClick(item._id, 'coupon', item.coupon)}>
+                      {editingCell?.id === item._id && editingCell?.field === 'coupon' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
+                      ) : (
+                        <span className="editable-text">{formatNumber(item.coupon)}</span>
+                      )}
+                    </td>
                     <td className="col-inv editable-cell" onClick={() => handleCellClick(item._id, 'invGG', item.invGG)}>
                       {editingCell?.id === item._id && editingCell?.field === 'invGG' ? (
                         <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
@@ -457,7 +586,19 @@ export default function AccountLedgerPage() {
                     <td className="col-vat">{formatNumber(getBreakdownAmount(item, 12))}</td>
                     {/* Vat 30: รวม 13, 17, 19 */}
                     <td className="col-vat">{formatNumber(getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19))}</td>
-                    <td className="col-net">{formatNumber(item.netAmount)}</td>
+                    <td className="col-charge">
+                      {item.cardCharged ? (
+                        <span className="charge-done"><CheckCircleFill size={14} /> ตัดแล้ว</span>
+                      ) : (
+                        <button
+                          className="btn-charge"
+                          onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(item.amount || '')); setChargeNote(''); }}
+                          disabled={chargingId === item._id}
+                        >
+                          {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -486,6 +627,117 @@ export default function AccountLedgerPage() {
           >
             ถัดไป <ChevronRight />
           </button>
+        </div>
+      )}
+
+      {/* Charge Modal */}
+      {chargeModal && (
+        <div className="charge-modal-backdrop" onClick={() => setChargeModal(null)}>
+          <div className="charge-modal" onClick={e => e.stopPropagation()}>
+            <div className="charge-modal-header">
+              <h3>ตัดเงินจากบัตร</h3>
+              <button className="charge-modal-close" onClick={() => setChargeModal(null)}><X size={18} /></button>
+            </div>
+            <div className="charge-modal-body">
+              <div className="charge-info-row">
+                <span className="charge-info-label">บัญชี</span>
+                <span className="charge-info-value">{chargeModal.accountName}</span>
+              </div>
+              <div className="charge-info-row">
+                <span className="charge-info-label">บริการ</span>
+                <span className="charge-info-value">{chargeModal.serviceType || '-'}</span>
+              </div>
+              <div className="charge-info-row">
+                <span className="charge-info-label">CID</span>
+                <span className="charge-info-value" style={{ fontFamily: 'monospace' }}>{chargeModal.customerCode || '-'}</span>
+              </div>
+              <div className="charge-info-row">
+                <span className="charge-info-label">Transaction ID</span>
+                <span className="charge-info-value" style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{chargeModal._id}</span>
+              </div>
+              {chargeHistory && chargeHistory.count > 0 && (
+                <div className="charge-history-info">
+                  <span>ตัดเงินไปแล้ว <strong>{chargeHistory.count}</strong> ครั้ง</span>
+                  {chargeHistory.last && (
+                    <span style={{ marginLeft: 8, color: '#737373' }}>
+                      ล่าสุด: {new Date(chargeHistory.last.createdAt).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {chargeHistory.last.chargeTime ? ` เวลา ${chargeHistory.last.chargeTime} น.` : ''}
+                      {chargeHistory.last.cardId ? ` (${chargeHistory.last.cardId.displayName})` : ''}
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="charge-form-group">
+                <label>จำนวนเงินที่ตัด (บาท)</label>
+                <input
+                  type="number"
+                  className="charge-time-input"
+                  placeholder="0.00"
+                  value={chargeAmount}
+                  onChange={e => setChargeAmount(e.target.value)}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div className="charge-form-group">
+                <label>เวลาที่ตัดเงิน</label>
+                <input
+                  type="text"
+                  className="charge-time-input"
+                  placeholder="เช่น 14:30"
+                  value={chargeTime}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9:]/g, '');
+                    setChargeTime(v);
+                  }}
+                  maxLength={5}
+                />
+              </div>
+              <div className="charge-form-group">
+                <label>เลือกบัตร</label>
+                <select value={chargeCardId} onChange={e => setChargeCardId(e.target.value)}>
+                  <option value="">-- เลือกบัตร --</option>
+                  {cards.map(c => (
+                    <option key={c._id} value={c._id}>{c.displayName} ({c.last4})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="charge-form-group">
+                <label>หมายเหตุ (ถ้ามี)</label>
+                <textarea
+                  className="charge-note-input"
+                  placeholder="ระบุรายละเอียดเพิ่มเติม..."
+                  value={chargeNote}
+                  onChange={e => setChargeNote(e.target.value)}
+                  rows={2}
+                />
+              </div>
+              {chargeCardId && (() => {
+                const selectedCard = cards.find(c => c._id === chargeCardId);
+                if (!selectedCard) return null;
+                const remaining = (selectedCard.balance || 0) - (Number(chargeAmount) || 0);
+                return (
+                  <div className="charge-card-balance">
+                    <div className="balance-row">
+                      <span>ยอดคงเหลือปัจจุบัน</span>
+                      <span className="balance-current">{selectedCard.balance?.toLocaleString()} บาท</span>
+                    </div>
+                    <div className="balance-row">
+                      <span>หลังตัดจะเหลือ</span>
+                      <span className={remaining < 0 ? 'balance-negative' : 'balance-after'}>{remaining.toLocaleString()} บาท</span>
+                    </div>
+                    {remaining < 0 && <div className="balance-warning">⚠️ ยอดเงินไม่พอ</div>}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="charge-modal-footer">
+              <button className="btn-charge-cancel" onClick={() => setChargeModal(null)}>ยกเลิก</button>
+              <button className="btn-charge-confirm" onClick={handleChargeConfirm} disabled={!chargeCardId || !chargeTime || !chargeAmount || chargingId}>
+                {chargingId ? 'กำลังดำเนินการ...' : 'ยืนยันตัดเงิน'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
