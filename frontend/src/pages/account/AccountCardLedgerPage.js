@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Wallet, ArrowLeft, CheckCircle, DashCircle, Google, Facebook } from 'react-bootstrap-icons';
+import { Wallet, ArrowLeft, CheckCircle, DashCircle, Google, Facebook, Download, Funnel, X } from 'react-bootstrap-icons';
 import toast from '../../utils/toast';
-import '../shared/DashboardPage.css';
-import '../user/AllTransactionPage.css';
-import '../shared/ImageGalleryPage.css';
-import '../user/TransactionHistoryPage.css';
+import './AccountCardsPage.css';
+import './AccountCardLedgerPage.css';
+import './AccountLedgerPage.css';
 
 export default function AccountCardLedgerPage() {
   const { cardId } = useParams();
@@ -19,6 +18,7 @@ export default function AccountCardLedgerPage() {
   const [filterChannel, setFilterChannel] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
@@ -105,204 +105,191 @@ export default function AccountCardLedgerPage() {
 
   const formatDate = (date) => {
     if (!date) return '-';
-    return new Date(date).toLocaleString('th-TH', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
+    return new Date(date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const formatAmount = (entry) => {
-    const amt = entry.amount || 0;
-    const sign = entry.direction === 'credit' ? '+' : '-';
-    return `${sign}${amt.toLocaleString('th-TH')} บาท`;
+  const formatTime = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const typeBadge = (entry) => {
-    if (entry.type === 'topup') return <span className="badge badge-success">เติมเงิน</span>;
-    return <span className="badge badge-danger">ตัดยอด</span>;
-  };
+  const hasActiveFilters = filterType || filterChannel || dateFrom || dateTo;
 
-  if (loading) {
-    return (
-      <div className="all-transaction-page fade-up">
-        <div className="transaction-container">
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>กำลังโหลดข้อมูล...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const setQuickDateFilter = (type) => {
+    const today = new Date();
+    let startDate = '';
+    let endDate = '';
+
+    switch (type) {
+      case 'today':
+        startDate = today.toISOString().split('T')[0];
+        endDate = startDate;
+        break;
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        startDate = yesterday.toISOString().split('T')[0];
+        endDate = startDate;
+        break;
+      case 'last7days':
+        const last7 = new Date(today);
+        last7.setDate(last7.getDate() - 6);
+        startDate = last7.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+        break;
+      case 'last30days':
+        const last30 = new Date(today);
+        last30.setDate(last30.getDate() - 29);
+        startDate = last30.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+        break;
+      case 'thisMonth':
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        startDate = firstDay.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+        break;
+      default:
+        break;
+    }
+
+    setDateFrom(startDate);
+    setDateTo(endDate);
+  };
 
   return (
-    <div className="all-transaction-page fade-up">
-      <div className="transaction-container">
-        <div className="gallery-header" style={{ marginBottom: '10px' }}>
-          <div className="gallery-header-title">
-            <Wallet className="gallery-icon" />
-            <div>
-              <h2>ประวัติการตัดยอด / เติมเงิน</h2>
-              <p className="gallery-subtitle">บัตร: {card?.displayName || `บัตรลงท้าย ${card?.last4 || ''}`}</p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <div className="summary-card" style={{ minWidth: '140px', padding: '10px 14px' }}>
-              <CheckCircle size={18} />
-              <div>
-                <div className="summary-label" style={{ fontSize: '0.75rem' }}>ยอดเติมรวม</div>
-                <div className="summary-value" style={{ fontSize: '0.95rem', color: '#16a34a' }}>
-                  +{summary.credit.toLocaleString('th-TH')} ฿
-                </div>
+    <div className="cards-shell">
+      <div className="cards-hero">
+        <button
+          className="cards-hero-icon"
+          onClick={() => navigate('/dashboard/account/cards')}
+          title="กลับไปบัตร"
+          aria-label="กลับไปหน้าบัตร"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <div>
+          <h1 className="cards-title">สรุปรายการบัตร — ประวัติการตัดยอด / เติมเงิน</h1>
+          <p className="cards-subtitle">บัตร: {card?.displayName || `ลงท้าย ${card?.last4 || ''}`} {card ? `— ยอดคงเหลือ ${(card.balance || 0).toLocaleString()} บาท` : ''}</p>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button className="btn-export" onClick={downloadCsv}><Download /> ดาวน์โหลด CSV</button>
+          <button className="btn-filter" onClick={() => setShowFilters(!showFilters)}><Funnel /> ตัวกรอง</button>
+        </div>
+      </div>
+
+      <div className="cards-surface">
+        {showFilters && (
+          <div className="ledger-filters">
+            <div className="quick-date-filters">
+              <label className="quick-filter-label">ช่วงเวลา:</label>
+              <div className="quick-filter-buttons">
+                <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('today')}>วันนี้</button>
+                <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('yesterday')}>เมื่อวาน</button>
+                <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('last7days')}>7 วันล่าสุด</button>
+                <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('last30days')}>30 วันล่าสุด</button>
+                <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('thisMonth')}>เดือนนี้</button>
               </div>
             </div>
-            <div className="summary-card" style={{ minWidth: '140px', padding: '10px 14px' }}>
-              <DashCircle size={18} />
-              <div>
-                <div className="summary-label" style={{ fontSize: '0.75rem' }}>ยอดตัดรวม</div>
-                <div className="summary-value" style={{ fontSize: '0.95rem', color: '#dc2626' }}>
-                  -{summary.debit.toLocaleString('th-TH')} ฿
+
+            <div className="filters-form">
+              <div className="filter-row">
+                <div className="filter-group">
+                  <label>ประเภท</label>
+                  <select value={filterType} onChange={e => setFilterType(e.target.value)}>
+                    <option value="">ทุกประเภท</option>
+                    <option value="topup">เติมเงิน</option>
+                    <option value="charge">ตัดยอด</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label>ช่องทาง</label>
+                  <select value={filterChannel} onChange={e => setFilterChannel(e.target.value)}>
+                    <option value="">ทุกช่องทาง</option>
+                    {channelOptions.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label>จาก</label>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                </div>
+                <div className="filter-group">
+                  <label>ถึง</label>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
                 </div>
               </div>
+              <div className="filter-actions">
+                <button className="btn-clear" onClick={() => { setFilterType(''); setFilterChannel(''); setDateFrom(''); setDateTo(''); }}>ล้าง</button>
+                <button className="btn-search" onClick={() => { /* already filtered by state */ }}>ค้นหา</button>
+              </div>
             </div>
-            <button
-              className="btn-slip-upload"
-              style={{ padding: '10px 14px', minWidth: '110px' }}
-              onClick={() => navigate('/dashboard/account/cards')}
-              aria-label="กลับหน้าบัตร"
-            >
-              <ArrowLeft /> กลับหน้าบัตร
-            </button>
-            <button
-              className="btn-slip-upload"
-              style={{ padding: '10px 14px', minWidth: '140px' }}
-              onClick={downloadCsv}
-              aria-label="ดาวน์โหลด CSV"
-            >
-              📥 ดาวน์โหลด CSV
-            </button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem', background: '#fff' }}
-            aria-label="กรองประเภท"
-          >
-            <option value="">ทุกประเภท</option>
-            <option value="topup">เติมเงิน</option>
-            <option value="charge">ตัดยอด</option>
-          </select>
-          <select
-            value={filterChannel}
-            onChange={(e) => setFilterChannel(e.target.value)}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem', background: '#fff' }}
-            aria-label="กรองช่องทาง"
-          >
-            <option value="">ทุกช่องทาง</option>
-            {channelOptions.map(ch => (
-              <option key={ch} value={ch}>{ch}</option>
-            ))}
-          </select>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem' }}
-            aria-label="วันที่เริ่มต้น"
-          />
-          <span style={{ color: '#737373', fontSize: '0.85rem' }}>ถึง</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #e5e5e5', fontSize: '0.85rem' }}
-            aria-label="วันที่สิ้นสุด"
-          />
-          {(filterType || filterChannel || dateFrom || dateTo) && (
-            <button
-              onClick={() => { setFilterType(''); setFilterChannel(''); setDateFrom(''); setDateTo(''); }}
-              style={{ padding: '7px 14px', borderRadius: '6px', border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: '0.85rem', color: '#737373' }}
-            >
-              ล้างตัวกรอง
-            </button>
-          )}
-          <span style={{ color: '#737373', fontSize: '0.8rem', marginLeft: 'auto' }}>
-            แสดง {filteredLedger.length} / {ledger.length} รายการ
-          </span>
-        </div>
-
-        {error && (
-          <div className="alert" style={{ background: '#fef2f2', color: '#dc2626', marginBottom: '12px' }}>
-            {error}
           </div>
         )}
 
-        <div className="transactions-section">
-          {filteredLedger.length === 0 ? (
-            <div className="no-data">
-              <Wallet size={48} />
-              <p>{ledger.length === 0 ? 'ยังไม่มีประวัติรายการ' : 'ไม่พบรายการที่ตรงกับตัวกรอง'}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+          <div style={{ padding: 12, borderRadius: 6, border: '1px solid #eaeaea', background: '#fff' }}>
+            <div style={{ fontSize: 12, color: '#737373', marginBottom: 6 }}>ยอดเติมรวม</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#16a34a' }}>+{summary.credit.toLocaleString()} ฿</div>
+          </div>
+          <div style={{ padding: 12, borderRadius: 6, border: '1px solid #eaeaea', background: '#fff' }}>
+            <div style={{ fontSize: 12, color: '#737373', marginBottom: 6 }}>ยอดตัดรวม</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: 700, color: '#dc2626' }}>-{summary.debit.toLocaleString()} ฿</div>
+          </div>
+          <div style={{ padding: 12, borderRadius: 6, border: '1px solid #eaeaea', background: '#fff' }}>
+            <div style={{ fontSize: 12, color: '#737373', marginBottom: 6 }}>สุทธิ</div>
+            <div style={{ fontSize: '1.15rem', fontWeight: 700 }}>{(summary.credit - summary.debit).toLocaleString()} ฿</div>
+          </div>
+        </div>
+
+        <div>
+          {loading ? (
+            <div className="cards-loading">
+              <div className="cards-loading-spinner"></div>
+              <div>กำลังโหลด...</div>
+            </div>
+          ) : filteredLedger.length === 0 ? (
+            <div style={{ background: '#fafafa', border: '1px dashed #d4d4d4', borderRadius: 6, padding: '48px 24px', textAlign: 'center', color: '#737373' }}>
+              <Wallet size={40} style={{ opacity: 0.3, marginBottom: 10 }} />
+              <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 4px' }}>{ledger.length === 0 ? 'ยังไม่มีประวัติรายการ' : 'ไม่พบรายการที่ตรงกับตัวกรอง'}</p>
+              <p style={{ fontSize: 13, margin: 0 }}>ลองปรับตัวกรองหรือเลือกช่วงวันที่อื่น</p>
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="transaction-table">
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
-                  <tr>
-                    <th scope="col">วันที่</th>
-                    <th scope="col">ประเภท</th>
-                    <th scope="col">CID</th>
-                    <th scope="col">ช่องทาง</th>
-                    <th scope="col">อ้างอิง</th>
-                    <th scope="col">จำนวนเงิน</th>
-                    <th scope="col">รายละเอียด</th>
-                    <th scope="col">ยอดหลังรายการ</th>
-                    <th scope="col">ผู้ทำรายการ</th>
+                  <tr style={{ background: '#f5f5f5', borderBottom: '2px solid #e5e5e5' }}>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>วันที่โอน</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>ประเภท</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>CID</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>ช่องทาง</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>อ้างอิง</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>จำนวนเงิน</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>รายละเอียด</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>ยอดหลังรายการ</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>โดย</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLedger.map((entry) => (
-                    <tr key={entry._id}>
-                      <td>{formatDate(entry.createdAt)}</td>
-                      <td>{typeBadge(entry)}</td>
-                      <td>{entry.serviceId?.cid || '-'}</td>
-                      <td>
-                        <span className={`service-badge ${
-                          entry.channel === 'Facebook Ads' ? 'facebook' :
-                          entry.channel === 'Google Ads' ? 'google' : 'other'
-                        }`}>
-                          {entry.channel === 'Facebook Ads' && <Facebook className="service-icon" />}
-                          {entry.channel === 'Google Ads' && <Google className="service-icon" />}
-                          <span className="service-id-text">{entry.channel || '-'}</span>
-                        </span>
-                      </td>
-                      <td>{entry.reference || '-'}</td>
-                      <td>
-                        <span style={{ color: entry.direction === 'credit' ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
-                          {formatAmount(entry)}
-                        </span>
-                      </td>
-                      <td>
-                        {entry.breakdowns && entry.breakdowns.length > 0 ? (
-                          <div style={{ fontSize: '0.78rem', lineHeight: '1.6' }}>
-                            {entry.breakdowns.map((bd, idx) => (
-                              <div key={idx}>
-                                {bd.label || bd.code}: <strong>{bd.amount?.toLocaleString('th-TH')}</strong> ฿
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>-</span>
-                        )}
-                      </td>
-                      <td>{entry.balanceAfter?.toLocaleString('th-TH')} ฿</td>
-                      <td>{entry.createdBy?.name || '-'}</td>
+                  {filteredLedger.map((entry, i) => (
+                    <tr key={entry._id} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 1 ? '#fafafa' : '#fff' }}>
+                      <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatDate(entry.createdAt)} {formatTime(entry.createdAt)}</td>
+                      <td style={{ padding: '8px 10px' }}>{entry.type === 'topup' ? <span style={{ color: '#16a34a', fontWeight: 600 }}>เติมเงิน</span> : <span style={{ color: '#dc2626', fontWeight: 600 }}>ตัดยอด</span>}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 12 }}>{entry.serviceId?.cid || '-'}</td>
+                      <td style={{ padding: '8px 10px' }}>{entry.channel || '-'}</td>
+                      <td style={{ padding: '8px 10px' }}>{entry.reference || '-'}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: entry.direction === 'debit' ? '#dc2626' : '#16a34a' }}>{entry.direction === 'debit' ? '-' : '+'}{(entry.amount || 0).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.note}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{(entry.balanceAfter || 0).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px' }}>{entry.createdBy?.name || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid #e5e5e5', background: '#f5f5f5' }}>
+                    <td colSpan="5" style={{ padding: '8px 10px', fontWeight: 600 }}>รวม {filteredLedger.length} รายการ</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(summary.credit - summary.debit).toLocaleString()}</td>
+                    <td colSpan="3" style={{ padding: '8px 10px' }}></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}

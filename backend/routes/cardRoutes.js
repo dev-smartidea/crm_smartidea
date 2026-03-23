@@ -159,6 +159,16 @@ router.post('/cards/charge', async (req, res) => {
       }
     }
 
+    // Normalize serviceId: allow caller to pass either an id or a populated object
+    let svcIdToStore = undefined;
+    if (serviceId) {
+      if (typeof serviceId === 'object' && serviceId._id) {
+        svcIdToStore = serviceId._id;
+      } else {
+        svcIdToStore = serviceId;
+      }
+    }
+
     const ledger = await CardLedger.create({
       cardId,
       type: 'charge',
@@ -169,7 +179,7 @@ router.post('/cards/charge', async (req, res) => {
       note,
       breakdowns: Array.isArray(breakdowns) ? breakdowns : [],
       chargeTime,
-      serviceId: serviceId || undefined,
+      serviceId: svcIdToStore || undefined,
       balanceAfter: card.balance,
       createdBy: user.id
     });
