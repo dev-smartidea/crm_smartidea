@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Customer = require('../models/Customer');
+const mongoose = require('mongoose');
 const Service = require('../models/Service');
 const Transaction = require('../models/Transaction');
 const Activity = require('../models/Activity');
@@ -60,8 +61,24 @@ router.post('/', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
+    // Allow client to provide a pre-generated _id (from preview). If provided and valid, use it.
+    let idToUse = null;
+    if (req.body._id) {
+      try {
+        idToUse = new mongoose.Types.ObjectId(String(req.body._id));
+      } catch (e) {
+        idToUse = null;
+      }
+    }
+    const genId = idToUse || new mongoose.Types.ObjectId();
+    const derivedCode = (req.body.customerCode && String(req.body.customerCode).trim())
+      ? String(req.body.customerCode).trim()
+      : genId.toString().slice(-5).toUpperCase();
+
     const customer = new Customer({
+      _id: genId,
       ...req.body,
+      customerCode: derivedCode,
       userId: userId,
     });
 
@@ -92,6 +109,18 @@ router.post('/', async (req, res) => {
       return res.status(409).json({ error: 'รหัสลูกค้าซ้ำ กรุณาใช้รหัสอื่น' });
     }
     res.status(400).json({ error: err.message });
+  }
+});
+
+// GET /api/customers/preview - return a new ObjectId and derived 5-char customerCode
+router.get('/preview', async (req, res) => {
+  try {
+    const genId = new mongoose.Types.ObjectId();
+    const code = genId.toString().slice(-5).toUpperCase();
+    res.json({ _id: genId.toString(), customerCode: code });
+  } catch (err) {
+    console.error('Preview id error:', err);
+    res.status(500).json({ error: 'Failed to generate preview id' });
   }
 });
 
