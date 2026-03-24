@@ -27,6 +27,7 @@ export default function AddCustomerPage() {
 
   const [formData, setFormData] = useState(initialFormState);
   const [allCustomers, setAllCustomers] = useState([]);
+  const [previewId, setPreviewId] = useState('');
   const [nameQuery, setNameQuery] = useState('');
   const [showNameDropdown, setShowNameDropdown] = useState(false);
   const [nameDuplicate, setNameDuplicate] = useState(false);
@@ -42,9 +43,7 @@ export default function AddCustomerPage() {
   const [submitError, setSubmitError] = useState('');
   const [touched, setTouched] = useState({});
   
-  const [typeQuery, setTypeQuery] = useState('');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [sizeQuery, setSizeQuery] = useState('');
   const [showSizeDropdown, setShowSizeDropdown] = useState(false);
 
   const nameInputRef = useRef(null);
@@ -66,6 +65,22 @@ export default function AddCustomerPage() {
       }
     };
     fetchCustomers();
+    // fetch preview id/code
+    const fetchPreview = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/customers/preview`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res?.data) {
+          setFormData(prev => ({ ...prev, customerCode: res.data.customerCode || '' }));
+          setPreviewId(res.data._id || '');
+        }
+      } catch (err) {
+        console.error('Preview fetch error', err);
+      }
+    };
+    fetchPreview();
   }, []);
 
   // ตรวจสอบชื่อซ้ำ Real-time
@@ -129,7 +144,7 @@ export default function AddCustomerPage() {
   };
 
   const calculateProgress = () => {
-    const requiredFields = ['customerCode', 'name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize', 'productService', 'contactPerson'];
+    const requiredFields = ['name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize', 'productService', 'contactPerson'];
     const filled = requiredFields.filter((field) => String(formData[field] || '').trim()).length;
     return Math.round((filled / requiredFields.length) * 100);
   };
@@ -139,12 +154,26 @@ export default function AddCustomerPage() {
     setSubmitSuccess(false);
     setSubmitError('');
     setTouched({});
-    setTypeQuery('');
-    setSizeQuery('');
+    // reset dropdown visibility
     setNameQuery('');
     setShowNameDropdown(false);
     setShowTypeDropdown(false);
     setShowSizeDropdown(false);
+    // regenerate preview id
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/customers/preview`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res?.data) {
+          setFormData(prev => ({ ...prev, customerCode: res.data.customerCode || '' }));
+          setPreviewId(res.data._id || '');
+        }
+      } catch (err) {
+        console.error('Preview fetch error', err);
+      }
+    })();
   };
 
   const handleSubmit = async (e) => {
@@ -171,7 +200,7 @@ export default function AddCustomerPage() {
     try {
       const token = localStorage.getItem('token');
       // ตรวจสอบค่าจาก Query State กรณีลืมเลือกจาก dropdown (ถ้ามี logic รองรับ custom text)
-      const payload = { ...formData };
+      const payload = { ...formData, _id: previewId };
       
       await axios.post(`${process.env.REACT_APP_API_URL}/api/customers`, payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -246,18 +275,18 @@ export default function AddCustomerPage() {
               {/* Row 1: Code & Name */}
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="customerCode"><TagFill /> รหัสลูกค้า <span className="required">*</span></label>
+                  <label htmlFor="customerCode"><TagFill /> รหัสลูกค้า</label>
                   <input
                     type="text"
                     id="customerCode"
                     name="customerCode"
-                    className={`form-input ${touched.customerCode && (formData.customerCode ? 'valid' : 'invalid')}`}
+                    className={`form-input read-only ${touched.customerCode && (formData.customerCode ? 'valid' : '')}`}
                     value={formData.customerCode}
-                    onChange={handleChange}
+                    readOnly
+                    placeholder="สร้างอัตโนมัติหลังบันทึก"
                     onBlur={handleBlur}
-                    placeholder="เช่น CUST-0001"
-                    required
                   />
+                  <div className="input-hint" style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>รหัสจะถูกสร้างอัตโนมัติหลังบันทึก</div>
                 </div>
                 <div className="form-group">
                   <label htmlFor="name"><PersonPlusFill /> ชื่อบริษัท <span className="required">*</span></label>

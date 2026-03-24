@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Wallet, ArrowLeft, CheckCircle, DashCircle, Google, Facebook, Download, Funnel, X } from 'react-bootstrap-icons';
+import { Wallet, ArrowLeft, Download, Funnel } from 'react-bootstrap-icons';
 import toast from '../../utils/toast';
 import './AccountCardsPage.css';
 import './AccountCardLedgerPage.css';
@@ -178,6 +178,9 @@ export default function AccountCardLedgerPage() {
       </div>
 
       <div className="cards-surface">
+        {error && (
+          <div style={{ margin: '8px 0', color: 'red', fontSize: 13 }}>{error}</div>
+        )}
         {showFilters && (
           <div className="ledger-filters">
             <div className="quick-date-filters">
@@ -218,7 +221,7 @@ export default function AccountCardLedgerPage() {
                 </div>
               </div>
               <div className="filter-actions">
-                <button className="btn-clear" onClick={() => { setFilterType(''); setFilterChannel(''); setDateFrom(''); setDateTo(''); }}>ล้าง</button>
+                <button className="btn-clear" onClick={() => { setFilterType(''); setFilterChannel(''); setDateFrom(''); setDateTo(''); }} disabled={!hasActiveFilters}>ล้าง</button>
                 <button className="btn-search" onClick={() => { /* already filtered by state */ }}>ค้นหา</button>
               </div>
             </div>
