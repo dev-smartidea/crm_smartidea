@@ -372,6 +372,20 @@ body {
   color: #a3a3a3;
 }
 
+/* Square style overrides (optional) - make panels and chips square */
+.cards-surface,
+.cards-hero-icon,
+.summary-tile,
+.card-panel,
+.card-chip,
+.card-balance-row,
+.cards-hero-btn,
+.ghost-btn,
+.pill {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
 .danger-btn {
   display: inline-flex;
   align-items: center;
