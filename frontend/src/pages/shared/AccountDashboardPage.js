@@ -86,6 +86,7 @@ export default function AccountDashboardPage() {
     ]
   });
   const [allLedgerEntries, setAllLedgerEntries] = useState([]);
+  const [allTransactionsList, setAllTransactionsList] = useState([]);
   const [channelFilter, setChannelFilter] = useState('all');
   const [submittedTransactions, setSubmittedTransactions] = useState([]);
 
@@ -153,6 +154,7 @@ export default function AccountDashboardPage() {
           });
           
           const transactions = transactionRes.data.transactions || [];
+          setAllTransactionsList(transactions);
           
           // คำนวณสถิติธุรกรรมตาม submissionStatus
           const submitted = transactions.filter(tx => tx.submissionStatus === 'submitted').length;
@@ -172,6 +174,7 @@ export default function AccountDashboardPage() {
         } catch (e) {
           console.warn('Failed to fetch transactions for status count:', e.message);
           // ถ้าดึงไม่ได้ให้ใช้ค่า 0
+          setAllTransactionsList([]);
           setPendingTransactions(0);
           setApprovedTransactions(0);
           setRejectedTransactions(0);
@@ -342,7 +345,7 @@ export default function AccountDashboardPage() {
       }
     });
 
-    // สร้าง breakdown by channel
+    // สร้าง breakdown by channel (พยายามสกัดจาก tx.channel หรือข้อมูล Transaction/service)
     const channelMap = {
       'Google Ads': 0,
       'Facebook Ads': 0,
@@ -350,7 +353,32 @@ export default function AccountDashboardPage() {
     };
     
     filteredByTime.forEach(tx => {
-      const channel = tx.channel || 'Other';
+      let channel = tx.channel;
+
+      // ถ้าไม่มี channel ใน CardLedger ให้ลองค้นจาก populated serviceId หรือจาก Transaction ที่อ้างอิงใน tx.reference
+      if (!channel) {
+        // หาก serviceId ถูก populated จาก backend
+        if (tx.serviceId && typeof tx.serviceId === 'object') {
+          const svc = tx.serviceId;
+          const name = (svc.serviceType || svc.name || '').toString().toLowerCase();
+          if (name.includes('google')) channel = 'Google Ads';
+          else if (name.includes('facebook')) channel = 'Facebook Ads';
+        }
+
+        // หากยังไม่เจอ ให้ค้นในรายการ Transaction ทั้งหมด (fetch ไว้ใน state allTransactionsList)
+        if (!channel && allTransactionsList.length > 0 && tx.reference) {
+          const related = allTransactionsList.find(t => String(t._id) === String(tx.reference));
+          if (related && related.serviceId) {
+            const svc = related.serviceId;
+            const name = (svc.serviceType || svc.name || '').toString().toLowerCase();
+            if (name.includes('google')) channel = 'Google Ads';
+            else if (name.includes('facebook')) channel = 'Facebook Ads';
+          }
+        }
+      }
+
+      if (!channel) channel = 'Other';
+
       const amount = tx.amount || 0;
       channelMap[channel] = (channelMap[channel] || 0) + amount;
     });
