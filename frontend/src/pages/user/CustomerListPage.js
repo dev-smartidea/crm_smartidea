@@ -170,7 +170,7 @@ export default function CustomerListPage() {
                         <span className="customer-name">{cust.name}</span>
                       </div>
                     </td>
-                    <td>{cust.customerCode || cust._id?.slice(-6).toUpperCase() || '-'}</td>
+                    <td>{cust._id?.slice(-5).toUpperCase() || '-'}</td>
                     <td>
                       {cust.productService ? (
                         <span className="badge badge-product" title={cust.productService}>
