@@ -401,7 +401,7 @@ export default function AccountDashboardPage() {
         borderWidth: 0
       }]
     });
-  }, [allLedgerEntries, channelFilter]);
+  }, [allLedgerEntries, channelFilter, allTransactionsList]);
 
   if (loading) {
     return (
