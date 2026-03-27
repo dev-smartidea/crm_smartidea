@@ -168,6 +168,31 @@ router.get('/dashboard/summary', async (req, res) => {
         }
       }
     });
+
+    // คำนวณสรุปยอดเก็บเงินแยกตามบริการต่อเดือน (สำหรับการแสดงกราฟแบบแยกหมวด)
+    const monthlyKeys = Object.keys(monthlyCollection);
+    const serviceMonthMap = {};
+    approvedTransactions.forEach(tx => {
+      if (tx.amount > 0) {
+        const serviceName = tx.serviceId?.name || 'อื่นๆ';
+        const dateToUse = tx.transactionDate || tx.createdAt;
+        const txDate = new Date(dateToUse);
+        const monthKey = txDate.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
+        if (!monthlyKeys.includes(monthKey)) return; // skip out-of-range months
+        serviceMonthMap[serviceName] = serviceMonthMap[serviceName] || {};
+        serviceMonthMap[serviceName][monthKey] = (serviceMonthMap[serviceName][monthKey] || 0) + tx.amount;
+      }
+    });
+
+    const monthlyCollectionByService = {
+      labels: monthlyKeys,
+      datasets: Object.entries(serviceMonthMap).map(([serviceName, map], idx) => ({
+        label: serviceName,
+        data: monthlyKeys.map(k => map[k] || 0),
+        // pick some pastel colors in a loop
+        backgroundColor: ['#2563eb','#22c55e','#f59e0b','#ef4444','#6366f1','#3b82f6'][idx % 6]
+      }))
+    };
     res.json({
       customerCount,
       serviceCount,

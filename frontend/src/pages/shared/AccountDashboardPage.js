@@ -239,7 +239,11 @@ export default function AccountDashboardPage() {
         }
 
         // ใช้ข้อมูล monthly collection จาก backend
-        if (dashboardData.monthlyCollection && dashboardData.monthlyCollection.labels.length > 0) {
+        if (dashboardData.monthlyCollectionByService && dashboardData.monthlyCollectionByService.labels.length > 0) {
+          // backend ส่งเป็น { labels, datasets } where datasets are per-service
+          setMonthlyCollection(dashboardData.monthlyCollectionByService);
+        } else if (dashboardData.monthlyCollection && dashboardData.monthlyCollection.labels.length > 0) {
+          // fallback: single-series monthly collection
           setMonthlyCollection({
             labels: dashboardData.monthlyCollection.labels,
             datasets: [{
