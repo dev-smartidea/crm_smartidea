@@ -1,0 +1,94 @@
+# Render.com Blueprint Configuration
+# เอาไว้ deploy อัตโนมัติเมื่อ git push
+#
+# วิธีใช้:
+# 1. Push file นี้ไปที่ GitHub
+# 2. ไปที่ Render Dashboard > Blueprints > Import
+# 3. เลือก repository crm_smartidea
+#
+# ข้อมูลเพิ่มเติม: https://render.com/docs/blueprint-spec
+
+database:
+  # MongoDB Atlas ใช้ connection string จาก Environment Variables
+  # ไม่จำเป็นต้องสร้างใน Blueprint
+  # เพียงแค่ตั้ง MONGODB_URI ใน Environment Variables ของ Backend service
+
+services:
+  # ==========================================
+  # Backend API Service
+  # ==========================================
+  - type: web
+    name: crm-backend
+    env: node
+    region: singapore
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # ==========================================
+      # REQUIRED: ต้องตั้งค่า Environment Variables เหล่านี้ใน Render Dashboard
+      # ไปที่ Service > Environment > Add Environment Variable
+      # ==========================================
+      
+      # MongoDB Connection String
+      # ตั้งค่าใน Render Dashboard - คลิกที่ปุ่ม 🔒 เพื่อ Sync จาก .env
+      - key: MONGODB_URI
+        sync: false  # กด Sync จาก .env file ใน Render Dashboard
+      
+      # JWT Secret - ควรเป็นค่าที่ถูกต้อง
+      - key: JWT_SECRET
+        sync: false
+      
+      # Session Secret
+      - key: SESSION_SECRET
+        sync: false
+      
+      # Frontend URL สำหรับ CORS
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: crm-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+        # หรือกำหนดค่าโดยตรง:
+        # value: https://your-frontend-app.onrender.com
+
+  # ==========================================
+  # Frontend Static Site
+  # ==========================================
+  - type: web
+    name: crm-frontend
+    env: static
+    region: singapore
+    plan: free
+    rootDir: frontend
+    buildCommand: npm run build
+    staticPublishPath: build
+    headers:
+      - path: /static/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: crm-backend
+          envVarKey: RENDER_EXTERNAL_URL
+        # หรือกำหนดค่าโดยตรง:
+        # value: https://crm-backend.onrender.com
