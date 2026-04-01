@@ -450,7 +450,7 @@ export default function AccountDashboardPage() {
         <div className="summary-card balance-card">
           <BalanceIcon />
           <div className="summary-info">
-            <h5>ยอดคงเหลือรวม</h5>
+            <h5>ยอดเงินในบัตรคงเหลือรวม</h5>
             <div className="summary-amount">฿{totalBalance.toLocaleString()}</div>
             <p className="summary-label">จาก {totalCards} บัตร</p>
           </div>
