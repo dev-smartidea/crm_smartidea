@@ -423,7 +423,8 @@ router.get('/cards/ledger/all', async (req, res) => {
   try {
     const ledger = await CardLedger.find()
       .sort({ createdAt: -1 })
-      .populate('cardId', 'cardName last4')
+      .populate('cardId', 'cardName displayName last4')
+      .populate('serviceId', 'cid name serviceType')
       .populate('createdBy', 'name email');
     res.json(ledger);
   } catch (err) {

@@ -1,11 +1,13 @@
 # คำแนะนำแก้ไขปัญหา Login
 
 ## ปัญหาที่พบ
-Frontend ไม่สามารถเชื่อมต่อกับ Backend ผ่าน network IP (192.168.1.228:5000) ได้
+Frontend ไม่สามารถเชื่อมต่อกับ Backend ได้ (เช่น Login ไม่ผ่าน, API error)
 
-## สาเหตุ
-1. Windows Firewall บล็อก port 5000
-2. Backend ต้องการสิทธิ์ admin เพื่อเปิด firewall
+## สาเหตุที่เป็นไปได้
+1. Windows Firewall บล็อก port 5000 หรือ 3000
+2. `REACT_APP_API_URL` ใน `frontend/.env` ไม่ตรงกับที่ backend รันอยู่
+3. Backend ยังไม่ได้รัน หรือ crash ไป
+4. CORS ไม่อนุญาต origin ของ frontend (ดู `allowedOrigins` ใน `backend/server.js`)
 
 ## วิธีแก้ไข (เลือก 1 วิธี)
 
@@ -17,14 +19,14 @@ Frontend ไม่สามารถเชื่อมต่อกับ Backend
 
 2. Restart frontend:
    ```bash
-   cd C:\Users\ThisPC\Desktop\crm_smartidea\frontend
+   cd d:\CRM\crm_smartidea\frontend
    npm start
    ```
 
 3. เข้าใช้งานที่ `http://localhost:3000`
 
 ### วิธีที่ 2: ให้คนอื่นในเครือข่ายเข้าได้
-1. เปิด Command Prompt หรือ PowerShell **ในฐานะ Administrator**
+1. เปิด PowerShell **ในฐานะ Administrator**
 
 2. รันคำสั่งเปิด firewall:
    ```powershell
@@ -32,29 +34,34 @@ Frontend ไม่สามารถเชื่อมต่อกับ Backend
    netsh advfirewall firewall add rule name="React Frontend Port 3000" dir=in action=allow protocol=TCP localport=3000
    ```
 
-3. Restart backend:
+3. ตรวจสอบ IP ปัจจุบันของเครื่อง:
+   ```powershell
+   ipconfig | findstr "IPv4"
+   ```
+
+4. แก้ไข `frontend/.env` ให้ตรงกับ IP ที่ได้:
+   ```
+   REACT_APP_API_URL=http://<YOUR_IP>:5000
+   ```
+
+5. เพิ่ม IP ใน `allowedOrigins` ที่ `backend/server.js` (ถ้ายังไม่มี):
+   ```js
+   'http://<YOUR_IP>:3000'
+   ```
+
+6. Restart ทั้ง backend และ frontend:
    ```bash
-   cd C:\Users\ThisPC\Desktop\crm_smartidea\backend
+   # Terminal 1
+   cd d:\CRM\crm_smartidea\backend
    node server.js
-   ```
 
-4. แก้ไข `frontend/.env` กลับเป็น:
-   ```
-   REACT_APP_API_URL=http://192.168.1.228:5000
-   ```
-
-5. Restart frontend:
-   ```bash
-   cd C:\Users\ThisPC\Desktop\crm_smartidea\frontend
+   # Terminal 2
+   cd d:\CRM\crm_smartidea\frontend
    npm start
    ```
 
-## บัญชีทดสอบ
-- Username: `user` Password: `123456`
-- Username: `admin` Password: `123456`
-- Username: `demo` Password: `demo`
-
 ## การตรวจสอบ
-1. ทดสอบ backend: เปิด browser ไปที่ `http://localhost:5000` ควรเห็น "🎉 Backend CRM is working"
+1. ทดสอบ backend: เปิด browser ไปที่ `http://localhost:5000/health` ควรได้ response สำเร็จ
 2. ทดสอบ frontend: เปิด browser ไปที่ `http://localhost:3000`
-3. Login ด้วยบัญชีทดสอบ
+3. เปิด DevTools (F12) > Console ดู error ถ้ามี CORS หรือ Network error
+4. Login ด้วยบัญชีที่สมัครไว้

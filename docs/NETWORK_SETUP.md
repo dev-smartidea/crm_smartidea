@@ -3,18 +3,13 @@
 ## สำหรับผู้ใช้ที่ต้องการเข้าใช้งานจากเครื่องอื่น
 
 ### ข้อมูล Network
-- **Backend Server**: http://192.168.1.228:5000
-- **Frontend Web**: http://192.168.1.228:3001 (หรือพอร์ตที่แสดงเมื่อรัน npm start)
+- **Backend Server**: http://192.168.1.189:5000
+- **Frontend Web**: http://192.168.1.189:3000
 
 ### วิธีการเข้าใช้งาน
 1. เปิดเว็บเบราว์เซอร์ (Chrome, Firefox, Safari, Edge)
-2. เข้าที่ URL: `http://192.168.1.228:3001`
-3. ใช้บัญชีทดสอบ หรือสมัครสมาชิกใหม่
-
-### บัญชีทดสอบที่พร้อมใช้งาน
-- **Admin**: ชื่อผู้ใช้ `admin` รหัส `123456` (สิทธิ์ผู้ดูแล)
-- **User**: ชื่อผู้ใช้ `user` รหัส `123456` (ผู้ใช้ทั่วไป)
-- **Demo**: ชื่อผู้ใช้ `demo` รหัส `demo` (ผู้ใช้สาธิต)
+2. เข้าที่ URL: `http://192.168.1.189:3000`
+3. ใช้บัญชีที่สมัครไว้ หรือสมัครสมาชิกใหม่
 
 ### การสมัครสมาชิก
 - กรอกข้อมูล: ชื่อผู้ใช้, ชื่อ-นามสกุล, อีเมล, รหัสผ่าน
@@ -25,34 +20,43 @@
 - จัดการข้อมูลลูกค้าของตนเอง
 - เพิ่ม/แก้ไข/ลบลูกค้า
 - จัดการบริการต่างๆ สำหรับแต่ละลูกค้า
-- ดูรายงานและสถิติ
+- จัดการบัตรเครดิตและรายการตัดเงิน
+- ส่งธุรกรรมเพื่ออนุมัติ
+- ดูรายงานและสถิติบนแดชบอร์ด
 
 ### หมายเหตุ
 - ทุกผู้ใช้จะเห็นข้อมูลของตนเองเท่านั้น
 - ข้อมูลจะถูกเก็บไว้ในระบบและสามารถเข้าถึงได้จากเครื่องใดก็ได้ใน network เดียวกัน
 - Admin สามารถดูและแก้ไขข้อมูลของผู้ใช้ทุกคนได้
 
+---
+
 ## สำหรับผู้ดูแลระบบ
 
-### การรันระบบ
+### การรันระบบ (Development)
 ```bash
 # รัน Backend
-cd C:\Users\ThisPC\Desktop\crm_smartidea\backend
+cd d:\CRM\crm_smartidea\backend
 node server.js
 
 # รัน Frontend (terminal ใหม่)
-cd C:\Users\ThisPC\Desktop\crm_smartidea\frontend
+cd d:\CRM\crm_smartidea\frontend
 npm start
 ```
 
 ### การตั้งค่า Network
-- Backend: รันที่ `0.0.0.0:5000` (เปิดให้ network เข้าถึงได้)
-- Frontend: รันที่ `0.0.0.0:3001` (เปิดให้ network เข้าถึงได้)
-- CORS: อนุญาตทุก origin สำหรับการใช้งานใน local network
+- **Backend**: รันที่ `0.0.0.0:5000` (เปิดให้ network เข้าถึงได้)
+- **Frontend**: รันที่ `0.0.0.0:3000` (เปิดให้ network เข้าถึงได้)
+- **CORS**: อนุญาตเฉพาะ origin ที่กำหนดใน `allowedOrigins` (localhost, network IP, Vercel)
+
+### Production (Render + Vercel)
+- **Backend**: Deploy บน Render (ดู `render.yaml`)
+- **Frontend**: Deploy บน Vercel — https://crm-smartidea.vercel.app
 
 ### การแก้ไขปัญหา
 หากเครื่องอื่นไม่สามารถเข้าถึงได้:
-1. ตรวจสอบ Windows Firewall
-2. ตรวจสอบว่า IP address ถูกต้อง
+1. ตรวจสอบ Windows Firewall — อนุญาต port 5000 และ 3000
+2. ตรวจสอบว่า IP address ถูกต้อง (ใช้ `ipconfig` ดู IPv4 Address)
 3. ตรวจสอบว่าทั้ง backend และ frontend รันอยู่
 4. ลอง ping เครื่องเซิร์ฟเวอร์ก่อน
+5. หาก IP เปลี่ยน ให้อัพเดต `allowedOrigins` ใน `backend/server.js` ด้วย

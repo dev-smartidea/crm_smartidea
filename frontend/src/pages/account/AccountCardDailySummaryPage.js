@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar3, ArrowLeft, CreditCard2BackFill, Google, Facebook, CashCoin, Clock, ArrowUpCircleFill, ArrowDownCircleFill } from 'react-bootstrap-icons';
+import { Calendar3, ArrowLeft, CreditCard2BackFill, Google, Facebook, Clock, ArrowUpCircleFill, ArrowDownCircleFill } from 'react-bootstrap-icons';
 import './AccountCardsPage.css';
 
 export default function AccountCardDailySummaryPage() {
@@ -11,6 +11,8 @@ export default function AccountCardDailySummaryPage() {
   const [topups, setTopups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // all | charge | topup
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
   const api = process.env.REACT_APP_API_URL;
   const token = localStorage.getItem('token');
 
@@ -57,6 +59,16 @@ export default function AccountCardDailySummaryPage() {
   const filteredItems = activeTab === 'charge' ? charges
     : activeTab === 'topup' ? topups
     : [...charges, ...topups].sort((a, b) => new Date(b.chargedAt) - new Date(a.chargedAt));
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredItems.slice(start, start + itemsPerPage);
+  }, [filteredItems, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedDate]);
 
   const quickDates = [
     { label: 'วันนี้', value: new Date().toISOString().split('T')[0] },
@@ -283,7 +295,7 @@ export default function AccountCardDailySummaryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.map((item, i) => (
+                {paginatedItems.map((item, i) => (
                   <tr key={item._id + item.type} style={{
                     borderBottom: '1px solid #f0f0f0',
                     background: i % 2 === 1 ? '#fafafa' : '#fff'
@@ -348,7 +360,7 @@ export default function AccountCardDailySummaryPage() {
               <tfoot>
                 <tr style={{ borderTop: '2px solid #e5e5e5', background: '#f5f5f5' }}>
                   <td colSpan="7" style={{ ...tdStyle, fontWeight: '600' }}>
-                    รวม {filteredItems.length} รายการ
+                    รวม {filteredItems.length} รายการ (หน้า {currentPage}/{totalPages})
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', fontWeight: '700', fontFamily: 'monospace' }}>
                     {formatCurrency(filteredItems.reduce((sum, item) => sum + (item.type === 'charge' ? -item.amount : item.amount), 0))}
@@ -357,6 +369,31 @@ export default function AccountCardDailySummaryPage() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        )}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === 1 ? '#f5f5f5' : '#fff', cursor: currentPage === 1 ? 'default' : 'pointer', fontSize: 13 }}
+            >«</button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === 1 ? '#f5f5f5' : '#fff', cursor: currentPage === 1 ? 'default' : 'pointer', fontSize: 13 }}
+            >‹ ก่อนหน้า</button>
+            <span style={{ fontSize: 13, color: '#525252', padding: '0 8px' }}>หน้า {currentPage} / {totalPages}</span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === totalPages ? '#f5f5f5' : '#fff', cursor: currentPage === totalPages ? 'default' : 'pointer', fontSize: 13 }}
+            >ถัดไป ›</button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === totalPages ? '#f5f5f5' : '#fff', cursor: currentPage === totalPages ? 'default' : 'pointer', fontSize: 13 }}
+            >»</button>
           </div>
         )}
       </div>

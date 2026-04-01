@@ -5,6 +5,7 @@ import 'chart.js/auto';
 import { 
   CashCoin, 
   CreditCard2Back, 
+  CreditCard2BackFill,
   GraphUp, 
   ArrowDown,
   CheckCircle,
@@ -58,14 +59,6 @@ export default function AccountDashboardPage() {
       borderWidth: 1
     }]
   });
-  const [channelBreakdown, setChannelBreakdown] = useState({
-    labels: [],
-    datasets: [{
-      data: [],
-      backgroundColor: ['#2563eb', '#22c55e', '#f59e0b'],
-      borderWidth: 0
-    }]
-  });
   const [dailyTrendData, setDailyTrendData] = useState({
     labels: [],
     datasets: [
@@ -85,10 +78,8 @@ export default function AccountDashboardPage() {
       }
     ]
   });
-  const [allLedgerEntries, setAllLedgerEntries] = useState([]);
-  const [allTransactionsList, setAllTransactionsList] = useState([]);
-  const [channelFilter, setChannelFilter] = useState('all');
   const [submittedTransactions, setSubmittedTransactions] = useState([]);
+  const [recentCharges, setRecentCharges] = useState([]);
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -154,7 +145,6 @@ export default function AccountDashboardPage() {
           });
           
           const transactions = transactionRes.data.transactions || [];
-          setAllTransactionsList(transactions);
           
           // คำนวณสถิติธุรกรรมตาม submissionStatus
           const submitted = transactions.filter(tx => tx.submissionStatus === 'submitted').length;
@@ -174,7 +164,6 @@ export default function AccountDashboardPage() {
         } catch (e) {
           console.warn('Failed to fetch transactions for status count:', e.message);
           // ถ้าดึงไม่ได้ให้ใช้ค่า 0
-          setAllTransactionsList([]);
           setPendingTransactions(0);
           setApprovedTransactions(0);
           setRejectedTransactions(0);
@@ -212,7 +201,13 @@ export default function AccountDashboardPage() {
             headers: { Authorization: `Bearer ${token}` }
           });
           ledgerEntries = ledgerRes.data || [];
-          setAllLedgerEntries(ledgerEntries);
+
+          // เก็บรายการตัดเงินจากบัตรล่าสุด 5 รายการ
+          const charges = ledgerEntries
+            .filter(e => e.type === 'charge')
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5);
+          setRecentCharges(charges);
         } catch (e) {
           console.warn('Failed to fetch all ledger entries:', e.message);
         }
@@ -315,97 +310,6 @@ export default function AccountDashboardPage() {
       setError('ไม่พบ token หรือ API URL');
     }
   }, [api, token]);
-
-  // คำนวณ channelBreakdown เมื่อ filter เปลี่ยน
-  useEffect(() => {
-    if (allLedgerEntries.length === 0) return;
-
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // วันอาทิตย์ของสัปดาห์นี้
-    startOfWeek.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-
-    // กรองตาม filter
-    const filteredByTime = allLedgerEntries.filter(tx => {
-      if (tx.type !== 'charge') return false;
-      
-      const txDate = new Date(tx.createdAt);
-      
-      switch (channelFilter) {
-        case 'today':
-          return txDate >= startOfDay;
-        case 'week':
-          return txDate >= startOfWeek;
-        case 'month':
-          return txDate >= startOfMonth;
-        case 'year':
-          return txDate >= startOfYear;
-        case 'all':
-        default:
-          return true;
-      }
-    });
-
-    // สร้าง breakdown by channel (พยายามสกัดจาก tx.channel หรือข้อมูล Transaction/service)
-    const channelMap = {
-      'Google Ads': 0,
-      'Facebook Ads': 0,
-      'Other': 0
-    };
-    
-    filteredByTime.forEach(tx => {
-      let channel = tx.channel;
-
-      // ถ้าไม่มี channel ใน CardLedger ให้ลองค้นจาก populated serviceId หรือจาก Transaction ที่อ้างอิงใน tx.reference
-      if (!channel) {
-        // หาก serviceId ถูก populated จาก backend
-        if (tx.serviceId && typeof tx.serviceId === 'object') {
-          const svc = tx.serviceId;
-          const name = (svc.serviceType || svc.name || '').toString().toLowerCase();
-          if (name.includes('google')) channel = 'Google Ads';
-          else if (name.includes('facebook')) channel = 'Facebook Ads';
-        }
-
-        // หากยังไม่เจอ ให้ค้นในรายการ Transaction ทั้งหมด (fetch ไว้ใน state allTransactionsList)
-        if (!channel && allTransactionsList.length > 0 && tx.reference) {
-          const related = allTransactionsList.find(t => String(t._id) === String(tx.reference));
-          if (related && related.serviceId) {
-            const svc = related.serviceId;
-            const name = (svc.serviceType || svc.name || '').toString().toLowerCase();
-            if (name.includes('google')) channel = 'Google Ads';
-            else if (name.includes('facebook')) channel = 'Facebook Ads';
-          }
-        }
-      }
-
-      if (!channel) channel = 'Other';
-
-      const amount = tx.amount || 0;
-      channelMap[channel] = (channelMap[channel] || 0) + amount;
-    });
-    
-    // กรองเฉพาะ channel ที่มียอดมากกว่า 0
-    const filteredChannels = Object.entries(channelMap).filter(([, amount]) => amount > 0);
-    
-    // กำหนดสีตามช่องทาง
-    const channelColors = filteredChannels.map(([label]) => {
-      if (label === 'Google Ads') return '#22c55e'; // สีเขียว
-      if (label === 'Facebook Ads') return '#3b82f6'; // สีฟ้า
-      return '#f59e0b'; // สีส้มสำหรับ Other
-    });
-    
-    setChannelBreakdown({
-      labels: filteredChannels.map(([label]) => label),
-      datasets: [{
-        data: filteredChannels.map(([, amount]) => amount),
-        backgroundColor: channelColors,
-        borderWidth: 0
-      }]
-    });
-  }, [allLedgerEntries, channelFilter, allTransactionsList]);
 
   if (loading) {
     return (
@@ -523,168 +427,255 @@ export default function AccountDashboardPage() {
         </div>
       </div>
 
-      {/* New Charts Row - Sales & Collection */}
-      <div className="charts-row">
-        <div className="chart-card">
-          <h5 className="chart-title">รายการโอนเงินตามรายการ</h5>
-          {salesByProduct.labels.length > 0 ? (
-            <div className="donut-chart-wrapper">
-              <Doughnut data={salesByProduct} options={{
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                  legend: { 
-                    display: true,
-                    position: 'right',
-                    labels: {
-                      boxWidth: 15,
-                      padding: 10,
-                      font: { size: 11 }
+      {/* Charts Section */}
+      <div className="charts-section">
+        <h5 className="section-title">กราฟภาพรวม</h5>
+        <div className="charts-grid-3">
+          {/* 1. รายการโอนเงินตามรายการ */}
+          <div className="chart-card">
+            <div className="chart-card-header">
+              <div className="chart-card-icon sales">
+                <CashCoin size={18} />
+              </div>
+              <h5 className="chart-title">สัดส่วนยอดโอนแยกตามบริการ</h5>
+            </div>
+            {salesByProduct.labels.length > 0 ? (
+              <div className="donut-chart-wrapper">
+                <Doughnut data={salesByProduct} options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { 
+                      display: true,
+                      position: 'bottom',
+                      labels: {
+                        boxWidth: 12,
+                        padding: 12,
+                        font: { size: 12, weight: '500' },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                      }
+                    },
+                    tooltip: {
+                      backgroundColor: 'rgba(23, 23, 23, 0.9)',
+                      titleFont: { size: 13, weight: '600' },
+                      bodyFont: { size: 12 },
+                      padding: 12,
+                      cornerRadius: 8,
+                      callbacks: {
+                        label: (context) => {
+                          const label = context.label || '';
+                          const value = context.parsed || 0;
+                          const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                          const percentage = ((value / total) * 100).toFixed(1);
+                          return `${label}: ฿${value.toLocaleString()} (${percentage}%)`;
+                        }
+                      }
                     }
                   },
-                  tooltip: {
-                    callbacks: {
-                      label: (context) => {
-                        const label = context.label || '';
-                        const value = context.parsed || 0;
-                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                        const percentage = ((value / total) * 100).toFixed(1);
-                        return `${label}: ฿${value.toLocaleString()} (${percentage}%)`;
+                  cutout: '68%'
+                }} />
+                <div className="chart-center-text">
+                  <div className="chart-total">รวม</div>
+                  <div className="chart-total-amount">
+                    ฿{(salesByProduct.datasets?.[0]?.data || []).reduce((a, b) => a + b, 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="no-data-chart">
+                <CashCoin size={32} style={{ opacity: 0.2, marginBottom: 8 }} />
+                <p>ยังไม่มีข้อมูลยอดขาย</p>
+              </div>
+            )}
+          </div>
+
+          {/* 2. สรุปยอดเก็บเงิน */}
+          <div className="chart-card">
+            <div className="chart-card-header">
+              <div className="chart-card-icon collection">
+                <GraphUp size={18} />
+              </div>
+              <h5 className="chart-title">ยอดเก็บเงินรายเดือน</h5>
+            </div>
+            {monthlyCollection.labels.length > 0 ? (
+              <div className="bar-chart-info">
+                <div className="chart-summary-stats">
+                  <div className="chart-stat-item">
+                    <span className="stat-label">เก็บเงินสำเร็จ</span>
+                    <span className="stat-value success">
+                      ฿{(monthlyCollection.datasets?.[0]?.data || []).reduce((a, b) => a + b, 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <Bar data={monthlyCollection} options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      backgroundColor: 'rgba(23, 23, 23, 0.9)',
+                      titleFont: { size: 13, weight: '600' },
+                      bodyFont: { size: 12 },
+                      padding: 12,
+                      cornerRadius: 8,
+                      callbacks: {
+                        label: (context) => `฿${context.parsed.y.toLocaleString()}`
+                      }
+                    }
+                  },
+                  scales: {
+                    x: { 
+                      grid: { display: false },
+                      ticks: { font: { size: 11 }, color: '#737373' },
+                      border: { display: false }
+                    },
+                    y: {
+                      grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+                      beginAtZero: true,
+                      border: { display: false },
+                      ticks: {
+                        font: { size: 11 },
+                        color: '#737373',
+                        callback: (value) => `${(value / 1000).toFixed(0)}K`
                       }
                     }
                   }
-                },
-                cutout: '65%'
-              }} />
-              <div className="chart-center-text">
-                <div className="chart-total">รายได้รวม:</div>
-                <div className="chart-total-amount">
-                  {(salesByProduct.datasets?.[0]?.data || []).reduce((a, b) => a + b, 0).toLocaleString()}
-                </div>
+                }} />
               </div>
-            </div>
-          ) : (
-            <p className="no-data-chart">ยังไม่มีข้อมูลยอดขาย</p>
-          )}
-        </div>
+            ) : (
+              <div className="no-data-chart">
+                <GraphUp size={32} style={{ opacity: 0.2, marginBottom: 8 }} />
+                <p>ยังไม่มีข้อมูล</p>
+              </div>
+            )}
+          </div>
 
-        <div className="chart-card wide">
-          <h5 className="chart-title">สรุปยอดเก็บเงิน</h5>
-          {monthlyCollection.labels.length > 0 ? (
-            <div className="bar-chart-info">
-              <div className="chart-summary-stats">
-                <div className="chart-stat-item">
-                  <span className="stat-label">เก็บเงินสำเร็จ (อนุมัติแล้ว):</span>
-                  <span className="stat-value success">
-                    ฿{(monthlyCollection.datasets?.[0]?.data || []).reduce((a, b) => a + b, 0).toLocaleString()}
-                  </span>
-                </div>
+          {/* 3. แนวโน้มรายการ */}
+          <div className="chart-card">
+            <div className="chart-card-header">
+              <div className="chart-card-icon trend">
+                <GraphUpArrow size={18} />
               </div>
-              <Bar data={monthlyCollection} options={{
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: (context) => `฿${context.parsed.y.toLocaleString()}`
-                    }
-                  }
-                },
-                scales: {
-                  x: { 
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } }
-                  },
-                  y: {
-                    grid: { color: '#e2e8f0' },
-                    beginAtZero: true,
-                    ticks: {
-                      callback: (value) => `${(value / 1000).toFixed(0)}K`
-                    }
-                  }
-                }
-              }} />
+              <h5 className="chart-title">แนวโน้มบัตร โอนเข้า-ออก 7 วันล่าสุด</h5>
             </div>
-          ) : (
-            <p className="no-data-chart">ยังไม่มีข้อมูล</p>
-          )}
+            {dailyTrendData.labels.length > 0 ? (
+              <div className="bar-chart-info">
+                <Bar data={dailyTrendData} options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { 
+                      display: true, 
+                      position: 'top',
+                      labels: {
+                        boxWidth: 12,
+                        padding: 12,
+                        font: { size: 12, weight: '500' },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                      }
+                    },
+                    tooltip: {
+                      backgroundColor: 'rgba(23, 23, 23, 0.9)',
+                      titleFont: { size: 13, weight: '600' },
+                      bodyFont: { size: 12 },
+                      padding: 12,
+                      cornerRadius: 8,
+                      callbacks: {
+                        label: (context) => `${context.dataset.label}: ฿${context.parsed.y.toLocaleString()}`
+                      }
+                    }
+                  },
+                  scales: {
+                    x: { 
+                      grid: { display: false },
+                      ticks: { font: { size: 11 }, color: '#737373' },
+                      border: { display: false }
+                    },
+                    y: {
+                      grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false },
+                      beginAtZero: true,
+                      border: { display: false },
+                      ticks: {
+                        font: { size: 11 },
+                        color: '#737373',
+                        callback: (value) => `฿${value.toLocaleString()}`
+                      }
+                    }
+                  }
+                }} />
+              </div>
+            ) : (
+              <div className="no-data-chart">
+                <GraphUpArrow size={32} style={{ opacity: 0.2, marginBottom: 8 }} />
+                <p>ยังไม่มีข้อมูล</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Charts Row */}
-      <div className="charts-row">
-        <div className="chart-card">
-          <div className="chart-header">
-            <h5 className="chart-title">การใช้งานตามช่องทาง</h5>
-            <select 
-              className="chart-filter-select"
-              value={channelFilter}
-              onChange={(e) => setChannelFilter(e.target.value)}
-            >
-              <option value="today">วันนี้</option>
-              <option value="week">สัปดาห์นี้</option>
-              <option value="month">เดือนนี้</option>
-              <option value="year">ปีนี้</option>
-              <option value="all">ทั้งหมด</option>
-            </select>
+      {/* Recent Sections - Side by Side */}
+      <div className="recent-sections-row">
+        {/* Recent Card Charges */}
+        <div className="recent-transactions-card">
+        <div className="section-header">
+          <h5 className="chart-title">รายการตัดเงินจากบัตรล่าสุด</h5>
+        </div>
+        
+        {recentCharges.length > 0 ? (
+          <div className="transactions-list">
+            {recentCharges.map((entry, idx) => (
+              <div key={idx} className="transaction-item">
+                <div className="transaction-icon">
+                  <CreditCard2BackFill className="charge-icon" />
+                </div>
+                <div className="transaction-content">
+                  <div className="transaction-label">
+                    <span className="tx-type">{entry.cardId?.displayName || 'บัตร'}</span>
+                    {entry.serviceId?.cid && <span className="tx-cid">({entry.serviceId.cid})</span>}
+                    {entry.channel && (
+                      <span className="tx-channel-badge" style={{
+                        fontSize: '0.72rem',
+                        padding: '2px 8px',
+                        borderRadius: '8px',
+                        marginLeft: '6px',
+                        fontWeight: '600',
+                        backgroundColor: 
+                          entry.channel.toLowerCase().includes('google') ? '#dcfce7' :
+                          entry.channel.toLowerCase().includes('facebook') ? '#dbeafe' :
+                          '#f5f5f5',
+                        color: 
+                          entry.channel.toLowerCase().includes('google') ? '#166534' :
+                          entry.channel.toLowerCase().includes('facebook') ? '#1d4ed8' :
+                          '#525252'
+                      }}>
+                        {entry.channel}
+                      </span>
+                    )}
+                  </div>
+                  <span className="tx-card">{entry.note || entry.reference || '-'}</span>
+                </div>
+                <div className="transaction-amount">
+                  <span className="amount-charge">
+                    -฿{(entry.amount || 0).toLocaleString()}
+                  </span>
+                  <span className="tx-date">
+                    {new Date(entry.createdAt).toLocaleDateString('th-TH', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-          {channelBreakdown.labels.length > 0 ? (
-            <Bar data={channelBreakdown} options={{
-              indexAxis: 'y',
-              responsive: true,
-              maintainAspectRatio: true,
-              plugins: {
-                legend: { display: false },
-                tooltip: {
-                  callbacks: {
-                    label: (context) => `฿${context.parsed.x.toLocaleString()}`
-                  }
-                }
-              },
-              scales: {
-                x: { 
-                  beginAtZero: true,
-                  ticks: {
-                    callback: (value) => `฿${value.toLocaleString()}`
-                  }
-                }
-              }
-            }} />
-          ) : (
-            <p className="no-data-chart">ยังไม่มีข้อมูลธุรกรรม</p>
-          )}
-        </div>
-
-        <div className="chart-card">
-          <h5 className="chart-title">แนวโน้มรายการ (7 วันล่าสุด)</h5>
-          {dailyTrendData.labels.length > 0 ? (
-            <Bar data={dailyTrendData} options={{
-              responsive: true,
-              maintainAspectRatio: true,
-              plugins: {
-                legend: { display: true, position: 'top' },
-                tooltip: {
-                  callbacks: {
-                    label: (context) => `${context.dataset.label}: ฿${context.parsed.y.toLocaleString()}`
-                  }
-                }
-              },
-              scales: {
-                x: { grid: { color: '#e2e8f0' } },
-                y: {
-                  grid: { color: '#e2e8f0' },
-                  beginAtZero: true,
-                  ticks: {
-                    callback: (value) => `฿${value.toLocaleString()}`
-                  }
-                }
-              }
-            }} />
-          ) : (
-            <p className="no-data-chart">ยังไม่มีข้อมูล</p>
-          )}
-        </div>
+        ) : (
+          <p className="no-data-message">ยังไม่มีรายการตัดเงิน</p>
+        )}
       </div>
 
       {/* Recent Transactions */}
@@ -747,6 +738,7 @@ export default function AccountDashboardPage() {
         ) : (
           <p className="no-data-message">ยังไม่มีธุรกรรม</p>
         )}
+        </div>
       </div>
     </div>
   );

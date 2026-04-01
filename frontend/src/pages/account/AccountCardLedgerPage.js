@@ -19,6 +19,8 @@ export default function AccountCardLedgerPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
@@ -42,6 +44,16 @@ export default function AccountCardLedgerPage() {
       return true;
     });
   }, [ledger, filterType, filterChannel, dateFrom, dateTo]);
+
+  const totalPages = Math.ceil(filteredLedger.length / itemsPerPage);
+  const paginatedLedger = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLedger.slice(start, start + itemsPerPage);
+  }, [filteredLedger, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, filterChannel, dateFrom, dateTo]);
 
   const downloadCsv = () => {
     if (filteredLedger.length === 0) {
@@ -272,7 +284,7 @@ export default function AccountCardLedgerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLedger.map((entry, i) => (
+                  {paginatedLedger.map((entry, i) => (
                     <tr key={entry._id} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 1 ? '#fafafa' : '#fff' }}>
                       <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatDate(entry.createdAt)} {formatTime(entry.createdAt)}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.type === 'topup' ? <span style={{ color: '#16a34a', fontWeight: 600 }}>เติมเงิน</span> : <span style={{ color: '#dc2626', fontWeight: 600 }}>ตัดยอด</span>}</td>
@@ -288,12 +300,37 @@ export default function AccountCardLedgerPage() {
                 </tbody>
                 <tfoot>
                   <tr style={{ borderTop: '2px solid #e5e5e5', background: '#f5f5f5' }}>
-                    <td colSpan="5" style={{ padding: '8px 10px', fontWeight: 600 }}>รวม {filteredLedger.length} รายการ</td>
+                    <td colSpan="5" style={{ padding: '8px 10px', fontWeight: 600 }}>รวม {filteredLedger.length} รายการ (หน้า {currentPage}/{totalPages})</td>
                     <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(summary.credit - summary.debit).toLocaleString()}</td>
                     <td colSpan="3" style={{ padding: '8px 10px' }}></td>
                   </tr>
                 </tfoot>
               </table>
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === 1 ? '#f5f5f5' : '#fff', cursor: currentPage === 1 ? 'default' : 'pointer', fontSize: 13 }}
+              >«</button>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === 1 ? '#f5f5f5' : '#fff', cursor: currentPage === 1 ? 'default' : 'pointer', fontSize: 13 }}
+              >‹ ก่อนหน้า</button>
+              <span style={{ fontSize: 13, color: '#525252', padding: '0 8px' }}>หน้า {currentPage} / {totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === totalPages ? '#f5f5f5' : '#fff', cursor: currentPage === totalPages ? 'default' : 'pointer', fontSize: 13 }}
+              >ถัดไป ›</button>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #d4d4d4', background: currentPage === totalPages ? '#f5f5f5' : '#fff', cursor: currentPage === totalPages ? 'default' : 'pointer', fontSize: 13 }}
+              >»</button>
             </div>
           )}
         </div>
