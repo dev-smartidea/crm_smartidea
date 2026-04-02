@@ -24,12 +24,4 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// Middleware สำหรับตรวจสอบว่าเป็น admin
-const adminMiddleware = (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
-
-module.exports = { authMiddleware, adminMiddleware };
+module.exports = { authMiddleware };
