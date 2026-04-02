@@ -63,42 +63,27 @@ export default function ImageGalleryPage() {
       });
       setCustomers(res.data || []);
     } catch (err) {
-      console.error('Failed to fetch customers:', err);
+      // customer fetch failed silently
     }
   };
 
-  // ดึงบริการของลูกค้าที่เลือก
-  const fetchCustomerServices = async (customerId) => {
+  // ดึงบริการของลูกค้าที่เลือก (ใช้สำหรับทั้ง filter และ upload modal)
+  const fetchServicesForCustomer = async (customerId, setter) => {
     if (!customerId) {
-      setCustomerServices([]);
+      setter([]);
       return;
     }
     try {
       const res = await axios.get(`${api}/api/customers/${customerId}/services`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCustomerServices(res.data || []);
+      setter(res.data || []);
     } catch (err) {
-      console.error('Failed to fetch customer services:', err);
-      setCustomerServices([]);
+      setter([]);
     }
   };
-  // ดึงบริการของลูกค้าที่เลือก (สำหรับ Upload Modal)
-  const fetchUploadCustomerServices = async (customerId) => {
-    if (!customerId) {
-      setUploadCustomerServices([]);
-      return;
-    }
-    try {
-      const res = await axios.get(`${api}/api/customers/${customerId}/services`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUploadCustomerServices(res.data || []);
-    } catch (err) {
-      console.error('Failed to fetch upload customer services:', err);
-      setUploadCustomerServices([]);
-    }
-  };
+  const fetchCustomerServices = (customerId) => fetchServicesForCustomer(customerId, setCustomerServices);
+  const fetchUploadCustomerServices = (customerId) => fetchServicesForCustomer(customerId, setUploadCustomerServices);
 
   const fetchImages = async (override) => {
     setLoading(true);
@@ -125,7 +110,6 @@ export default function ImageGalleryPage() {
       setTotalPages(data.totalPages || 1);
       setCurrentPage(data.page || 1);
     } catch (err) {
-      console.error('Failed to fetch images:', err);
       setImages([]);
     } finally {
       setLoading(false);

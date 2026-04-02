@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { XCircle, Google, Facebook, Wallet, CashCoin, Eye, Upload } from 'react-bootstrap-icons';
 import toast from '../../utils/toast';
+import { formatCurrency, formatDate, getBankBadgeClass, getBankName, getBreakdownLabel, TRANSACTION_PAGE_SIZE, TRANSACTION_API_LIMIT, MAX_SLIP_FILE_SIZE } from '../../utils/transactionHelpers';
 import '../shared/DashboardPage.css';
 import { getImageUrl } from '../../utils/imageHelper';
 import '../user/AllTransactionPage.css';
@@ -15,7 +16,7 @@ export default function RejectedTransactionsPage() {
   const [uploadingId, setUploadingId] = useState(null);
   
   // Pagination
-  const pageSize = 6;
+  const pageSize = TRANSACTION_PAGE_SIZE;
   const [currentPage, setCurrentPage] = useState(1);
   
   const token = localStorage.getItem('token');
@@ -24,7 +25,7 @@ export default function RejectedTransactionsPage() {
   const fetchRejected = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${api}/api/transactions?submissionStatus=rejected&limit=200`, {
+      const res = await axios.get(`${api}/api/transactions?submissionStatus=rejected&limit=${TRANSACTION_API_LIMIT}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const formatted = (res.data.transactions || []).map(tx => ({
@@ -36,7 +37,7 @@ export default function RejectedTransactionsPage() {
       }));
       setItems(formatted);
     } catch (e) {
-      console.error('Load rejected transactions failed:', e);
+      // fetch error handled by loading state
     } finally {
       setLoading(false);
     }
@@ -54,7 +55,7 @@ export default function RejectedTransactionsPage() {
 
   const handleInlineSlipChange = async (txId, file) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_SLIP_FILE_SIZE) {
       toast.warning('ขนาดไฟล์ต้องไม่เกิน 5MB');
       return;
     }
@@ -94,47 +95,6 @@ export default function RejectedTransactionsPage() {
     } catch (err) {
       toast.error('ลบสลิปไม่สำเร็จ');
     }
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(amount);
-  };
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('th-TH');
-  };
-
-  const getBankBadgeClass = (bank) => {
-    const bankMap = {
-      'KBANK': 'badge-bank-kbank',
-      'SCB': 'badge-bank-scb',
-      'BBL': 'badge-bank-bbl',
-      'BAY-4396': 'badge-bank-bay',
-      'BAY-7146': 'badge-bank-bay',
-      'Cr.-8508': 'badge-bank',
-      'BBL-ส่วนตัว': 'badge-bank-bbl'
-    };
-    return bankMap[bank] || 'badge-bank';
-  };
-
-  const getBankName = (bank) => {
-    return bank || '-';
-  };
-
-  const getBreakdownLabel = (code) => {
-    const labels = {
-      '11': 'ค่าคลิก',
-      '12': 'Vat ค่าคลิก',
-      '13': 'Vat ค่าบริการ Google',
-      '14': 'ค่าบริการ Google',
-      '15': 'ค่าบริการบางส่วน',
-      '16': 'คูปอง Google',
-      '17': 'Vat ค่าบริการ Facebook',
-      '18': 'ค่าบริการ Facebook',
-      '19': 'Vat ค่าบริการ Hosting Domain',
-      '20': 'ค่าบริการ Hosting Domain'
-    };
-    return labels[code] || code;
   };
 
   const totalAmount = items.reduce((sum, tx) => sum + (tx.amount || 0), 0);

@@ -20,7 +20,9 @@ export default function DashboardLayout() {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(res.data);
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to fetch profile:', err.message);
+      }
     };
     fetchProfile();
   }, []);
@@ -35,7 +37,9 @@ export default function DashboardLayout() {
         });
         const unread = res.data.filter(n => !n.isRead).length;
         setUnreadCount(unread);
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to fetch notifications:', err.message);
+      }
     };
     fetchNotificationCount();
     // Refresh every 30 seconds
@@ -54,7 +58,9 @@ export default function DashboardLayout() {
         // นับเฉพาะกิจกรรมที่ยังไม่เสร็จสิ้น
         const pendingActivities = res.data.filter(activity => activity.projectStatus !== 'เสร็จสิ้น');
         setActivitiesCount(pendingActivities.length);
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to fetch activities:', err.message);
+      }
     };
     fetchActivitiesCount();
     // Refresh every 30 seconds

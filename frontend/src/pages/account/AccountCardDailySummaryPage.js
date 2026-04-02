@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar3, ArrowLeft, CreditCard2BackFill, Google, Facebook, Clock, ArrowUpCircleFill, ArrowDownCircleFill } from 'react-bootstrap-icons';
+import { formatCurrency } from '../../utils/transactionHelpers';
 import './AccountCardsPage.css';
 
 export default function AccountCardDailySummaryPage() {
@@ -27,17 +28,13 @@ export default function AccountCardDailySummaryPage() {
         setCharges(res.data.charges || []);
         setTopups(res.data.topups || []);
       } catch (err) {
-        console.error('Failed to fetch daily summary:', err);
+        // error handled by empty state UI
       } finally {
         setLoading(false);
       }
     };
     fetchData();
   }, [api, token, selectedDate]);
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-  };
 
   const totalCharge = charges.reduce((sum, c) => sum + c.amount, 0);
   const totalTopup = topups.reduce((sum, t) => sum + t.amount, 0);
@@ -58,7 +55,7 @@ export default function AccountCardDailySummaryPage() {
 
   const filteredItems = activeTab === 'charge' ? charges
     : activeTab === 'topup' ? topups
-    : [...charges, ...topups].sort((a, b) => new Date(b.chargedAt) - new Date(a.chargedAt));
+    : [...charges, ...topups].sort((a, b) => new Date(b.chargedAt || b.createdAt) - new Date(a.chargedAt || a.createdAt));
 
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
   const paginatedItems = useMemo(() => {

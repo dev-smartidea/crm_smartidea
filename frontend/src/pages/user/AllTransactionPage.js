@@ -168,7 +168,7 @@ export default function AllTransactionPage() {
       const [customersRes, servicesRes, transactionsRes] = await Promise.all([
         axios.get(`${api}/api/customers`, authHeaders),
         axios.get(`${api}/api/services`, authHeaders),
-        axios.get(`${api}/api/transactions?limit=1000`, authHeaders)
+        axios.get(`${api}/api/transactions?limit=5000`, authHeaders)
       ]);
       
       setCustomers(customersRes.data);
@@ -176,17 +176,12 @@ export default function AllTransactionPage() {
 
       // จัดรูปแบบข้อมูล transactions พร้อม customer และ service
       const allTransactions = transactionsRes.data.transactions || transactionsRes.data;
-      console.log('All transactions from API:', allTransactions.length);
-      console.log('Sample transaction:', allTransactions[0]);
       
       const formattedTransactions = allTransactions
         .filter(tx => {
           // แสดงเฉพาะรายการที่ยังไม่ส่ง (null/undefined/none) หรือถูกปฏิเสธ (rejected)
           // ไม่แสดง: submitted (รอการอนุมัติ) และ approved (อนุมัติแล้ว)
           const shouldShow = !tx.submissionStatus || tx.submissionStatus === 'none' || tx.submissionStatus === 'rejected';
-          if (!shouldShow) {
-            console.log('Filtered out:', tx._id, 'status:', tx.submissionStatus);
-          }
           return shouldShow;
         })
         .map(tx => ({
@@ -196,7 +191,6 @@ export default function AllTransactionPage() {
           customer: tx.serviceId?.customerId || {}
         }));
 
-      console.log('Formatted transactions to show:', formattedTransactions.length);
       setTransactions(formattedTransactions);
       setFilteredTransactions(formattedTransactions);
     } catch (error) {

@@ -147,58 +147,63 @@ router.get('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  const session = await mongoose.startSession();
   try {
-    const customerId = req.params.id;
+    await session.withTransaction(async () => {
+      const customerId = req.params.id;
     
-    // 1. ค้นหา Services ทั้งหมดของลูกค้า
-    const services = await Service.find({ customerId });
-    const serviceIds = services.map(s => s._id);
+      // 1. ค้นหา Services ทั้งหมดของลูกค้า
+      const services = await Service.find({ customerId }).session(session);
+      const serviceIds = services.map(s => s._id);
     
-    // 2. ลบ Transactions ที่เกี่ยวข้องกับ Services เหล่านี้
-    if (serviceIds.length > 0) {
-      const transactions = await Transaction.find({ serviceId: { $in: serviceIds } });
+      // 2. ลบ Transactions ที่เกี่ยวข้องกับ Services เหล่านี้
+      if (serviceIds.length > 0) {
+        const transactions = await Transaction.find({ serviceId: { $in: serviceIds } }).session(session);
       
-      // ลบไฟล์สลิปของ Transactions
-      for (const tx of transactions) {
-        if (tx.slipImage) {
-          const slipPath = path.join(__dirname, '..', tx.slipImage);
-          if (fs.existsSync(slipPath)) {
-            fs.unlinkSync(slipPath);
+        // ลบไฟล์สลิปของ Transactions
+        for (const tx of transactions) {
+          if (tx.slipImage) {
+            const slipPath = path.join(__dirname, '..', tx.slipImage);
+            if (fs.existsSync(slipPath)) {
+              fs.unlinkSync(slipPath);
+            }
+          }
+        }
+      
+        await Transaction.deleteMany({ serviceId: { $in: serviceIds } }).session(session);
+      }
+    
+      // 3. ลบ Activities ที่เกี่ยวข้องกับลูกค้า
+      await Activity.deleteMany({ customerId }).session(session);
+    
+      // 4. ลบ Notifications ที่เกี่ยวข้องกับลูกค้า
+      await Notification.deleteMany({ relatedCustomerId: customerId }).session(session);
+    
+      // 5. ลบ Images ที่เกี่ยวข้องกับลูกค้าและไฟล์จริง
+      const images = await Image.find({ customerId }).session(session);
+      for (const img of images) {
+        if (img.url) {
+          const imgPath = path.join(__dirname, '..', img.url);
+          if (fs.existsSync(imgPath)) {
+            fs.unlinkSync(imgPath);
           }
         }
       }
-      
-      await Transaction.deleteMany({ serviceId: { $in: serviceIds } });
-    }
+      await Image.deleteMany({ customerId }).session(session);
     
-    // 3. ลบ Activities ที่เกี่ยวข้องกับลูกค้า
-    await Activity.deleteMany({ customerId });
+      // 6. ลบ Services ทั้งหมดของลูกค้า
+      await Service.deleteMany({ customerId }).session(session);
     
-    // 4. ลบ Notifications ที่เกี่ยวข้องกับลูกค้า
-    await Notification.deleteMany({ relatedCustomerId: customerId });
-    
-    // 5. ลบ Images ที่เกี่ยวข้องกับลูกค้าและไฟล์จริง
-    const images = await Image.find({ customerId });
-    for (const img of images) {
-      if (img.url) {
-        const imgPath = path.join(__dirname, '..', img.url);
-        if (fs.existsSync(imgPath)) {
-          fs.unlinkSync(imgPath);
-        }
-      }
-    }
-    await Image.deleteMany({ customerId });
-    
-    // 6. ลบ Services ทั้งหมดของลูกค้า
-    await Service.deleteMany({ customerId });
-    
-    // 7. ลบลูกค้า
-    await Customer.findByIdAndDelete(customerId);
+      // 7. ลบลูกค้า
+      await Customer.findByIdAndDelete(customerId).session(session);
+    });
     
     res.json({ message: '✅ ลบลูกค้าและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ' });
   } catch (err) {
     console.error('Delete customer error:', err);
     res.status(400).json({ error: err.message });
+  } finally {
+    session.endSession();
   }
 });
 // ✅ PUT แก้ไขข้อมูลลูกค้า

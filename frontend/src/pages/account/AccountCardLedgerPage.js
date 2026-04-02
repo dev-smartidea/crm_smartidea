@@ -234,7 +234,6 @@ export default function AccountCardLedgerPage() {
               </div>
               <div className="filter-actions">
                 <button className="btn-clear" onClick={() => { setFilterType(''); setFilterChannel(''); setDateFrom(''); setDateTo(''); }} disabled={!hasActiveFilters}>ล้าง</button>
-                <button className="btn-search" onClick={() => { /* already filtered by state */ }}>ค้นหา</button>
               </div>
             </div>
           </div>

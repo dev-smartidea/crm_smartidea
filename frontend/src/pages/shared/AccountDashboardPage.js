@@ -90,20 +90,14 @@ export default function AccountDashboardPage() {
         setLoading(true);
         setError(null);
         
-        // ดึงข้อมูลจาก dashboard summary API
-        const dashboardRes = await axios.get(`${api}/api/dashboard/summary`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // ดึงข้อมูลจาก dashboard summary API + บัตร พร้อมกัน
+        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+        const [dashboardRes, cardsRes] = await Promise.all([
+          axios.get(`${api}/api/dashboard/summary`, authHeaders),
+          axios.get(`${api}/api/cards`, authHeaders)
+        ]);
         
         const dashboardData = dashboardRes.data;
-        console.log('Dashboard data:', dashboardData);
-        
-        // ดึงข้อมูลบัตร
-        const cardsRes = await axios.get(`${api}/api/cards`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        console.log('Cards response:', cardsRes.data);
         
         const cards = cardsRes.data || [];
         const totalCardBalance = cards.reduce((sum, c) => sum + (c.balance || 0), 0);
@@ -113,61 +107,46 @@ export default function AccountDashboardPage() {
         setTotalBalance(totalCardBalance);
         setActiveCards(activeCardCount);
 
-        console.log('Total cards:', cards.length, 'Balance:', totalCardBalance);
+        // ดึง CardLedger + Transaction พร้อมกัน
+        let ledgerEntries = [];
+        let transactionData = [];
+        
+        const [ledgerResult, transactionResult] = await Promise.allSettled([
+          axios.get(`${api}/api/cards/ledger/all`, authHeaders),
+          axios.get(`${api}/api/transactions`, authHeaders)
+        ]);
 
-        // ดึงข้อมูลธุรกรรมล่าสุด
-        let allTransactions = [];
-        for (const card of cards) {
-          try {
-            const ledgerRes = await axios.get(`${api}/api/cards/${card._id}/ledger`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            const transactions = (ledgerRes.data || []).map(tx => ({ 
-              ...tx, 
-              cardId: card._id, 
-              cardName: card.displayName 
-            }));
-            allTransactions = allTransactions.concat(transactions);
-          } catch (e) {
-            console.warn(`Failed to fetch ledger for card ${card._id}:`, e.message);
-          }
-        }
-
-        console.log('Total transactions:', allTransactions.length);
-
-        // เรียงลำดับ
-        allTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-        // ดึงข้อมูล Transaction สำหรับนับสถานะการส่งบัญชี
-        try {
-          const transactionRes = await axios.get(`${api}/api/transactions`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          
-          const transactions = transactionRes.data.transactions || [];
-          
-          // คำนวณสถิติธุรกรรมตาม submissionStatus
-          const submitted = transactions.filter(tx => tx.submissionStatus === 'submitted').length;
-          const approved = transactions.filter(tx => tx.submissionStatus === 'approved').length;
-          const rejected = transactions.filter(tx => tx.submissionStatus === 'rejected').length;
-          
-          setPendingTransactions(submitted); // รอดำเนินการ = submitted
-          setApprovedTransactions(approved);
-          setRejectedTransactions(rejected);
-
-          // เก็บรายการธุรกรรมที่ส่งเข้ามาล่าสุด 5 รายการ (submitted หรือ approved)
-          const recentSubmitted = transactions
-            .filter(tx => tx.submissionStatus === 'submitted' || tx.submissionStatus === 'approved')
-            .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+        if (ledgerResult.status === 'fulfilled') {
+          ledgerEntries = ledgerResult.value.data || [];
+          const charges = ledgerEntries
+            .filter(e => e.type === 'charge')
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 5);
-          setSubmittedTransactions(recentSubmitted);
-        } catch (e) {
-          console.warn('Failed to fetch transactions for status count:', e.message);
-          // ถ้าดึงไม่ได้ให้ใช้ค่า 0
-          setPendingTransactions(0);
-          setApprovedTransactions(0);
-          setRejectedTransactions(0);
+          setRecentCharges(charges);
         }
+
+        if (transactionResult.status === 'fulfilled') {
+          transactionData = transactionResult.value.data.transactions || [];
+        }
+
+        // ใช้ ledgerEntries เป็น allTransactions สำหรับคำนวณ growth
+        const allTransactions = ledgerEntries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // คำนวณสถิติธุรกรรมตาม submissionStatus (จากข้อมูลที่ดึงพร้อมกันแล้ว)
+        const submitted = transactionData.filter(tx => tx.submissionStatus === 'submitted').length;
+        const approved = transactionData.filter(tx => tx.submissionStatus === 'approved').length;
+        const rejected = transactionData.filter(tx => tx.submissionStatus === 'rejected').length;
+        
+        setPendingTransactions(submitted);
+        setApprovedTransactions(approved);
+        setRejectedTransactions(rejected);
+
+        // เก็บรายการธุรกรรมที่ส่งเข้ามาล่าสุด 5 รายการ
+        const recentSubmitted = transactionData
+          .filter(tx => tx.submissionStatus === 'submitted' || tx.submissionStatus === 'approved')
+          .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+          .slice(0, 5);
+        setSubmittedTransactions(recentSubmitted);
 
         // คำนวณยอด topup
         // โอนเข้าทั้งหมด: ใช้ยอดรวมจากรายการที่อนุมัติแล้ว (backend summary)
@@ -191,26 +170,6 @@ export default function AccountDashboardPage() {
         const lastMonthTotal = lastMonthTx.reduce((sum, tx) => sum + (tx.amount || 0), 0);
         const growth = lastMonthTotal > 0 ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal * 100) : 0;
         setMonthlyGrowth(growth);
-
-        console.log('Topup (approved):', approvedTotalAmount);
-
-        // ดึงข้อมูล CardLedger ทั้งหมดสำหรับ channel breakdown และ daily trend
-        let ledgerEntries = [];
-        try {
-          const ledgerRes = await axios.get(`${api}/api/cards/ledger/all`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          ledgerEntries = ledgerRes.data || [];
-
-          // เก็บรายการตัดเงินจากบัตรล่าสุด 5 รายการ
-          const charges = ledgerEntries
-            .filter(e => e.type === 'charge')
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 5);
-          setRecentCharges(charges);
-        } catch (e) {
-          console.warn('Failed to fetch all ledger entries:', e.message);
-        }
 
         // ใช้ข้อมูล sales by service จาก backend
         if (dashboardData.salesByService && dashboardData.salesByService.labels.length > 0) {
@@ -296,7 +255,6 @@ export default function AccountDashboardPage() {
           ]
         });
       } catch (err) {
-        console.error('Failed to fetch account dashboard data:', err);
         setError(err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       } finally {
         setLoading(false);
@@ -339,7 +297,7 @@ export default function AccountDashboardPage() {
       <div className="dashboard-header">
         <div className="header-content">
           <h2>แดชบอร์ด</h2>
-          <p className="dashboard-subtitle">ภาพรวมบัตรเครดิตและธุรกรรม</p>
+          <p className="dashboard-subtitle">ภาพรวมบัตร และธุรกรรม</p>
         </div>
         <div className="header-stats">
           <div className="mini-stat">
@@ -429,7 +387,7 @@ export default function AccountDashboardPage() {
 
       {/* Charts Section */}
       <div className="charts-section">
-        <h5 className="section-title">กราฟภาพรวม</h5>
+        <h5 className="section-title">ภาพรวม</h5>
         <div className="charts-grid-3">
           {/* 1. รายการโอนเงินตามรายการ */}
           <div className="chart-card">

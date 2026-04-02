@@ -23,19 +23,48 @@ router.get('/dashboard/summary', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    // นับจำนวนลูกค้า
-    const customerCount = (user.role === 'admin' || user.role === 'account')
-      ? await Customer.countDocuments()
-      : await Customer.countDocuments({ userId: user.id });
+    const isPrivileged = user.role === 'admin' || user.role === 'account';
+    const serviceStatusFilter = isPrivileged ? {} : { userId: user.id };
+    const transactionFilter = isPrivileged ? {} : { userId: user.id };
 
-    // นับจำนวนบริการ
-    const serviceCount = (user.role === 'admin' || user.role === 'account')
-      ? await Service.countDocuments()
-      : await Service.countDocuments({ userId: user.id });
+    const sevenDaysLater = new Date();
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // นับสถานะบริการ (อิงตามสถานะที่ใช้จริงในระบบ)
-    const serviceStatusFilter = (user.role === 'admin' || user.role === 'account') ? {} : { userId: user.id };
-    const services = await Service.find(serviceStatusFilter);
+    // Run independent queries in parallel
+    const [
+      customerCount,
+      serviceCount,
+      services,
+      allTransactions,
+      recentCustomers,
+      recentTransactions,
+      upcomingServices
+    ] = await Promise.all([
+      isPrivileged ? Customer.countDocuments() : Customer.countDocuments({ userId: user.id }),
+      isPrivileged ? Service.countDocuments() : Service.countDocuments({ userId: user.id }),
+      Service.find(serviceStatusFilter),
+      Transaction.find(transactionFilter).populate('serviceId', 'name'),
+      isPrivileged
+        ? Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode')
+        : Customer.find({ userId: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode'),
+      Transaction.find(transactionFilter)
+        .populate('customerId', 'name')
+        .populate('serviceId', 'customerIdField name')
+        .sort({ transactionDate: -1 })
+        .limit(5)
+        .select('amount transactionDate bank customerId serviceId'),
+      Service.find({
+        ...serviceStatusFilter,
+        dueDate: { $lte: sevenDaysLater, $gte: new Date() }
+      })
+        .populate('customerId', 'name')
+        .sort({ dueDate: 1 })
+        .limit(10)
+        .select('name status dueDate customerId pageUrl customerIdField')
+    ]);
+
     // แปลงเป็น plain object เพื่อให้ได้สถานะที่คำนวณอัตโนมัติจาก model
     const svcPlain = services.map(s => s.toObject());
     const serviceStatus = {
@@ -52,39 +81,12 @@ router.get('/dashboard/summary', async (req, res) => {
     };
 
     // คำนวณรายได้รวม
-    const transactionFilter = (user.role === 'admin' || user.role === 'account') ? {} : { userId: user.id };
-    const allTransactions = await Transaction.find(transactionFilter).populate('serviceId', 'name');
     const totalRevenue = allTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
     // รวมยอดเฉพาะรายการที่อนุมัติแล้ว
     const approvedTransactions = allTransactions.filter(tx => tx.submissionStatus === 'approved');
     const approvedTotalAmount = approvedTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
     const approvedCount = approvedTransactions.length;
-
-    // ดึงลูกค้าล่าสุด 5 คน
-    const recentCustomers = (user.role === 'admin' || user.role === 'account')
-      ? await Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode')
-      : await Customer.find({ userId: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode');
-
-    // ดึงรายการโอนเงินล่าสุด 5 รายการ
-    const recentTransactions = await Transaction.find(transactionFilter)
-      .populate('customerId', 'name')
-      .populate('serviceId', 'customerIdField name')
-      .sort({ transactionDate: -1 })
-      .limit(5)
-      .select('amount transactionDate bank customerId serviceId');
-
-    // ดึงบริการที่ใกล้ครบกำหนดภายใน 7 วัน
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-    const upcomingServices = await Service.find({
-      ...serviceStatusFilter,
-      dueDate: { $lte: sevenDaysLater, $gte: new Date() }
-    })
-      .populate('customerId', 'name')
-      .sort({ dueDate: 1 })
-      .limit(10)
-        .select('name status dueDate customerId pageUrl customerIdField');
 
       const upcomingServicesFormatted = upcomingServices.map(svc => {
         const obj = svc.toObject();
@@ -99,28 +101,21 @@ router.get('/dashboard/summary', async (req, res) => {
         };
       });
 
-    // ดึงข้อมูลการเติมเงิน 30 วันล่าสุด แบ่งตามวัน
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentTransactionFilter = user.role === 'admin' 
-      ? { transactionDate: { $gte: thirtyDaysAgo } }
-      : { userId: user.id, transactionDate: { $gte: thirtyDaysAgo } };
-    
-    const transactions = await Transaction.find(recentTransactionFilter).sort({ transactionDate: 1 });
-    
-    // จัดกลุ่มตามวัน
+    // ดึงข้อมูลการเติมเงิน 30 วันล่าสุด แบ่งตามวัน (filter from already-fetched transactions)
     const transactionsByDate = {};
-    transactions.forEach(tx => {
-      const dateKey = new Date(tx.transactionDate).toLocaleDateString('th-TH', { 
-        day: 'numeric',
-        month: 'short'
+    allTransactions
+      .filter(tx => tx.transactionDate && new Date(tx.transactionDate) >= thirtyDaysAgo)
+      .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate))
+      .forEach(tx => {
+        const dateKey = new Date(tx.transactionDate).toLocaleDateString('th-TH', { 
+          day: 'numeric',
+          month: 'short'
+        });
+        if (!transactionsByDate[dateKey]) {
+          transactionsByDate[dateKey] = 0;
+        }
+        transactionsByDate[dateKey]++;
       });
-      if (!transactionsByDate[dateKey]) {
-        transactionsByDate[dateKey] = 0;
-      }
-      transactionsByDate[dateKey]++;
-    });
 
     // แปลงเป็น array สำหรับกราฟ
     const chartLabels = Object.keys(transactionsByDate);

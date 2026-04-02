@@ -119,6 +119,7 @@ serviceSchema.virtual('months').get(function () {
 serviceSchema.pre('save', function (next) {
   if (this.cid && !this.customerIdField) this.customerIdField = this.cid;
   if (this.serviceType && !this.name) this.name = this.serviceType;
+  if (this.name && !this.serviceType) this.serviceType = this.name;
   next();
 });
 
@@ -126,6 +127,7 @@ serviceSchema.pre('findOneAndUpdate', function (next) {
   const update = this.getUpdate() || {};
   if (update.cid && !update.customerIdField) update.customerIdField = update.cid;
   if (update.serviceType && !update.name) update.name = update.serviceType;
+  if (update.name && !update.serviceType) update.serviceType = update.name;
   this.setUpdate(update);
   next();
 });

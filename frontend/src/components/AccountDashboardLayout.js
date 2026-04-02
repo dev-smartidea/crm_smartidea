@@ -19,7 +19,9 @@ export default function AccountDashboardLayout() {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(res.data);
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to fetch profile:', err.message);
+      }
     };
     fetchProfile();
   }, []);
@@ -34,7 +36,9 @@ export default function AccountDashboardLayout() {
         });
         const unread = res.data.filter(n => !n.isRead).length;
         setUnreadCount(unread);
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to fetch notifications:', err.message);
+      }
     };
     fetchNotificationCount();
     const interval = setInterval(fetchNotificationCount, 30000);

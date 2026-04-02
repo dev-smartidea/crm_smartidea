@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 
-export default function useNotificationSocket(onNotification) {
+export default function useNotificationSocket(onNotification, enabled = true) {
   const callbackRef = useRef(onNotification);
 
   // Update ref when callback changes
@@ -10,7 +10,12 @@ export default function useNotificationSocket(onNotification) {
   }, [onNotification]);
 
   useEffect(() => {
-    const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000');
+    if (!enabled) return;
+
+    const token = localStorage.getItem('token');
+    const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', {
+      auth: { token },
+    });
     
     socket.on('notification', (data) => {
       if (typeof callbackRef.current === 'function') {
@@ -21,5 +26,5 @@ export default function useNotificationSocket(onNotification) {
     return () => {
       socket.disconnect();
     };
-  }, []); // Only connect once
+  }, [enabled]); // Only connect once when enabled
 }

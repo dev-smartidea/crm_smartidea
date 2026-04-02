@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -38,17 +38,23 @@ function App() {
     setToken(localStorage.getItem('token'));
   };
 
-  // ตรวจสอบ role จาก token (decode JWT)
-  const getRoleFromToken = () => {
+  // ตรวจสอบ role จาก token (decode JWT) — memoize เพื่อไม่ให้ decode ทุก render
+  const role = useMemo(() => {
     try {
-      const t = localStorage.getItem('token');
-      if (!t) return null;
-      const payload = JSON.parse(atob(t.split('.')[1]));
+      if (!token) return null;
+      const base64 = token.split('.')[1];
+      // Replace URL-safe chars and pad for standard base64
+      const normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(decodeURIComponent(
+        atob(normalized).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+      ));
       return payload.role || null;
     } catch {
       return null;
     }
-  };
+  }, [token]);
+
+  const getRoleFromToken = () => role;
 
   return (
     <Router>
@@ -85,7 +91,6 @@ function App() {
               : <AllTransactionPage />
           } />
           <Route path="customer/:id/services" element={<CustomerServicesPage />} />
-          <Route path="customers/:customerId/services" element={<CustomerServicesPage />} />
           <Route path="customers/:customerId/activities" element={<CustomerActivitiesPage />} />
           <Route path="activities" element={<AllActivitiesPage />} />
           <Route path="services/:serviceId/transactions" element={<TransactionHistoryPage />} />

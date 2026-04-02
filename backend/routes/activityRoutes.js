@@ -33,10 +33,13 @@ router.get('/customers/:customerId/activities', async (req, res) => {
   try {
     const { customerId } = req.params;
 
-    // Verify customer exists
+    // Verify customer exists and belongs to the user
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
+    }
+    if (customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+      return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึงข้อมูลลูกค้านี้' });
     }
 
     const activities = await Activity.find({ customerId })
@@ -55,10 +58,13 @@ router.post('/customers/:customerId/activities', async (req, res) => {
     const { customerId } = req.params;
     const { serviceCode, activityType, projectName, projectStatus, dueDate } = req.body;
 
-    // Verify customer exists
+    // Verify customer exists and belongs to the user
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
+    }
+    if (customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+      return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึงข้อมูลลูกค้านี้' });
     }
 
     // Validate required fields
@@ -93,6 +99,11 @@ router.put('/activities/:id', async (req, res) => {
     if (!activity) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลกิจกรรม' });
     }
+    // Verify ownership
+    const customer = await Customer.findById(activity.customerId);
+    if (customer && customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+      return res.status(403).json({ message: 'ไม่มีสิทธิ์แก้ไขกิจกรรมนี้' });
+    }
 
     // Update fields
     if (serviceCode) activity.serviceCode = serviceCode;
@@ -117,6 +128,11 @@ router.put('/activities/:id/complete', async (req, res) => {
     if (!activity) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลกิจกรรม' });
     }
+    // Verify ownership
+    const customer = await Customer.findById(activity.customerId);
+    if (customer && customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+      return res.status(403).json({ message: 'ไม่มีสิทธิ์อัปเดตกิจกรรมนี้' });
+    }
     // Update status only if not already completed
     if (activity.projectStatus !== 'เสร็จสิ้น') {
       activity.projectStatus = 'เสร็จสิ้น';
@@ -137,6 +153,11 @@ router.delete('/activities/:id', async (req, res) => {
     const activity = await Activity.findById(id);
     if (!activity) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลกิจกรรม' });
+    }
+    // Verify ownership
+    const customer = await Customer.findById(activity.customerId);
+    if (customer && customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+      return res.status(403).json({ message: 'ไม่มีสิทธิ์ลบกิจกรรมนี้' });
     }
 
     await Activity.findByIdAndDelete(id);

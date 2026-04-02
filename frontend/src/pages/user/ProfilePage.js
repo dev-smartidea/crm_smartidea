@@ -99,7 +99,6 @@ const ProfilePage = () => {
       setUser(res.data);
       setError('');
     } catch (err) {
-      console.error("Error saving profile:", err.response ? err.response.data : err.message);
       setError('บันทึกข้อมูลไม่สำเร็จ');
     } finally {
       setSaving(false);

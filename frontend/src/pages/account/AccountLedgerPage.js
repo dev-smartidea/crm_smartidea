@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import toast from '../../utils/toast';
 import { 
@@ -12,26 +12,33 @@ const SERVICE_TYPES = ['Google Ads', 'Facebook Ads'];
 
 // Helper: get sum by breakdown code
 // Helper: ลูกค้าใหม่ = รายการแรกของบริการนั้น, ต่ออายุ = รายการที่ไม่ใช่รายการแรก
-const getFirstTransactionAmount = (item, code, allItems) => {
+// Pre-compute first transaction map to avoid O(n²) per-cell scans
+const buildFirstTxMap = (allItems) => {
+  const map = new Map();
+  for (const item of allItems) {
+    const key = `${item.serviceType}-${item.customerCode}`;
+    const existing = map.get(key);
+    if (!existing || new Date(item.transactionDate) < new Date(existing.transactionDate)) {
+      map.set(key, item);
+    }
+  }
+  return map;
+};
+
+const getFirstTransactionAmount = (item, code, firstTxMap) => {
   if (!item.breakdowns || !Array.isArray(item.breakdowns)) return 0;
-  // หา serviceKey (serviceType + customerCode)
-  const serviceKey = `${item.serviceType}-${item.customerCode}`;
-  // หา transaction แรกของ serviceKey
-  const firstTx = allItems.filter(i => `${i.serviceType}-${i.customerCode}` === serviceKey)
-    .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate))[0];
-  // ถ้า item นี้คือ transaction แรก ให้คืนยอด code
+  const key = `${item.serviceType}-${item.customerCode}`;
+  const firstTx = firstTxMap.get(key);
   if (firstTx && firstTx._id === item._id) {
     return item.breakdowns.filter(bd => String(bd.code) === String(code)).reduce((sum, bd) => sum + (parseFloat(bd.amount) || 0), 0);
   }
   return 0;
 };
 
-const getRenewTransactionAmount = (item, code, allItems) => {
+const getRenewTransactionAmount = (item, code, firstTxMap) => {
   if (!item.breakdowns || !Array.isArray(item.breakdowns)) return 0;
-  const serviceKey = `${item.serviceType}-${item.customerCode}`;
-  const firstTx = allItems.filter(i => `${i.serviceType}-${i.customerCode}` === serviceKey)
-    .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate))[0];
-  // ถ้า item นี้ไม่ใช่ transaction แรก ให้คืนยอด code
+  const key = `${item.serviceType}-${item.customerCode}`;
+  const firstTx = firstTxMap.get(key);
   if (firstTx && firstTx._id !== item._id) {
     return item.breakdowns.filter(bd => String(bd.code) === String(code)).reduce((sum, bd) => sum + (parseFloat(bd.amount) || 0), 0);
   }
@@ -46,7 +53,7 @@ const getBreakdownAmount = (item, code) => {
 
 export default function AccountLedgerPage() {
   const [ledgerData, setLedgerData] = useState([]);
-  const [, setSummary] = useState({});
+  const firstTxMap = useMemo(() => buildFirstTxMap(ledgerData), [ledgerData]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -97,12 +104,11 @@ export default function AccountLedgerPage() {
       });
 
       setLedgerData(res.data.items || []);
-      setSummary(res.data.summary || {});
       setTotal(res.data.total || 0);
       setTotalPages(res.data.totalPages || 1);
       setCurrentPage(res.data.page || 1);
     } catch (err) {
-      console.error('Failed to fetch ledger:', err);
+      toast.error('โหลดข้อมูลไม่สำเร็จ');
     } finally {
       setLoading(false);
     }
@@ -125,7 +131,6 @@ export default function AccountLedgerPage() {
         });
         setChargeHistory(res.data);
       } catch (err) {
-        console.error('Failed to fetch charge history:', err);
         setChargeHistory(null);
       }
     };
@@ -141,7 +146,7 @@ export default function AccountLedgerPage() {
         });
         setCards((res.data || []).filter(c => c.status === 'active'));
       } catch (err) {
-        console.error('Failed to fetch cards:', err);
+        // cards fetch failed silently
       }
     };
     fetchCards();
@@ -175,7 +180,6 @@ export default function AccountLedgerPage() {
       link.click();
       link.remove();
     } catch (err) {
-      console.error('Export failed:', err);
       toast.error('ส่งออกไฟล์ไม่สำเร็จ');
     }
   };
@@ -217,7 +221,6 @@ export default function AccountLedgerPage() {
           : item
       ));
     } catch (err) {
-      console.error('Update failed:', err);
       toast.error('บันทึกไม่สำเร็จ');
     }
     
@@ -543,13 +546,13 @@ export default function AccountLedgerPage() {
                       )}
                     </td>
                     {/* ลูกค้าใหม่ GG */}
-                    <td className="col-gg">{formatNumber(getFirstTransactionAmount(item, 14, ledgerData))}</td>
+                    <td className="col-gg">{formatNumber(getFirstTransactionAmount(item, 14, firstTxMap))}</td>
                     {/* ต่ออายุ GG */}
-                    <td className="col-gg">{formatNumber(getRenewTransactionAmount(item, 14, ledgerData))}</td>
+                    <td className="col-gg">{formatNumber(getRenewTransactionAmount(item, 14, firstTxMap))}</td>
                     {/* ลูกค้าใหม่ FB */}
-                    <td className="col-fb">{formatNumber(getFirstTransactionAmount(item, 18, ledgerData))}</td>
+                    <td className="col-fb">{formatNumber(getFirstTransactionAmount(item, 18, firstTxMap))}</td>
                     {/* ต่ออายุ FB */}
-                    <td className="col-fb">{formatNumber(getRenewTransactionAmount(item, 18, ledgerData))}</td>
+                    <td className="col-fb">{formatNumber(getRenewTransactionAmount(item, 18, firstTxMap))}</td>
                     {/* Hosting Domain */}
                     <td className="col-hosting">{formatNumber(getBreakdownAmount(item, 20))}</td>
                     {/* ค่าคลิก */}

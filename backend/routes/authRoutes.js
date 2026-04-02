@@ -221,8 +221,6 @@ router.get('/count', async (req, res) => {
   }
 });
 
-module.exports = router;
-
 // เพิ่มการอัปโหลดรูปโปรไฟล์
 const multer = require('multer');
 const path = require('path');
@@ -232,8 +230,17 @@ const storage = multer.memoryStorage();
 
 const upload = multer({ storage });
 
-// POST /api/auth/upload-avatar
+// POST /api/auth/upload-avatar (ต้อง login ก่อน)
 router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
+  // ตรวจสอบ auth
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -248,3 +255,5 @@ router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
     res.status(500).json({ error: 'Upload failed', detail: err.message });
   }
 });
+
+module.exports = router;

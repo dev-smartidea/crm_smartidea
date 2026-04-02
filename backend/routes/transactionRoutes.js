@@ -349,11 +349,13 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     
     if (!amount || !transactionDate) {
       return res.status(400).json({ 
-        error: 'Amount and transaction date are required', 
-        body: req.body,
-        amount,
-        transactionDate
+        error: 'Amount and transaction date are required'
       });
+    }
+
+    const numAmount = Number(amount);
+    if (Number.isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ error: 'Amount must be a positive number' });
     }
 
   // ถ้ามีการอัปโหลดสลิป อัปโหลดไปยัง Cloudinary

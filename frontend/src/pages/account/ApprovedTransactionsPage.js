@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { CheckCircleFill, Google, Facebook, Search, CashCoin, Wallet, Eye, Upload, XCircle } from 'react-bootstrap-icons';
 import toast from '../../utils/toast';
+import { formatCurrency, formatDate, formatNumber, getBankBadgeClass, getBreakdownLabel, TRANSACTION_PAGE_SIZE, TRANSACTION_API_LIMIT, MAX_SLIP_FILE_SIZE } from '../../utils/transactionHelpers';
 import './ApprovedTransactionsPage.css';
 import '../shared/DashboardPage.css';
 import { getImageUrl } from '../../utils/imageHelper';
@@ -15,7 +16,7 @@ export default function ApprovedTransactionsPage() {
   const [uploadingId, setUploadingId] = useState(null);
   
   // Pagination
-  const pageSize = 6;
+  const pageSize = TRANSACTION_PAGE_SIZE;
   const [currentPage, setCurrentPage] = useState(1);
   
   // ค้นหา
@@ -34,7 +35,7 @@ export default function ApprovedTransactionsPage() {
 
   const handleInlineSlipChange = async (txId, file) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_SLIP_FILE_SIZE) {
       toast.warning('ขนาดไฟล์ต้องไม่เกิน 5MB');
       return;
     }
@@ -80,7 +81,7 @@ export default function ApprovedTransactionsPage() {
     try {
       setLoading(true);
       const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
-      const txRes = await axios.get(`${api}/api/transactions?submissionStatus=approved&limit=500`, authHeaders);
+      const txRes = await axios.get(`${api}/api/transactions?submissionStatus=approved&limit=${TRANSACTION_API_LIMIT}`, authHeaders);
       
       const formatted = (txRes.data.transactions || []).map(tx => ({
         ...tx,
@@ -92,7 +93,7 @@ export default function ApprovedTransactionsPage() {
       setTransactions(formatted);
       setFilteredTransactions(formatted);
     } catch (e) {
-      console.error('Load data failed:', e);
+      // fetch error handled by loading state
     } finally {
       setLoading(false);
     }
@@ -156,57 +157,6 @@ export default function ApprovedTransactionsPage() {
   const filteredCustomers = uniqueCustomers.filter(c =>
     c.name.toLowerCase().includes(customerQuery.toLowerCase())
   );
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('th-TH', {
-      style: 'currency',
-      currency: 'THB'
-    }).format(amount);
-  };
-
-  const formatNumber = (amount) => {
-    return new Intl.NumberFormat('th-TH', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
-
-  const getBreakdownLabel = (code) => {
-    const labels = {
-      '11': 'ค่าคลิก',
-      '12': 'Vat ค่าคลิก',
-      '13': 'Vat ค่าบริการ Google',
-      '14': 'ค่าบริการ Google',
-      '15': 'ค่าบริการบางส่วน',
-      '16': 'คูปอง Google',
-      '17': 'Vat ค่าบริการ Facebook',
-      '18': 'ค่าบริการ Facebook',
-      '19': 'Vat ค่าบริการ Hosting Domain',
-      '20': 'ค่าบริการ Hosting Domain'
-    };
-    return labels[code] || code;
-  };
-
-  const getBankBadgeClass = (bank) => {
-    const bankMap = {
-      'KBANK': 'badge-bank-kbank',
-      'SCB': 'badge-bank-scb',
-      'BBL': 'badge-bank-bbl',
-      'KTB': 'badge-bank-ktb',
-      'TTB': 'badge-bank-ttb',
-      'BAY': 'badge-bank-bay'
-    };
-    return bankMap[bank] || 'badge-bank';
-  };
 
   if (loading) return (
     <div className="all-transaction-page fade-up">

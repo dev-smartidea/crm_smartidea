@@ -122,18 +122,19 @@ router.post('/cards/charge', async (req, res) => {
       }
     }
 
-    const card = await Card.findById(cardId);
+    const card = await Card.findOneAndUpdate(
+      { _id: cardId, balance: { $gte: numericAmount } },
+      { $inc: { balance: -numericAmount } },
+      { new: true }
+    );
     if (!card) {
-      return res.status(404).json({ error: 'Card not found' });
-    }
-
-    if (card.balance < numericAmount) {
+      // Check if card exists at all
+      const exists = await Card.findById(cardId);
+      if (!exists) return res.status(404).json({ error: 'Card not found' });
       return res.status(400).json({ error: 'ยอดคงเหลือไม่พอ' });
     }
 
-    const previousBalance = card.balance;
-    card.balance -= numericAmount;
-    await card.save();
+    const previousBalance = card.balance + numericAmount;
 
     // ตรวจสอบยอดเงินต่ำ (threshold 3000 บาท)
     const LOW_BALANCE_THRESHOLD = 3000;
