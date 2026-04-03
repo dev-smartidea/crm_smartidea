@@ -131,6 +131,7 @@ export default function BaseNotificationPage({
   // Filter
   const filtered = notifications.filter(n => {
     if (filter === 'unread') return !n.isRead;
+    if (filter === 'read') return n.isRead;
     return true;
   });
 
@@ -247,6 +248,13 @@ export default function BaseNotificationPage({
         >
           <span>ยังไม่ได้อ่าน</span>
           {stats.unread > 0 && <span className="notif-tab-badge primary">{stats.unread}</span>}
+        </button>
+        <button 
+          className={`notif-tab ${filter === 'read' ? 'active' : ''}`}
+          onClick={() => setFilter('read')}
+        >
+          <span>อ่านแล้ว</span>
+          {stats.read > 0 && <span className="notif-tab-badge">{stats.read}</span>}
         </button>
       </div>
 

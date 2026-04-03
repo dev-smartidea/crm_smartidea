@@ -1,11 +1,6 @@
 {
   "compilerOptions": {
     "baseUrl": "src",
-    "paths": {
-      "@pages/*": ["pages/*"],
-      "@components/*": ["components/*"],
-      "@assets/*": ["assets/*"],
-      "@context/*": ["context/*"]
-    }
+    "ignoreDeprecations": "6.0"
   }
 }
