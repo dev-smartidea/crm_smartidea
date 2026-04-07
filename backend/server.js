@@ -78,14 +78,6 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' })); // จำกัดขนาด JSON
 app.use(express.urlencoded({ extended: true }));
 
-// เพิ่ม session middleware
-const session = require('express-session');
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your_secret_key', // ใช้ Secret จาก .env
-  resave: false,
-  saveUninitialized: true
-}));
-
 // ให้ express ให้บริการไฟล์ static สำหรับรูปโปรไฟล์
 app.use('/uploads/avatars', express.static(__dirname + '/uploads/avatars'));
 app.use('/uploads/images', express.static(__dirname + '/uploads/images'));

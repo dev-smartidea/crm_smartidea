@@ -54,9 +54,6 @@ MONGODB_URI=mongodb://localhost:27017/crm_smartidea
 # JWT (ต้องตั้งค่า ไม่งั้นเซิร์ฟเวอร์จะไม่ทำงาน)
 JWT_SECRET=<random-string-ที่แข็งแกร่ง>
 
-# Session
-SESSION_SECRET=your_secret_key
-
 # Cloudinary (เก็บรูปภาพ)
 CLOUDINARY_CLOUD_NAME=<cloud-name>
 CLOUDINARY_API_KEY=<api-key>
@@ -77,8 +74,7 @@ DISABLE_RATE_LIMIT=1
 3. **Rate Limit** — จำกัด 100 requests / 15 นาที / IP
 4. **NoSQL Sanitizer** — ป้องกัน injection (ลบ key ที่ขึ้นต้นด้วย `$`)
 5. **Body Parser** — JSON (max 10MB) + URL-encoded
-6. **Session** — express-session
-7. **Static Files** — `/uploads/avatars`, `/uploads/images`, `/uploads/slips`
+6. **Static Files** — `/uploads/avatars`, `/uploads/images`, `/uploads/slips`
 
 ## บทบาทผู้ใช้ (Roles)
 
