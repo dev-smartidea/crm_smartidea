@@ -495,8 +495,8 @@ export default function AccountLedgerPage() {
                   <th className="col-bank" scope="col">ธนาคาร</th>
                   <th className="col-date" scope="col">วันที่โอน</th>
                   <th className="col-time" scope="col">เวลาโอน</th>
-                  <th className="col-amount" scope="col">ยอดเงิน</th>
-                  <th className="col-status" scope="col">สถานะ</th>
+                  <th className="col-amount" scope="col">ยอดเงินที่โอน</th>
+                  <th className="col-status" scope="col">status</th>
                   <th className="col-card" scope="col">บัตรเลขที่</th>
                   <th className="col-cardtime" scope="col">เวลาที่ตัดบัตร</th>
                   <th className="col-gg" scope="col">ลูกค้าใหม่ GG</th>
