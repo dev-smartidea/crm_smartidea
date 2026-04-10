@@ -98,18 +98,17 @@ router.get('/ledger', async (req, res) => {
     // ดึง transactions ทั้งหมดเพื่อหาว่าแต่ละ service มี transaction แรกเมื่อไหร่
     const serviceIds = [...new Set(filteredTransactions.map(t => t.serviceId?._id?.toString()).filter(Boolean))];
     const firstTransactionMap = {};
-    
+
     if (serviceIds.length > 0) {
-      // หา transaction แรกของแต่ละ service
-      for (const svcId of serviceIds) {
-        const firstTx = await Transaction.findOne({ serviceId: svcId })
-          .sort({ transactionDate: 1, createdAt: 1 })
-          .select('_id')
-          .lean();
-        if (firstTx) {
-          firstTransactionMap[svcId] = firstTx._id.toString();
-        }
-      }
+      // ใช้ aggregation แทน N sequential queries — หา _id ที่เก่าที่สุดของแต่ละ service ในครั้งเดียว
+      const firstTxAgg = await Transaction.aggregate([
+        { $match: { serviceId: { $in: serviceIds.map(id => new (require('mongoose').Types.ObjectId)(id)) } } },
+        { $sort: { transactionDate: 1, createdAt: 1 } },
+        { $group: { _id: '$serviceId', firstTxId: { $first: '$_id' } } }
+      ]);
+      firstTxAgg.forEach(({ _id, firstTxId }) => {
+        firstTransactionMap[_id.toString()] = firstTxId.toString();
+      });
     }
 
     // แปลงข้อมูลให้อยู่ในรูปแบบที่ต้องการ (ตาม Excel)

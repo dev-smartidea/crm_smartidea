@@ -91,28 +91,8 @@ router.put('/notifications/read-all', async (req, res) => {
   }
 });
 
-// DELETE /api/notifications/:id - ลบการแจ้งเตือนออกจาก database
-router.delete('/notifications/:id', async (req, res) => {
-  try {
-    const user = getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
-
-    const notification = await Notification.findOneAndDelete({
-      _id: req.params.id,
-      userId: user.id
-    });
-
-    if (!notification) {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-
-    res.json({ success: true, message: 'Notification deleted' });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
-  }
-});
-
 // DELETE /api/notifications/batch - ลบหลายรายการพร้อมกัน
+// ต้องอยู่ก่อน /:id ไม่งั้น Express จะ match "batch" กับ :id param ก่อน
 router.delete('/notifications/batch', async (req, res) => {
   try {
     const user = getUserFromReq(req);
@@ -134,6 +114,27 @@ router.delete('/notifications/batch', async (req, res) => {
       message: 'Notifications deleted',
       deletedCount: result.deletedCount 
     });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error', detail: err.message });
+  }
+});
+
+// DELETE /api/notifications/:id - ลบการแจ้งเตือนออกจาก database
+router.delete('/notifications/:id', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const notification = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      userId: user.id
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    res.json({ success: true, message: 'Notification deleted' });
   } catch (err) {
     res.status(500).json({ error: 'Server error', detail: err.message });
   }

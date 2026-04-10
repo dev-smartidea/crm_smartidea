@@ -16,8 +16,6 @@ function LoginPage({ onLoginSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
-    console.log('🔍 API URL:', process.env.REACT_APP_API_URL);
-    console.log('🔍 Full Login URL:', `${process.env.REACT_APP_API_URL}/api/auth/login`);
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
         method: 'POST',

@@ -164,11 +164,11 @@ export default function AllTransactionPage() {
       setLoading(true);
       const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
       
-      // ดึงข้อมูลลูกค้า, บริการ และ transactions ทั้งหมด (ไม่มี limit)
+      // ดึงข้อมูลลูกค้า, บริการ และ transactions (จำกัด 500 รายการล่าสุดที่ยังรอ/ถูกปฏิเสธ)
       const [customersRes, servicesRes, transactionsRes] = await Promise.all([
         axios.get(`${api}/api/customers`, authHeaders),
         axios.get(`${api}/api/services`, authHeaders),
-        axios.get(`${api}/api/transactions?limit=5000`, authHeaders)
+        axios.get(`${api}/api/transactions?limit=500`, authHeaders)
       ]);
       
       setCustomers(customersRes.data);

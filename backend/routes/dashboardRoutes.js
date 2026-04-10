@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
 const Service = require('../models/Service');
 const Transaction = require('../models/Transaction');
@@ -27,25 +28,33 @@ router.get('/dashboard/summary', async (req, res) => {
     const serviceStatusFilter = isPrivileged ? {} : { userId: user.id };
     const transactionFilter = isPrivileged ? {} : { userId: user.id };
 
+    // สำหรับ aggregation pipeline ต้องใช้ ObjectId ไม่ใช่ string
+    const txAggMatch = isPrivileged
+      ? {}
+      : { userId: new mongoose.Types.ObjectId(user.id) };
+
     const sevenDaysLater = new Date();
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const twelveMonthsAgo = new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1);
 
-    // Run independent queries in parallel
+    // Run all queries in parallel — ใช้ aggregation แทนการดึง Transaction ทั้งหมดมา memory
     const [
       customerCount,
       serviceCount,
       services,
-      allTransactions,
       recentCustomers,
       recentTransactions,
-      upcomingServices
+      upcomingServices,
+      revenueSummary,
+      chartAgg,
+      salesByServiceAgg,
+      monthlyAgg
     ] = await Promise.all([
       isPrivileged ? Customer.countDocuments() : Customer.countDocuments({ userId: user.id }),
       isPrivileged ? Service.countDocuments() : Service.countDocuments({ userId: user.id }),
-      Service.find(serviceStatusFilter),
-      Transaction.find(transactionFilter).populate('serviceId', 'name'),
+      Service.find(serviceStatusFilter).select('name serviceType status'),
       isPrivileged
         ? Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode')
         : Customer.find({ userId: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode'),
@@ -62,132 +71,129 @@ router.get('/dashboard/summary', async (req, res) => {
         .populate('customerId', 'name')
         .sort({ dueDate: 1 })
         .limit(10)
-        .select('name status dueDate customerId pageUrl customerIdField')
+        .select('name status dueDate customerId pageUrl customerIdField'),
+      // ยอดรวมทั้งหมด + approved — คำนวณใน MongoDB ไม่โหลดมาทั้งหมด
+      Transaction.aggregate([
+        { $match: txAggMatch },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$amount' },
+            approvedTotal: { $sum: { $cond: [{ $eq: ['$submissionStatus', 'approved'] }, '$amount', 0] } },
+            approvedCount: { $sum: { $cond: [{ $eq: ['$submissionStatus', 'approved'] }, 1, 0] } }
+          }
+        }
+      ]),
+      // จำนวน transactions แยกตามวัน (30 วันล่าสุด)
+      Transaction.aggregate([
+        { $match: { ...txAggMatch, transactionDate: { $gte: thirtyDaysAgo } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$transactionDate', timezone: '+07:00' } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]),
+      // ยอดขายตามประเภทบริการ (approved เท่านั้น, top 6)
+      Transaction.aggregate([
+        { $match: { ...txAggMatch, submissionStatus: 'approved', amount: { $gt: 0 } } },
+        { $lookup: { from: 'services', localField: 'serviceId', foreignField: '_id', as: 'svc' } },
+        { $unwind: { path: '$svc', preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: { $ifNull: ['$svc.name', 'อื่นๆ'] },
+            total: { $sum: '$amount' }
+          }
+        },
+        { $sort: { total: -1 } },
+        { $limit: 6 }
+      ]),
+      // ยอดเก็บเงินรายเดือน 12 เดือนล่าสุด (approved เท่านั้น)
+      Transaction.aggregate([
+        {
+          $match: {
+            ...txAggMatch,
+            submissionStatus: 'approved',
+            amount: { $gt: 0 },
+            transactionDate: { $gte: twelveMonthsAgo }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: { date: '$transactionDate', timezone: '+07:00' } },
+              month: { $month: { date: '$transactionDate', timezone: '+07:00' } }
+            },
+            total: { $sum: '$amount' }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ])
     ]);
 
-    // แปลงเป็น plain object เพื่อให้ได้สถานะที่คำนวณอัตโนมัติจาก model
+    // Service status (คำนวณจาก services ที่ดึงมา)
     const svcPlain = services.map(s => s.toObject());
     const serviceStatus = {
       'อยู่ระหว่างบริการ': svcPlain.filter(s => s.status === 'อยู่ระหว่างบริการ').length,
       'ครบกำหนด': svcPlain.filter(s => s.status === 'ครบกำหนด').length,
       'เกินกำหนดมากกว่า 30 วัน': svcPlain.filter(s => s.status === 'เกินกำหนดมากกว่า 30 วัน').length
     };
-
-    // นับประเภทบริการ
     const serviceTypeCount = {
       'Google Ads': services.filter(s => s.name === 'Google Ads').length,
       'Facebook Ads': services.filter(s => s.name === 'Facebook Ads').length,
       'other': services.filter(s => s.name !== 'Google Ads' && s.name !== 'Facebook Ads').length
     };
 
-    // คำนวณรายได้รวม
-    const totalRevenue = allTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    // Revenue summary
+    const revResult = revenueSummary[0] || { totalRevenue: 0, approvedTotal: 0, approvedCount: 0 };
+    const totalRevenue = revResult.totalRevenue;
+    const approvedTotalAmount = revResult.approvedTotal;
+    const approvedCount = revResult.approvedCount;
 
-    // รวมยอดเฉพาะรายการที่อนุมัติแล้ว
-    const approvedTransactions = allTransactions.filter(tx => tx.submissionStatus === 'approved');
-    const approvedTotalAmount = approvedTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-    const approvedCount = approvedTransactions.length;
-
-      const upcomingServicesFormatted = upcomingServices.map(svc => {
-        const obj = svc.toObject();
-        return {
-          _id: svc._id,
-          name: obj.name,
-          status: obj.status,
-          dueDate: obj.dueDate,
-          customerName: obj.customerId?.name || '-',
-          pageUrl: obj.pageUrl || '-',
-          customerIdField: obj.customerIdField || '-'
-        };
-      });
-
-    // ดึงข้อมูลการเติมเงิน 30 วันล่าสุด แบ่งตามวัน (filter from already-fetched transactions)
-    const transactionsByDate = {};
-    allTransactions
-      .filter(tx => tx.transactionDate && new Date(tx.transactionDate) >= thirtyDaysAgo)
-      .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate))
-      .forEach(tx => {
-        const dateKey = new Date(tx.transactionDate).toLocaleDateString('th-TH', { 
-          day: 'numeric',
-          month: 'short'
-        });
-        if (!transactionsByDate[dateKey]) {
-          transactionsByDate[dateKey] = 0;
-        }
-        transactionsByDate[dateKey]++;
-      });
-
-    // แปลงเป็น array สำหรับกราฟ
-    const chartLabels = Object.keys(transactionsByDate);
-    const chartData = Object.values(transactionsByDate);
-
-    // คำนวณยอดขายตามบริการ (สำหรับ Donut chart) - เฉพาะที่อนุมัติแล้ว
-    const salesByService = {};
-    allTransactions.forEach(tx => {
-      if (tx.amount > 0 && tx.submissionStatus === 'approved') {
-        const serviceName = tx.serviceId?.name || 'อื่นๆ';
-        salesByService[serviceName] = (salesByService[serviceName] || 0) + tx.amount;
-      }
+    // Upcoming services
+    const upcomingServicesFormatted = upcomingServices.map(svc => {
+      const obj = svc.toObject();
+      return {
+        _id: svc._id,
+        name: obj.name,
+        status: obj.status,
+        dueDate: obj.dueDate,
+        customerName: obj.customerId?.name || '-',
+        pageUrl: obj.pageUrl || '-',
+        customerIdField: obj.customerIdField || '-'
+      };
     });
 
-    // เรียงลำดับและเลือก top 6
-    const sortedSales = Object.entries(salesByService)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
+    // Transaction chart (number of transactions per day, last 30 days)
+    const transactionsByDate = {};
+    chartAgg.forEach(({ _id, count }) => {
+      const dateKey = new Date(_id + 'T00:00:00+07:00').toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'short'
+      });
+      transactionsByDate[dateKey] = (transactionsByDate[dateKey] || 0) + count;
+    });
 
-    // คำนวณสรุปยอดเก็บเงินรายเดือน (12 เดือนล่าสุด) - ใช้ approved transactions
-    const monthlyCollection = {};
+    // Sales by service (donut chart)
+    const sortedSales = salesByServiceAgg.map(item => [item._id, item.total]);
+
+    // Monthly collection (12 months)
     const currentDate = new Date();
-    
-    // สร้าง 12 เดือนย้อนหลัง
+    const monthlyCollection = {};
     for (let i = 11; i >= 0; i--) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const monthKey = date.toLocaleDateString('th-TH', { 
-        month: 'short',
-        year: '2-digit'
-      });
+      const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
       monthlyCollection[monthKey] = 0;
     }
-    
-    // นับยอดเก็บเงินในแต่ละเดือน (เฉพาะที่อนุมัติแล้ว) - ใช้ข้อมูลจาก Transaction table
-    approvedTransactions.forEach(tx => {
-      if (tx.amount > 0) {
-        const dateToUse = tx.transactionDate || tx.createdAt;
-        const txDate = new Date(dateToUse);
-        const monthKey = txDate.toLocaleDateString('th-TH', { 
-          month: 'short',
-          year: '2-digit'
-        });
-        if (monthlyCollection.hasOwnProperty(monthKey)) {
-          monthlyCollection[monthKey] += tx.amount;
-        }
+    monthlyAgg.forEach(({ _id, total }) => {
+      const date = new Date(_id.year, _id.month - 1, 1);
+      const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
+      if (Object.prototype.hasOwnProperty.call(monthlyCollection, monthKey)) {
+        monthlyCollection[monthKey] += total;
       }
     });
 
-    // คำนวณสรุปยอดเก็บเงินแยกตามบริการต่อเดือน (สำหรับการแสดงกราฟแบบแยกหมวด)
-    const monthlyKeys = Object.keys(monthlyCollection);
-    const serviceMonthMap = {};
-    approvedTransactions.forEach(tx => {
-      if (tx.amount > 0) {
-        const serviceName = tx.serviceId?.name || 'อื่นๆ';
-        const dateToUse = tx.transactionDate || tx.createdAt;
-        const txDate = new Date(dateToUse);
-        const monthKey = txDate.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
-        if (!monthlyKeys.includes(monthKey)) return; // skip out-of-range months
-        serviceMonthMap[serviceName] = serviceMonthMap[serviceName] || {};
-        serviceMonthMap[serviceName][monthKey] = (serviceMonthMap[serviceName][monthKey] || 0) + tx.amount;
-      }
-    });
-
-    const monthlyCollectionByService = {
-      labels: monthlyKeys,
-      datasets: Object.entries(serviceMonthMap).map(([serviceName, map], idx) => ({
-        label: serviceName,
-        data: monthlyKeys.map(k => map[k] || 0),
-        // pick some pastel colors in a loop
-        backgroundColor: ['#2563eb','#22c55e','#f59e0b','#ef4444','#6366f1','#3b82f6'][idx % 6]
-      }))
-    };
     res.json({
       customerCount,
       serviceCount,
@@ -198,8 +204,8 @@ router.get('/dashboard/summary', async (req, res) => {
       recentTransactions,
       upcomingServices: upcomingServicesFormatted,
       transactionChart: {
-        labels: chartLabels,
-        data: chartData
+        labels: Object.keys(transactionsByDate),
+        data: Object.values(transactionsByDate)
       },
       approvedSummary: {
         totalAmount: approvedTotalAmount,

@@ -284,11 +284,12 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
 
     const transactions = await Transaction.find({ serviceId: req.params.serviceId })
       .sort({ transactionDate: -1 });
-    
-    // ตรวจสอบว่าไฟล์สลิปมีอยู่จริงหรือไม่ และ clear ถ้าไม่มี
+
+    // ตรวจสอบว่าไฟล์สลิปมีอยู่จริงหรือไม่ เฉพาะ path ในเครื่อง (local) เท่านั้น
+    // Cloudinary URLs (ขึ้นต้นด้วย http/https) ไม่ต้องตรวจสอบ
     let needsSave = false;
     for (const tx of transactions) {
-      if (tx.slipImage) {
+      if (tx.slipImage && !tx.slipImage.startsWith('http')) {
         const fullPath = path.join(__dirname, '..', tx.slipImage);
         if (!fileExists(fullPath)) {
           tx.slipImage = null;
@@ -296,12 +297,12 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
         }
       }
     }
-    
+
     // บันทึกการเปลี่ยนแปลงถ้ามี
     if (needsSave) {
       await Promise.all(transactions.filter(tx => tx.isModified('slipImage')).map(tx => tx.save()));
     }
-    
+
     res.json(transactions);
   } catch (err) {
     res.status(500).json({ error: 'Server error', detail: err.message });

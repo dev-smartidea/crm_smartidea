@@ -228,7 +228,18 @@ const path = require('path');
 // ใช้ memory storage สำหรับ Cloudinary
 const storage = multer.memoryStorage();
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp/;
+    if (allowed.test(file.mimetype) && allowed.test(require('path').extname(file.originalname).toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error('กรุณาอัปโหลดไฟล์รูปภาพเท่านั้น'));
+    }
+  }
+});
 
 // POST /api/auth/upload-avatar (ต้อง login ก่อน)
 router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
