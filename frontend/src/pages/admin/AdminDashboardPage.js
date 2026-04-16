@@ -1,18 +1,21 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { FaUserShield, FaTrashAlt } from 'react-icons/fa';
+import { FaUserShield, FaTrashAlt, FaSignInAlt } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
+import { AuthContext } from '../../context/AuthContext';
 import './AdminDashboardPage.css';
 
 const AdminDashboardPage = () => {
   // ลบ handleShowDetail (ใช้ Link แทน)
   const navigate = useNavigate();
+  const { startImpersonation } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [token] = useState(localStorage.getItem('token'));
+  const [impersonateLoading, setImpersonateLoading] = useState(null);
 
 
   const fetchUsers = useCallback(async () => {
@@ -33,6 +36,19 @@ const AdminDashboardPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+
+  const handleImpersonate = async (userId) => {
+    setImpersonateLoading(userId);
+    const result = await startImpersonation(userId);
+    setImpersonateLoading(null);
+    if (result.success) {
+      // force full reload เพื่อให้ App.js อ่าน token ใหม่จาก localStorage
+      const dest = result.role === 'account' ? '/dashboard/account' : '/dashboard';
+      window.location.href = dest;
+    } else {
+      setError(result.error);
+    }
+  };
 
   const handleRoleChange = async (userId, newRole) => {
     try {
@@ -115,6 +131,7 @@ const AdminDashboardPage = () => {
                     disabled={user.role === 'admin' && user.email === 'admin@mail.com'}
                   >
                     <option value="user">user</option>
+                    <option value="account">account</option>
                     <option value="admin">admin</option>
                   </select>
                 </td>
@@ -126,6 +143,16 @@ const AdminDashboardPage = () => {
                   >
                     รายละเอียด
                   </Link>
+                  {user.role !== 'admin' && (
+                    <button
+                      style={{ background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', opacity: impersonateLoading === user._id ? 0.7 : 1 }}
+                      onClick={() => handleImpersonate(user._id)}
+                      disabled={!!impersonateLoading}
+                      title={`เข้าสู่ระบบในฐานะ ${user.name}`}
+                    >
+                      <FaSignInAlt /> {impersonateLoading === user._id ? '...' : 'View'}
+                    </button>
+                  )}
                   <button
                     className="admin-dashboard-delete-btn"
                     onClick={() => handleDeleteClick(user._id)}

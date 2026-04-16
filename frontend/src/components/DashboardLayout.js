@@ -1,12 +1,16 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import './DashboardLayout.css';
 import ProfileNavbar from './ProfileNavbar';
+import ImpersonationBanner from './ImpersonationBanner';
 import axios from 'axios';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell, Image, ClockHistory, Wallet, Send } from 'react-bootstrap-icons';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
+  const { isImpersonating } = useContext(AuthContext);
+  const BANNER_H = isImpersonating ? 40 : 0;
   const [user, setUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activitiesCount, setActivitiesCount] = useState(0);
@@ -75,9 +79,10 @@ export default function DashboardLayout() {
 
   return (
     <>
-      <ProfileNavbar user={user} />
+      <ImpersonationBanner />
+      <ProfileNavbar user={user} topOffset={BANNER_H} />
       <div className="dashboard-layout">
-        <aside className="sidebar" role="navigation" aria-label="เมนูหลัก">
+        <aside className="sidebar" role="navigation" aria-label="เมนูหลัก" style={{ top: 64 + BANNER_H, height: `calc(100vh - ${64 + BANNER_H}px)` }}>
           <ul className="nav-menu"> 
             <li><NavLink to="/dashboard" end><HouseDoor /> แดชบอร์ด</NavLink></li>
             <li><NavLink to="add"><PersonPlus /> เพิ่มลูกค้า</NavLink></li>
@@ -100,7 +105,9 @@ export default function DashboardLayout() {
             <li><NavLink to="profile"><PersonCircle /> โปรไฟล์</NavLink></li>
           </ul>
           <div className="logout-section">
-            <button className="btn btn-danger" onClick={logout}><BoxArrowRight /> ออกจากระบบ</button>
+            {!isImpersonating && (
+              <button className="btn btn-danger" onClick={logout}><BoxArrowRight /> ออกจากระบบ</button>
+            )}
           </div>
         </aside>
 

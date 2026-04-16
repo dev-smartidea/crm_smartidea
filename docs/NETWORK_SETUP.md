@@ -1,14 +1,14 @@
-# การใช้งานระบบ CRM จากเครื่องอื่นใน Network
+# การใช้งานระบบ CRM SmartIdea
 
-## สำหรับผู้ใช้ที่ต้องการเข้าใช้งานจากเครื่องอื่น
+## Production (Render.com)
 
-### ข้อมูล Network
-- **Backend Server**: http://192.168.1.189:5000
-- **Frontend Web**: http://192.168.1.189:3000
+### URL สำหรับเข้าใช้งาน
+- **Frontend**: https://crm-smartidea.vercel.app  *(หรือ URL ของ Render frontend)*
+- **Backend API**: ดูได้ใน Render Dashboard → crm-backend → Settings → URL
 
-### วิธีการเข้าใช้งาน
+### วิธีการเข้าใช้งาน (Production)
 1. เปิดเว็บเบราว์เซอร์ (Chrome, Firefox, Safari, Edge)
-2. เข้าที่ URL: `http://192.168.1.189:3000`
+2. เข้าที่ URL ของ frontend ด้านบน
 3. ใช้บัญชีที่สมัครไว้ หรือสมัครสมาชิกใหม่
 
 ### การสมัครสมาชิก

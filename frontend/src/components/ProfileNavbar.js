@@ -13,7 +13,7 @@ function getAvatarUrl(avatar) {
   return avatar;
 }
 
-const ProfileNavbar = ({ user }) => {
+const ProfileNavbar = ({ user, topOffset = 0 }) => {
   return (
     <nav style={{
       width: '100%',
@@ -23,7 +23,7 @@ const ProfileNavbar = ({ user }) => {
       padding: '12px 32px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       position: 'sticky',
-      top: 0,
+      top: topOffset,
       zIndex: 200
     }} aria-label="โปรไฟล์ผู้ใช้">
       <img

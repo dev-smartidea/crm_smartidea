@@ -53,7 +53,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 // PATCH /users/:id/role - เปลี่ยน role (admin เท่านั้น)
 router.patch('/users/:id/role', requireAdmin, async (req, res) => {
   const { role } = req.body;
-  if (!['user', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!['user', 'account', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true, runValidators: true });
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ message: 'เปลี่ยน role สำเร็จ', user });
@@ -238,6 +238,32 @@ const upload = multer({
     } else {
       cb(new Error('กรุณาอัปโหลดไฟล์รูปภาพเท่านั้น'));
     }
+  }
+});
+
+// POST /api/auth/impersonate/:userId — Admin สวมบทบาทเป็น user คนอื่น
+router.post('/impersonate/:userId', requireAdmin, async (req, res) => {
+  try {
+    const targetUser = await User.findById(req.params.userId, '-password');
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+    // ห้าม admin impersonate admin ด้วยกัน
+    if (targetUser.role === 'admin') {
+      return res.status(403).json({ error: 'ไม่สามารถ impersonate admin ได้' });
+    }
+    // ออก token ใหม่ที่แนบ field _impersonatedBy ไว้
+    const impersonationToken = jwt.sign(
+      { id: targetUser._id, role: targetUser.role, _impersonatedBy: req.user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+    console.log(`[IMPERSONATE] Admin ${req.user._id} (${req.user.username}) → User ${targetUser._id} (${targetUser.username}) at ${new Date().toISOString()}`);
+    res.json({
+      token: impersonationToken,
+      user: { id: targetUser._id, username: targetUser.username, name: targetUser.name, email: targetUser.email, role: targetUser.role, avatar: targetUser.avatar },
+    });
+  } catch (err) {
+    console.error('Impersonate error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
   }
 });
 
