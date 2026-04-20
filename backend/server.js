@@ -123,6 +123,10 @@ app.use('/api', activityRoutes); // เส้นทางจะเป็น /api
 const ledgerRoutes = require('./routes/ledgerRoutes');
 app.use('/api', ledgerRoutes); // เส้นทางจะเป็น /api/ledger
 
+// ✅ Backup routes (admin only)
+const backupRoutes = require('./routes/backupRoutes');
+app.use('/api', backupRoutes); // เส้นทางจะเป็น /api/admin/backup
+
 // ✅ route หลัก
 app.get('/', (req, res) => {
   res.send('🎉 Backend CRM is working');

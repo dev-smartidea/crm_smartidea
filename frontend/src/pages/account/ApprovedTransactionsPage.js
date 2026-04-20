@@ -464,8 +464,28 @@ export default function ApprovedTransactionsPage() {
                 >
                   ← ก่อนหน้า
                 </button>
-                <div className="pagination-info">
-                  หน้า {currentPage} จาก {totalPages} (ทั้งหมด {filteredTransactions.length} รายการ)
+                <div className="pagination-numbers">
+                  {[...Array(totalPages)].map((_, index) => {
+                    const pageNum = index + 1;
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          className={`pagination-page-num ${currentPage === pageNum ? 'active' : ''}`}
+                          onClick={() => setCurrentPage(pageNum)}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                      return <span key={pageNum} className="pagination-dots">...</span>;
+                    }
+                    return null;
+                  })}
                 </div>
                 <button
                   className="pagination-btn"
@@ -474,6 +494,9 @@ export default function ApprovedTransactionsPage() {
                 >
                   ถัดไป →
                 </button>
+                <span className="pagination-info">
+                  หน้า {currentPage} จาก {totalPages} ({filteredTransactions.length} รายการ)
+                </span>
               </div>
             )}
           </>

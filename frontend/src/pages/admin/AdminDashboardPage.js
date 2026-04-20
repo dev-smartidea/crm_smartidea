@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { FaUserShield, FaTrashAlt, FaSignInAlt } from 'react-icons/fa';
+import { FaUserShield, FaTrashAlt, FaSignInAlt, FaDownload } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
 import { AuthContext } from '../../context/AuthContext';
 import './AdminDashboardPage.css';
@@ -16,6 +16,8 @@ const AdminDashboardPage = () => {
   const [error, setError] = useState('');
   const [token] = useState(localStorage.getItem('token'));
   const [impersonateLoading, setImpersonateLoading] = useState(null);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const api = process.env.REACT_APP_API_URL;
 
 
   const fetchUsers = useCallback(async () => {
@@ -93,6 +95,29 @@ const AdminDashboardPage = () => {
     navigate('/login');
   };
 
+  const handleBackup = async () => {
+    try {
+      setBackupLoading(true);
+      const res = await axios.get(`${api}/api/admin/backup`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `crm-backup-${today}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert('Backup ล้มเหลว กรุณาลองใหม่');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
   return (
     <div className="admin-dashboard-container">
       {/* Popup Confirm Modal for Delete */}
@@ -110,7 +135,16 @@ const AdminDashboardPage = () => {
         </div>
       )}
       <div className="admin-dashboard-card">
-        <h2 className="admin-dashboard-title"><FaUserShield style={{ marginRight: 8 }}/> Admin Dashboard</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h2 className="admin-dashboard-title" style={{ margin: 0 }}><FaUserShield style={{ marginRight: 8 }}/> Admin Dashboard</h2>
+          <button
+            onClick={handleBackup}
+            disabled={backupLoading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '0.9rem', cursor: backupLoading ? 'not-allowed' : 'pointer', opacity: backupLoading ? 0.7 : 1 }}
+          >
+            <FaDownload /> {backupLoading ? 'กำลัง Export...' : 'Export Backup'}
+          </button>
+        </div>
         <table className="admin-dashboard-table">
           <thead>
             <tr>

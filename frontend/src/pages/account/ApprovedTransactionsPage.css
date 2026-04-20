@@ -793,6 +793,44 @@
   padding: 0 0.5rem;
 }
 
+.all-transaction-page .pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.all-transaction-page .pagination-page-num {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.all-transaction-page .pagination-page-num:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.all-transaction-page .pagination-page-num.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.all-transaction-page .pagination-dots {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  padding: 0 4px;
+}
+
 /* Additional styles for table cells */
 .all-transaction-page .amount-cell {
   font-weight: 700;
