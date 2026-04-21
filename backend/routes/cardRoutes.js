@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const Card = require('../models/Card');
 const CardLedger = require('../models/CardLedger');
+const Transaction = require('../models/Transaction');
 
 const DEFAULT_CARDS = [
   { displayName: 'บัตรลงท้าย 1000', last4: '1000', channels: ['Google Ads', 'Facebook Ads'] },
@@ -101,108 +102,109 @@ router.post('/cards/topup', async (req, res) => {
 
 // POST /api/cards/charge - debit balance for ads spend
 router.post('/cards/charge', async (req, res) => {
+  const user = getUserFromReq(req);
+  if (!requireAccountOrAdmin(user)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { cardId, amount, channel, reference, note, chargeTime, serviceId, breakdowns } = req.body;
+  const numericAmount = Number(amount || 0);
+  if (!cardId || numericAmount <= 0) {
+    return res.status(400).json({ error: 'Invalid cardId or amount' });
+  }
+
+  // ป้องกันตัดเงินซ้ำ: เช็คก่อนเริ่ม session (read-only pre-check)
+  if (reference) {
+    const existingTx = await Transaction.findById(reference).lean();
+    if (existingTx && existingTx.cardCharged) {
+      return res.status(400).json({ error: 'รายการนี้ตัดเงินไปแล้ว' });
+    }
+  }
+
+  // Normalize serviceId
+  let svcIdToStore;
+  if (serviceId) {
+    svcIdToStore = (typeof serviceId === 'object' && serviceId._id) ? serviceId._id : serviceId;
+  }
+
+  const session = await mongoose.startSession();
+  let card, ledger;
   try {
-    const user = getUserFromReq(req);
-    if (!requireAccountOrAdmin(user)) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    const { cardId, amount, channel, reference, note, chargeTime, serviceId, breakdowns } = req.body;
-    const numericAmount = Number(amount || 0);
-    if (!cardId || numericAmount <= 0) {
-      return res.status(400).json({ error: 'Invalid cardId or amount' });
-    }
-
-    // ป้องกันตัดเงินซ้ำ: เช็คจาก reference (transactionId)
-    if (reference) {
-      const Transaction = require('../models/Transaction');
-      const existingTx = await Transaction.findById(reference);
-      if (existingTx && existingTx.cardCharged) {
-        return res.status(400).json({ error: 'รายการนี้ตัดเงินไปแล้ว' });
+    await session.withTransaction(async () => {
+      // [1] หัก balance บัตร (atomic — ตรวจสอบ balance พอด้วย)
+      card = await Card.findOneAndUpdate(
+        { _id: cardId, balance: { $gte: numericAmount } },
+        { $inc: { balance: -numericAmount } },
+        { new: true, session }
+      );
+      if (!card) {
+        const exists = await Card.findById(cardId).session(session).lean();
+        const errMsg = exists ? 'ยอดคงเหลือไม่พอ' : 'Card not found';
+        const errStatus = exists ? 400 : 404;
+        throw Object.assign(new Error(errMsg), { statusCode: errStatus });
       }
-    }
 
-    const card = await Card.findOneAndUpdate(
-      { _id: cardId, balance: { $gte: numericAmount } },
-      { $inc: { balance: -numericAmount } },
-      { new: true }
-    );
-    if (!card) {
-      // Check if card exists at all
-      const exists = await Card.findById(cardId);
-      if (!exists) return res.status(404).json({ error: 'Card not found' });
-      return res.status(400).json({ error: 'ยอดคงเหลือไม่พอ' });
-    }
+      // [2] บันทึก ledger entry
+      const [created] = await CardLedger.create([{
+        cardId,
+        type: 'charge',
+        amount: numericAmount,
+        direction: 'debit',
+        channel: channel === 'Google Ads' || channel === 'Facebook Ads' ? channel : 'Other',
+        reference,
+        note,
+        breakdowns: Array.isArray(breakdowns) ? breakdowns : [],
+        chargeTime,
+        serviceId: svcIdToStore,
+        balanceAfter: card.balance,
+        createdBy: user.id
+      }], { session });
+      ledger = created;
 
-    const previousBalance = card.balance + numericAmount;
-
-    // ตรวจสอบยอดเงินต่ำ (threshold 3000 บาท)
-    const LOW_BALANCE_THRESHOLD = 3000;
-    if (card.balance < LOW_BALANCE_THRESHOLD && previousBalance >= LOW_BALANCE_THRESHOLD) {
-      try {
-        const User = require('../models/User');
-        const Notification = require('../models/Notification');
-        
-        const accountUsers = await User.find({ role: { $in: ['account', 'admin'] } });
-        
-        for (const accountUser of accountUsers) {
-          await Notification.create({
-            userId: accountUser._id,
-            type: 'card_low_balance',
-            title: '⚠️ ยอดเงินบัตรต่ำ',
-            message: `บัตร ${card.displayName} เหลือยอดเงิน ${card.balance.toLocaleString()} บาท`,
-            link: '/dashboard/account/cards',
-            isRead: false
-          });
-        }
-      } catch (notifErr) {
-        console.error('Create low balance notification failed:', notifErr.message);
+      // [3] mark transaction ว่าตัดเงินแล้ว — ต้องอยู่ใน session เดียวกับ [1] และ [2]
+      // ถ้า step นี้ล้มเหลว MongoDB จะ rollback [1] และ [2] ทั้งคู่อัตโนมัติ
+      if (reference) {
+        await Transaction.findByIdAndUpdate(reference, {
+          cardCharged: true,
+          cardChargedAt: new Date(),
+          cardChargedBy: user.id,
+          cardChargedCardId: cardId,
+          cardNumber: card.last4 || card.displayName,
+          cardTime: chargeTime || ''
+        }, { session });
       }
-    }
-
-    // Normalize serviceId: allow caller to pass either an id or a populated object
-    let svcIdToStore = undefined;
-    if (serviceId) {
-      if (typeof serviceId === 'object' && serviceId._id) {
-        svcIdToStore = serviceId._id;
-      } else {
-        svcIdToStore = serviceId;
-      }
-    }
-
-    const ledger = await CardLedger.create({
-      cardId,
-      type: 'charge',
-      amount: numericAmount,
-      direction: 'debit',
-      channel: channel === 'Google Ads' || channel === 'Facebook Ads' ? channel : 'Other',
-      reference,
-      note,
-      breakdowns: Array.isArray(breakdowns) ? breakdowns : [],
-      chargeTime,
-      serviceId: svcIdToStore || undefined,
-      balanceAfter: card.balance,
-      createdBy: user.id
     });
-
-    // อัพเดท transaction ว่าตัดเงินแล้ว
-    if (reference) {
-      const Transaction = require('../models/Transaction');
-      await Transaction.findByIdAndUpdate(reference, {
-        cardCharged: true,
-        cardChargedAt: new Date(),
-        cardChargedBy: user.id,
-        cardChargedCardId: cardId,
-        cardNumber: card.last4 || card.displayName,
-        cardTime: chargeTime || ''
-      });
-    }
-
-    res.json({ card, ledger });
   } catch (err) {
     console.error('Charge failed:', err);
-    res.status(500).json({ error: 'Charge failed' });
+    const status = err.statusCode || 500;
+    const message = err.statusCode ? err.message : 'Charge failed';
+    return res.status(status).json({ error: message });
+  } finally {
+    session.endSession();
   }
+
+  // แจ้งเตือนยอดเงินต่ำ (non-critical — ทำหลัง transaction commit แล้ว)
+  const LOW_BALANCE_THRESHOLD = 3000;
+  const previousBalance = card.balance + numericAmount;
+  if (card.balance < LOW_BALANCE_THRESHOLD && previousBalance >= LOW_BALANCE_THRESHOLD) {
+    try {
+      const User = require('../models/User');
+      const Notification = require('../models/Notification');
+      const accountUsers = await User.find({ role: { $in: ['account', 'admin'] } }).lean();
+      await Promise.all(accountUsers.map(u => Notification.create({
+        userId: u._id,
+        type: 'card_low_balance',
+        title: '⚠️ ยอดเงินบัตรต่ำ',
+        message: `บัตร ${card.displayName} เหลือยอดเงิน ${card.balance.toLocaleString()} บาท`,
+        link: '/dashboard/account/cards',
+        isRead: false
+      })));
+    } catch (notifErr) {
+      console.error('Create low balance notification failed:', notifErr.message);
+    }
+  }
+
+  res.json({ card, ledger });
 });
 
 // GET /api/cards/charge-history/:transactionId - charge history for a transaction

@@ -62,6 +62,10 @@ CLOUDINARY_API_SECRET=<api-secret>
 # Frontend URL (สำหรับ CORS)
 FRONTEND_URL=http://localhost:3000
 
+# ALLOWED_ORIGINS: เพิ่ม origins อื่นๆ (LAN IP, staging) คั่นด้วย comma ไม่มีเว้นวรรค
+# ตัวอย่าง: ALLOWED_ORIGINS=http://192.168.1.65:3000,http://192.168.1.189:3000
+# ALLOWED_ORIGINS=
+
 # Rate Limiting (ไม่บังคับ)
 RATE_LIMIT_MAX=100
 DISABLE_RATE_LIMIT=1
@@ -165,7 +169,7 @@ DISABLE_RATE_LIMIT=1
 |--------|------|----------|------|
 | GET | `/` | ดูบัตรทั้งหมด (สร้าง default ถ้ายังไม่มี) | Account/Admin |
 | POST | `/topup` | เติมเงิน | Account/Admin |
-| POST | `/charge` | ตัดเงิน (เช็คยอดพอ, กัน double-charge) | Account/Admin |
+| POST | `/charge` | ตัดเงิน (เช็คยอดพอ, กัน double-charge, atomic via MongoDB session) | Account/Admin |
 | GET | `/charge-history/:txId` | ดูประวัติ charge | Account/Admin |
 | POST | `/` | สร้างบัตรใหม่ | Account/Admin |
 | PUT | `/:id` | แก้ไขบัตร | Account/Admin |
@@ -238,3 +242,19 @@ DISABLE_RATE_LIMIT=1
 - **Uncaught Exception** — log error แล้วปิดเซิร์ฟเวอร์ทันที
 - **SIGTERM / SIGINT** — graceful shutdown (timeout 15 วินาที)
 - **MongoDB disconnect** — auto-reconnect ทุก 5 วินาที
+
+## Data Integrity — Card Charge (MongoDB Session Transaction)
+
+การตัดเงินบัตร (`POST /api/cards/charge`) ใช้ **MongoDB session transaction** เพื่อรับประกันว่า 3 operations เกิดขึ้นพร้อมกันแบบ atomic:
+
+```
+[1] Card.findOneAndUpdate  — หัก balance บัตร
+[2] CardLedger.create      — บันทึก ledger entry
+[3] Transaction.update     — mark cardCharged = true
+```
+
+ถ้า operation ใดล้มเหลว MongoDB จะ **rollback ทั้ง 3** อัตโนมัติ ป้องกัน balance หักแต่ transaction ไม่ถูก update (double-charge bug)
+
+> **หมายเหตุ:** ต้องใช้ MongoDB Replica Set หรือ Atlas ถึงจะรองรับ multi-document transactions ได้
+> Local standalone MongoDB ไม่รองรับ transaction — รันได้แต่ `withTransaction()` จะ error
+> แก้: ตั้ง local replica set หรือใช้ MongoDB Atlas ในการพัฒนา

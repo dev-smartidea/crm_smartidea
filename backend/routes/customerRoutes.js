@@ -6,6 +6,7 @@ const Service = require('../models/Service');
 const Transaction = require('../models/Transaction');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
+const Image = require('../models/Image');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
