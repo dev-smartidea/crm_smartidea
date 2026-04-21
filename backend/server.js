@@ -18,11 +18,13 @@ const server = http.createServer(app);
 app.use(helmet());
 
 // CORS - จำกัดเฉพาะโดเมนที่อนุญาต
+// เพิ่ม origins ได้ผ่าน env: ALLOWED_ORIGINS=http://192.168.x.x:3000,http://other:3000
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
-  'http://192.168.1.65:3000', // Network IP
-  'http://192.168.1.189:3000', // Additional Network IP
-  'https://crm-smartidea.vercel.app', // Vercel Production
+  ...(process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    : []),
+  'https://crm-smartidea.vercel.app',
 ];
 
 app.use(cors({

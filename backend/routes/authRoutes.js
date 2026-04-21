@@ -148,7 +148,7 @@ router.post('/login',
     res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server', detail: err.message });
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server' });
   }
 });
 
@@ -200,7 +200,7 @@ router.patch('/profile', async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error('PATCH /profile error:', err);
-    res.status(400).json({ error: 'Update failed', detail: err.message });
+    res.status(400).json({ error: 'Update failed' });
   }
 });
 
@@ -289,7 +289,7 @@ router.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
     res.json({ url: cloudinaryResult.secure_url, cloudinaryId: cloudinaryResult.public_id });
   } catch (err) {
     console.error('Avatar upload to Cloudinary failed:', err);
-    res.status(500).json({ error: 'Upload failed', detail: err.message });
+    res.status(500).json({ error: 'Upload failed' });
   }
 });
 

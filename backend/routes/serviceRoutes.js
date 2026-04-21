@@ -59,7 +59,8 @@ router.get('/customers/:customerId/services', async (req, res) => {
       : await Service.find({ customerId: customer._id, userId: user.id }).sort({ createdAt: -1 });
     res.json(services);
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Get services error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -170,7 +171,8 @@ router.post('/customers/:customerId/services', async (req, res) => {
 
     res.status(201).json(service);
   } catch (err) {
-    res.status(400).json({ error: 'Create failed', detail: err.message });
+    console.error('Create service error:', err);
+    res.status(400).json({ error: 'Create failed' });
   }
 });
 
@@ -190,7 +192,8 @@ router.get('/services/:id', async (req, res) => {
     if (!service) return res.status(404).json({ error: 'Service not found' });
     res.json(service);
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Get service error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -211,7 +214,8 @@ router.put('/services/:id', async (req, res) => {
     if (!service) return res.status(404).json({ error: 'Service not found' });
     res.json(service);
   } catch (err) {
-    res.status(400).json({ error: 'Update failed', detail: err.message });
+    console.error('Update service error:', err);
+    res.status(400).json({ error: 'Update failed' });
   }
 });
 
@@ -229,7 +233,8 @@ router.delete('/services/:id', async (req, res) => {
     if (!deleted) return res.status(404).json({ error: 'Service not found' });
     res.json({ message: 'ลบบริการสำเร็จ' });
   } catch (err) {
-    res.status(500).json({ error: 'Delete failed', detail: err.message });
+    console.error('Delete service error:', err);
+    res.status(500).json({ error: 'Delete failed' });
   }
 });
 

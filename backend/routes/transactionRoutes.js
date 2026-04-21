@@ -47,9 +47,9 @@ const optionalUploadSlip = (req, res, next) => {
   // ใช้ .any() เพื่อให้ multer ดึงทั้งไฟล์และฟิลด์ข้อความเสมอ
   uploadSlip.any()(req, res, (err) => {
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ error: 'File upload error', detail: err.message });
+      return res.status(400).json({ error: 'File upload error' });
     } else if (err) {
-      return res.status(400).json({ error: 'File upload error', detail: err.message });
+      return res.status(400).json({ error: 'File upload error' });
     }
     next();
   });
@@ -183,7 +183,7 @@ router.put('/transactions/:id/submit', async (req, res) => {
     res.json(populated);
   } catch (err) {
     console.error('Submit transaction failed:', err);
-    res.status(500).json({ error: 'Submit failed', detail: err.message });
+    res.status(500).json({ error: 'Submit failed' });
   }
 });
 
@@ -211,7 +211,7 @@ router.put('/transactions/:id/approve', async (req, res) => {
     res.json(populated);
   } catch (err) {
     console.error('Approve transaction failed:', err);
-    res.status(500).json({ error: 'Approve failed', detail: err.message });
+    res.status(500).json({ error: 'Approve failed' });
   }
 });
 
@@ -264,7 +264,7 @@ router.put('/transactions/:id/reject', async (req, res) => {
     res.json(populated);
   } catch (err) {
     console.error('Reject transaction failed:', err);
-    res.status(500).json({ error: 'Reject failed', detail: err.message });
+    res.status(500).json({ error: 'Reject failed' });
   }
 });
 
@@ -305,7 +305,8 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
 
     res.json(transactions);
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Get transactions error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -441,7 +442,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     console.error('=== Backend Create transaction error ===');
     console.error('Error:', err);
     console.error('Stack:', err.stack);
-    res.status(400).json({ error: 'Create failed', detail: err.message });
+    res.status(400).json({ error: 'Create failed' });
   }
 });
 
@@ -576,7 +577,8 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     
     res.json(formatted);
   } catch (err) {
-    res.status(400).json({ error: 'Update failed', detail: err.message });
+    console.error('Update transaction error:', err);
+    res.status(400).json({ error: 'Update failed' });
   }
 });
 
@@ -608,7 +610,7 @@ router.delete('/transactions/:id/slip', async (req, res) => {
     res.json({ success: true, transaction: tx });
   } catch (err) {
     console.error('Delete slip failed:', err);
-    res.status(500).json({ error: 'Delete slip failed', detail: err.message });
+    res.status(500).json({ error: 'Delete slip failed' });
   }
 });
 
@@ -638,7 +640,8 @@ router.delete('/transactions/:id', async (req, res) => {
 
     res.json({ message: 'ลบรายการโอนเงินสำเร็จ' });
   } catch (err) {
-    res.status(500).json({ error: 'Delete failed', detail: err.message });
+    console.error('Delete transaction error:', err);
+    res.status(500).json({ error: 'Delete failed' });
   }
 });
 

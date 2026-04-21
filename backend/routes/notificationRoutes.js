@@ -18,7 +18,8 @@ router.post('/notifications', async (req, res) => {
     } catch (e) { /* ignore if io not ready */ }
     res.status(201).json(notification);
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Create notification error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -48,7 +49,7 @@ router.get('/notifications', async (req, res) => {
     res.json(notifications);
   } catch (err) {
     console.error('Notifications error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -70,7 +71,8 @@ router.put('/notifications/:id/read', async (req, res) => {
 
     res.json({ success: true, message: 'Marked as read', notification });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Mark notification read error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -87,7 +89,8 @@ router.put('/notifications/read-all', async (req, res) => {
 
     res.json({ success: true, message: 'All marked as read' });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Mark all notifications read error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -115,7 +118,8 @@ router.delete('/notifications/batch', async (req, res) => {
       deletedCount: result.deletedCount 
     });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Delete notifications batch error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -136,7 +140,8 @@ router.delete('/notifications/:id', async (req, res) => {
 
     res.json({ success: true, message: 'Notification deleted' });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('Delete notification error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

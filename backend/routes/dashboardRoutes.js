@@ -222,7 +222,7 @@ router.get('/dashboard/summary', async (req, res) => {
     });
   } catch (err) {
     console.error('Dashboard summary error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

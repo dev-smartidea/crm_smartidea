@@ -114,7 +114,7 @@ router.get('/images', async (req, res) => {
     res.json({ items, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     console.error('Get images error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -153,7 +153,7 @@ router.post('/images', upload.single('image'), async (req, res) => {
     res.status(201).json(newImage);
   } catch (err) {
     console.error('Upload image error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -198,7 +198,7 @@ router.delete('/images/:id', async (req, res) => {
     res.json({ message: 'ลบรูปภาพสำเร็จ' });
   } catch (err) {
     console.error('Delete image error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

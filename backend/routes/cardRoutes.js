@@ -95,7 +95,7 @@ router.post('/cards/topup', async (req, res) => {
     res.json({ card, ledger });
   } catch (err) {
     console.error('Topup failed:', err);
-    res.status(500).json({ error: 'Topup failed', detail: err.message });
+    res.status(500).json({ error: 'Topup failed' });
   }
 });
 
@@ -201,7 +201,7 @@ router.post('/cards/charge', async (req, res) => {
     res.json({ card, ledger });
   } catch (err) {
     console.error('Charge failed:', err);
-    res.status(500).json({ error: 'Charge failed', detail: err.message });
+    res.status(500).json({ error: 'Charge failed' });
   }
 });
 
@@ -260,7 +260,7 @@ router.post('/cards', async (req, res) => {
     res.status(201).json(newCard);
   } catch (err) {
     console.error('Create card failed:', err);
-    res.status(500).json({ error: 'Failed to create card', detail: err.message });
+    res.status(500).json({ error: 'Failed to create card' });
   }
 });
 
@@ -318,7 +318,7 @@ router.put('/cards/:id', async (req, res) => {
     res.json(card);
   } catch (err) {
     console.error('Update card failed:', err);
-    res.status(500).json({ error: 'Failed to update card', detail: err.message });
+    res.status(500).json({ error: 'Failed to update card' });
   }
 });
 
@@ -337,7 +337,7 @@ router.delete('/cards/:id', async (req, res) => {
     res.json({ message: 'Card deleted successfully', card });
   } catch (err) {
     console.error('Delete card failed:', err);
-    res.status(500).json({ error: 'Failed to delete card', detail: err.message });
+    res.status(500).json({ error: 'Failed to delete card' });
   }
 });
 
@@ -415,7 +415,7 @@ router.get('/cards/:id/ledger/export', async (req, res) => {
     res.status(200).send(csv);
   } catch (err) {
     console.error('Export ledger failed:', err);
-    res.status(500).json({ error: 'Export failed', detail: err.message });
+    res.status(500).json({ error: 'Export failed' });
   }
 });
 
@@ -430,7 +430,7 @@ router.get('/cards/ledger/all', async (req, res) => {
     res.json(ledger);
   } catch (err) {
     console.error('Get all ledger failed:', err);
-    res.status(500).json({ error: 'Failed to fetch ledger', detail: err.message });
+    res.status(500).json({ error: 'Failed to fetch ledger' });
   }
 });
 
@@ -525,7 +525,7 @@ router.get('/cards/daily-summary', async (req, res) => {
     res.json({ charges: chargeItems, topups: topupItems });
   } catch (err) {
     console.error('Daily summary failed:', err);
-    res.status(500).json({ error: 'Failed to fetch daily summary', detail: err.message });
+    res.status(500).json({ error: 'Failed to fetch daily summary' });
   }
 });
 

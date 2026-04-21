@@ -240,7 +240,7 @@ router.get('/ledger', async (req, res) => {
     });
   } catch (err) {
     console.error('Ledger error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -278,7 +278,7 @@ router.patch('/ledger/:id', async (req, res) => {
     res.json({ success: true, transaction });
   } catch (err) {
     console.error('Update error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -441,7 +441,7 @@ router.get('/ledger/export', async (req, res) => {
     res.send('\uFEFF' + csv); // BOM for Excel UTF-8
   } catch (err) {
     console.error('Export error:', err);
-    res.status(500).json({ error: 'Server error', detail: err.message });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
