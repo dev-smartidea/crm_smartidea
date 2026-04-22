@@ -16,19 +16,23 @@ export default function DashboardLayout() {
   const [activitiesCount, setActivitiesCount] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) return;
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
         setUser(res.data);
       } catch (err) {
+        if (axios.isCancel(err)) return;
         console.warn('Failed to fetch profile:', err.message);
       }
     };
     fetchProfile();
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {

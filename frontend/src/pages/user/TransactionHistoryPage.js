@@ -66,10 +66,10 @@ export default function TransactionHistoryPage() {
   // คำนวณผลรวม breakdowns ในฟอร์มแก้ไข
   const editBreakdownSum = (editForm.breakdowns || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (signal) => {
     try {
       setLoading(true);
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` }, ...(signal ? { signal } : {}) };
       const [svcRes, txRes] = await Promise.all([
         axios.get(`${api}/api/services/${serviceId}`, authHeaders),
         axios.get(`${api}/api/services/${serviceId}/transactions`, authHeaders)
@@ -77,6 +77,7 @@ export default function TransactionHistoryPage() {
       setService(svcRes.data);
       setTransactions(txRes.data);
     } catch (err) {
+      if (axios.isCancel(err)) return;
       console.error(err);
     } finally {
       setLoading(false);
@@ -84,7 +85,9 @@ export default function TransactionHistoryPage() {
   }, [api, serviceId, token]);
 
   useEffect(() => {
-    fetchAll();
+    const controller = new AbortController();
+    fetchAll(controller.signal);
+    return () => controller.abort();
   }, [fetchAll]);
 
   // ปิด dropdown เมื่อคลิกข้างนอก

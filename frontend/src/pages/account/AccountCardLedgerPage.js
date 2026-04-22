@@ -33,13 +33,12 @@ export default function AccountCardLedgerPage() {
     return ledger.filter(entry => {
       if (filterType && entry.type !== filterType) return false;
       if (filterChannel && entry.channel !== filterChannel) return false;
-      if (dateFrom) {
-        const entryDate = new Date(entry.createdAt).toISOString().split('T')[0];
-        if (entryDate < dateFrom) return false;
-      }
-      if (dateTo) {
-        const entryDate = new Date(entry.createdAt).toISOString().split('T')[0];
-        if (entryDate > dateTo) return false;
+      if (dateFrom || dateTo) {
+        // ใช้ local date (ไม่ใช่ UTC) เพื่อให้ตรงกับค่าจาก date input
+        const d = new Date(entry.createdAt);
+        const entryDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (dateFrom && entryDate < dateFrom) return false;
+        if (dateTo && entryDate > dateTo) return false;
       }
       return true;
     });
@@ -82,12 +81,14 @@ export default function AccountCardLedgerPage() {
     ]);
     const csv = [header.join(','), ...rows.map(r => r.map(escapeCsv).join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    link.href = url;
     link.download = `card_ledger_${card?.last4 || cardId}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const summary = useMemo(() => {
@@ -97,22 +98,26 @@ export default function AccountCardLedgerPage() {
   }, [filteredLedger]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchLedger = async () => {
       try {
         setLoading(true);
         const res = await axios.get(`${api}/api/cards/${cardId}/ledger`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal
         });
         setCard(res.data.card || null);
         setLedger(res.data.ledger || []);
         setError('');
       } catch (e) {
+        if (axios.isCancel(e)) return;
         setError(e?.response?.data?.error || 'โหลดประวัติไม่สำเร็จ');
       } finally {
         setLoading(false);
       }
     };
     fetchLedger();
+    return () => controller.abort();
   }, [api, cardId, token]);
 
   const formatDate = (date) => {
@@ -133,33 +138,38 @@ export default function AccountCardLedgerPage() {
     let endDate = '';
 
     switch (type) {
-      case 'today':
+      case 'today': {
         startDate = today.toISOString().split('T')[0];
         endDate = startDate;
         break;
-      case 'yesterday':
+      }
+      case 'yesterday': {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
         startDate = yesterday.toISOString().split('T')[0];
         endDate = startDate;
         break;
-      case 'last7days':
+      }
+      case 'last7days': {
         const last7 = new Date(today);
         last7.setDate(last7.getDate() - 6);
         startDate = last7.toISOString().split('T')[0];
         endDate = today.toISOString().split('T')[0];
         break;
-      case 'last30days':
+      }
+      case 'last30days': {
         const last30 = new Date(today);
         last30.setDate(last30.getDate() - 29);
         startDate = last30.toISOString().split('T')[0];
         endDate = today.toISOString().split('T')[0];
         break;
-      case 'thisMonth':
+      }
+      case 'thisMonth': {
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
         startDate = firstDay.toISOString().split('T')[0];
         endDate = today.toISOString().split('T')[0];
         break;
+      }
       default:
         break;
     }

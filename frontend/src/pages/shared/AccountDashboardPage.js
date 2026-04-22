@@ -85,13 +85,14 @@ export default function AccountDashboardPage() {
   const api = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchAccountDashboardData = async () => {
       try {
         setLoading(true);
         setError(null);
         
         // ดึงข้อมูลจาก dashboard summary API + บัตร พร้อมกัน
-        const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+        const authHeaders = { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal };
         const [dashboardRes, cardsRes] = await Promise.all([
           axios.get(`${api}/api/dashboard/summary`, authHeaders),
           axios.get(`${api}/api/cards`, authHeaders)
@@ -123,10 +124,14 @@ export default function AccountDashboardPage() {
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 5);
           setRecentCharges(charges);
+        } else {
+          console.error('Failed to load card ledger:', ledgerResult.reason);
         }
 
         if (transactionResult.status === 'fulfilled') {
           transactionData = transactionResult.value.data.transactions || [];
+        } else {
+          console.error('Failed to load transactions:', transactionResult.reason);
         }
 
         // ใช้ ledgerEntries เป็น allTransactions สำหรับคำนวณ growth
@@ -255,6 +260,7 @@ export default function AccountDashboardPage() {
           ]
         });
       } catch (err) {
+        if (axios.isCancel(err)) return;
         setError(err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
       } finally {
         setLoading(false);
@@ -267,6 +273,7 @@ export default function AccountDashboardPage() {
       setLoading(false);
       setError('ไม่พบ token หรือ API URL');
     }
+    return () => controller.abort();
   }, [api, token]);
 
   if (loading) {

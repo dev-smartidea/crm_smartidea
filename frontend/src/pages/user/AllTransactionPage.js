@@ -159,10 +159,10 @@ export default function AllTransactionPage() {
   };
 
   // ดึงข้อมูลทั้งหมด (client-side pagination)
-  const fetchAllData = async () => {
+  const fetchAllData = async (signal) => {
     try {
       setLoading(true);
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` }, ...(signal ? { signal } : {}) };
       
       // ดึงข้อมูลลูกค้า, บริการ และ transactions (จำกัด 500 รายการล่าสุดที่ยังรอ/ถูกปฏิเสธ)
       const [customersRes, servicesRes, transactionsRes] = await Promise.all([
@@ -194,6 +194,7 @@ export default function AllTransactionPage() {
       setTransactions(formattedTransactions);
       setFilteredTransactions(formattedTransactions);
     } catch (error) {
+      if (axios.isCancel(error)) return;
       console.error('Error fetching data:', error);
       alert('ไม่สามารถโหลดข้อมูลได้');
     } finally {
@@ -202,7 +203,9 @@ export default function AllTransactionPage() {
   };
 
   useEffect(() => {
-    fetchAllData();
+    const controller = new AbortController();
+    fetchAllData(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

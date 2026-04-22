@@ -22,11 +22,12 @@ export default function RejectedTransactionsPage() {
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
-  const fetchRejected = async () => {
+  const fetchRejected = async (signal) => {
     try {
       setLoading(true);
       const res = await axios.get(`${api}/api/transactions?submissionStatus=rejected&limit=${TRANSACTION_API_LIMIT}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        ...(signal ? { signal } : {})
       });
       const formatted = (res.data.transactions || []).map(tx => ({
         ...tx,
@@ -37,6 +38,7 @@ export default function RejectedTransactionsPage() {
       }));
       setItems(formatted);
     } catch (e) {
+      if (axios.isCancel(e)) return;
       // fetch error handled by loading state
     } finally {
       setLoading(false);
@@ -44,7 +46,9 @@ export default function RejectedTransactionsPage() {
   };
 
   useEffect(() => {
-    fetchRejected();
+    const controller = new AbortController();
+    fetchRejected(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

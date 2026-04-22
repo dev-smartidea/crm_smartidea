@@ -23,11 +23,12 @@ export default function AccountTransactionsPage() {
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
-  const fetchSubmitted = async () => {
+  const fetchSubmitted = async (signal) => {
     try {
       setLoading(true);
       const res = await axios.get(`${api}/api/transactions?submissionStatus=submitted&limit=${TRANSACTION_API_LIMIT}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        ...(signal ? { signal } : {})
       });
       const formatted = (res.data.transactions || []).map(tx => ({
         ...tx,
@@ -38,6 +39,7 @@ export default function AccountTransactionsPage() {
       }));
       setItems(formatted);
     } catch (e) {
+      if (axios.isCancel(e)) return;
       // fetch error handled by loading state
     } finally {
       setLoading(false);
@@ -45,7 +47,9 @@ export default function AccountTransactionsPage() {
   };
 
   useEffect(() => {
-    fetchSubmitted();
+    const controller = new AbortController();
+    fetchSubmitted(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

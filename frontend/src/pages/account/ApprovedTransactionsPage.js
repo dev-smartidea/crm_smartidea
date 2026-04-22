@@ -77,10 +77,10 @@ export default function ApprovedTransactionsPage() {
     }
   };
 
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (signal) => {
     try {
       setLoading(true);
-      const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+      const authHeaders = { headers: { Authorization: `Bearer ${token}` }, ...(signal ? { signal } : {}) };
       const txRes = await axios.get(`${api}/api/transactions?submissionStatus=approved&limit=${TRANSACTION_API_LIMIT}`, authHeaders);
       
       const formatted = (txRes.data.transactions || []).map(tx => ({
@@ -93,6 +93,7 @@ export default function ApprovedTransactionsPage() {
       setTransactions(formatted);
       setFilteredTransactions(formatted);
     } catch (e) {
+      if (axios.isCancel(e)) return;
       // fetch error handled by loading state
     } finally {
       setLoading(false);
@@ -100,7 +101,9 @@ export default function ApprovedTransactionsPage() {
   }, [api, token]);
 
   useEffect(() => {
-    fetchAllData();
+    const controller = new AbortController();
+    fetchAllData(controller.signal);
+    return () => controller.abort();
   }, [fetchAllData]);
 
   // ฟังก์ชันค้นหา

@@ -86,7 +86,7 @@ export default function AccountLedgerPage() {
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
-  const fetchLedger = useCallback(async (page = 1) => {
+  const fetchLedger = useCallback(async (page = 1, signal) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -100,7 +100,8 @@ export default function AccountLedgerPage() {
       if (filters.search) params.append('search', filters.search);
 
       const res = await axios.get(`${api}/api/ledger?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        ...(signal ? { signal } : {})
       });
 
       setLedgerData(res.data.items || []);
@@ -108,6 +109,7 @@ export default function AccountLedgerPage() {
       setTotalPages(res.data.totalPages || 1);
       setCurrentPage(res.data.page || 1);
     } catch (err) {
+      if (axios.isCancel(err)) return;
       toast.error('โหลดข้อมูลไม่สำเร็จ');
     } finally {
       setLoading(false);
@@ -115,7 +117,9 @@ export default function AccountLedgerPage() {
   }, [api, token, filters]);
 
   useEffect(() => {
-    fetchLedger(1);
+    const controller = new AbortController();
+    fetchLedger(1, controller.signal);
+    return () => controller.abort();
   }, [fetchLedger]);
 
   // โหลดประวัติการตัดเงินเมื่อเปิด modal

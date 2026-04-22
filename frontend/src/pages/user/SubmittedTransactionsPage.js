@@ -24,11 +24,12 @@ export default function SubmittedTransactionsPage() {
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (signal) => {
     try {
       setLoading(true);
       const res = await axios.get(`${api}/api/transactions?submissionStatus=${activeTab}&limit=200`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        ...(signal ? { signal } : {})
       });
       const formatted = (res.data.transactions || []).map(tx => ({
         ...tx,
@@ -38,6 +39,7 @@ export default function SubmittedTransactionsPage() {
       setTransactions(formatted);
       setCurrentPage(1);
     } catch (err) {
+      if (axios.isCancel(err)) return;
       console.error('Load submitted transactions failed:', err);
     } finally {
       setLoading(false);
@@ -45,7 +47,9 @@ export default function SubmittedTransactionsPage() {
   };
 
   useEffect(() => {
-    fetchTransactions();
+    const controller = new AbortController();
+    fetchTransactions(controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
