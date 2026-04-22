@@ -66,7 +66,7 @@ export default function EditTransactionModal({
         breakdowns: Array.isArray(transaction.breakdowns) ? transaction.breakdowns.map(b => ({
           code: b.code || '',
           amount: b.amount || 0,
-          statusNote: b.statusNote || 'รอบบันทึกบัญชี',
+          statusNote: b.statusNote || 'รอบันทึกบัญชี',
           isAutoVat: b.isAutoVat || false
         })) : [],
       });
@@ -84,7 +84,7 @@ export default function EditTransactionModal({
   };
   const addBreakdown = () => setForm(prev => ({
     ...prev,
-    breakdowns: [...prev.breakdowns, { code: '11', amount: '', statusNote: 'รอบบันทึกบัญชี', isAutoVat: false }]
+    breakdowns: [...prev.breakdowns, { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }]
   }));
   const removeBreakdown = (idx) => {
     setForm(prev => {
@@ -99,7 +99,7 @@ export default function EditTransactionModal({
         const newRows = rows.filter((_, i) => i !== idx && i !== idx + 1);
         // ถ้าไม่มีแถวเหลือเลย ให้เพิ่มแถวเปล่า 1 แถว
         if (newRows.length === 0) {
-          newRows.push({ code: '11', amount: '', statusNote: 'รอบบันทึกบัญชี', isAutoVat: false });
+          newRows.push({ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
         }
         return { ...prev, breakdowns: newRows };
       } else {
@@ -111,7 +111,7 @@ export default function EditTransactionModal({
   const computeVatForRow = (idx) => {
     setForm(prev => {
       const rows = [...(prev.breakdowns || [])];
-      const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบบันทึกบัญชี', isAutoVat: false };
+      const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
       
       // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่ (เพิ่ม logic สำหรับ 19/20)
       if (
@@ -319,7 +319,7 @@ export default function EditTransactionModal({
                   )}
                 </div>
                 <select value={row.statusNote} onChange={e => updateBreakdown(idx, 'statusNote', e.target.value)} style={{ minWidth: 0 }}>
-                  <option value="รอบบันทึกบัญชี">รอบบันทึกบัญชี</option>
+                  <option value="รอบันทึกบัญชี">รอบันทึกบัญชี</option>
                   <option value="ค่าคลิกที่ยังไม่ต้องเติม">ค่าคลิกที่ยังไม่ต้องเติม</option>
                 </select>
                 <div style={{ display: 'flex', gap: '4px', minWidth: 0 }}>

@@ -10,6 +10,7 @@ const Image = require('../models/Image');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
+const { authMiddleware } = require('../middleware/auth');
 
 router.get('/', async (req, res) => {
   try {
@@ -19,13 +20,10 @@ router.get('/', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const loggedInUserId = decoded.id;
 
-  const { search, userId } = req.query;
+  const { search } = req.query;
   let query = {};
-    if (userId) {
-      query.userId = userId;
-    } else {
-      query.userId = loggedInUserId;
-    }
+    // Always use the logged-in user's ID — ignore any client-supplied userId to prevent IDOR
+    query.userId = loggedInUserId;
     if (search) {
       // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
       // และป้องกัน regex injection ด้วยการ escape อักขระพิเศษ
@@ -146,9 +144,15 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   const session = await mongoose.startSession();
   try {
+    const userId = req.user.id;
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    if (String(customer.userId) !== String(userId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     await session.withTransaction(async () => {
       const customerId = req.params.id;
     
@@ -207,14 +211,32 @@ router.delete('/:id', async (req, res) => {
   }
 });
 // ✅ PUT แก้ไขข้อมูลลูกค้า
-router.put('/:id', async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const customer = await Customer.findByIdAndUpdate(
+    const userId = req.user.id;
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    if (String(customer.userId) !== String(userId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Whitelist fields to prevent userId/other-field injection
+    const allowedFields = [
+      'customerCode', 'name', 'customerType', 'address', 'phone', 'email',
+      'taxId', 'businessSize', 'productService', 'contactPerson',
+      'lineId', 'facebook', 'website', 'notes'
+    ];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updateData[field] = req.body[field];
+    }
+
+    const updated = await Customer.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
-    res.json(customer);
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
