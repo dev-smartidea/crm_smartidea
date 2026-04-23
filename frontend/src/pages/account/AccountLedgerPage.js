@@ -83,6 +83,23 @@ export default function AccountLedgerPage() {
   const [chargeNote, setChargeNote] = useState('');
   const [chargeHistory, setChargeHistory] = useState(null);
 
+  const pageSummary = useMemo(() => {
+    const hasActiveFilters = filters.startDate || filters.endDate || filters.bank || filters.serviceType || filters.search;
+    if (!ledgerData.length || !hasActiveFilters) return null;
+    return ledgerData.reduce((acc, item) => ({
+      amount:     acc.amount     + (item.amount || 0),
+      newGG:      acc.newGG      + getFirstTransactionAmount(item, 14, firstTxMap),
+      renewGG:    acc.renewGG    + getRenewTransactionAmount(item, 14, firstTxMap),
+      newFB:      acc.newFB      + getFirstTransactionAmount(item, 18, firstTxMap),
+      renewFB:    acc.renewFB    + getRenewTransactionAmount(item, 18, firstTxMap),
+      hosting:    acc.hosting    + getBreakdownAmount(item, 20),
+      click:      acc.click      + getBreakdownAmount(item, 11),
+      vat36:      acc.vat36      + getBreakdownAmount(item, 12),
+      vat30:      acc.vat30      + getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19),
+    }), { amount: 0, newGG: 0, renewGG: 0, newFB: 0, renewFB: 0, hosting: 0, click: 0, vat36: 0, vat30: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledgerData, firstTxMap, filters.startDate, filters.endDate, filters.bank, filters.serviceType, filters.search]);
+
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
 
@@ -495,7 +512,7 @@ export default function AccountLedgerPage() {
                   <th className="col-txid" scope="col">Transaction ID</th>
                   <th className="col-account" scope="col">บัญชี</th>
                   <th className="col-service" scope="col">บริการ</th>
-                  <th className="col-code" scope="col">รหัส</th>
+                  <th className="col-code" scope="col">รหัส cid</th>
                   <th className="col-bank" scope="col">ธนาคาร</th>
                   <th className="col-date" scope="col">วันที่โอน</th>
                   <th className="col-time" scope="col">เวลาโอน</th>
@@ -594,21 +611,47 @@ export default function AccountLedgerPage() {
                     {/* Vat 30: รวม 13, 17, 19 */}
                     <td className="col-vat">{formatNumber(getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19))}</td>
                     <td className="col-charge">
-                      {item.cardCharged ? (
-                        <span className="charge-done"><CheckCircleFill size={14} /> ตัดแล้ว</span>
-                      ) : (
-                        <button
-                          className="btn-charge"
-                          onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(item.amount || '')); setChargeNote(''); }}
-                          disabled={chargingId === item._id}
-                        >
-                          {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}
-                        </button>
-                      )}
+                      {getBreakdownAmount(item, 11) > 0 ? (
+                        item.cardCharged ? (
+                          <span className="charge-done"><CheckCircleFill size={14} /> ตัดแล้ว</span>
+                        ) : (
+                          <button
+                            className="btn-charge"
+                            onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(item.amount || '')); setChargeNote(''); }}
+                            disabled={chargingId === item._id}
+                          >
+                            {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}
+                          </button>
+                        )
+                      ) : null}
                     </td>
                   </tr>
                 ))}
               </tbody>
+              {pageSummary && (
+                <tfoot>
+                  <tr style={{ background: '#f0f4ff', fontWeight: 700, borderTop: '2px solid #c7d2fe', fontSize: 12 }}>
+                    <td className="col-index" colSpan="8" style={{ padding: '8px 10px', color: '#3730a3' }}>รวม {ledgerData.length} รายการ (หน้านี้)</td>
+                    <td className="col-amount" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.amount)}</td>
+                    <td className="col-status"></td>
+                    <td className="col-card"></td>
+                    <td className="col-cardtime"></td>
+                    <td className="col-gg" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.newGG)}</td>
+                    <td className="col-gg" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.renewGG)}</td>
+                    <td className="col-fb" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.newFB)}</td>
+                    <td className="col-fb" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.renewFB)}</td>
+                    <td className="col-hosting" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.hosting)}</td>
+                    <td className="col-click" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.click)}</td>
+                    <td className="col-prepaid"></td>
+                    <td className="col-coupon"></td>
+                    <td className="col-inv"></td>
+                    <td className="col-inv"></td>
+                    <td className="col-vat" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.vat36)}</td>
+                    <td className="col-vat" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.vat30)}</td>
+                    <td className="col-charge"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}

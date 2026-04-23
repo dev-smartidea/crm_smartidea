@@ -352,10 +352,12 @@ router.get('/ledger/export', async (req, res) => {
       'ลำดับ', 'บัญชี', 'รหัส', 'ธนาคาร', 'วันที่', 'เวลา', 'ยอดเงิน', 'สถานะ', 'บัตรเลขที่', 'เวลาที่ตัดบัตร',
       'ลูกค้าใหม่ GG', 'ต่ออายุ GG', 'ลูกค้าใหม่ FB', 'ต่ออายุ FB',
       'ค่าคลิก', 'โดนเบิกล่วงหน้า', 'คูปอง', 'Inv. Gg', 'Inv. Fb',
-      'Vat 3.6%', 'Vat 3%', 'ยอดสุทธิ', 'หมายเหตุ'
+      'Vat 36', 'Vat 30', 'ยอดสุทธิ', 'หมายเหตุ'
     ];
 
-    // สร้าง CSV rows
+    // สร้าง CSV rows พร้อมสะสมผลรวม
+    const totals = { amount: 0, newGG: 0, renewGG: 0, newFB: 0, renewFB: 0, click: 0, prepaid: 0, coupon: 0, invGG: 0, invFB: 0, vat36: 0, vat30: 0, net: 0 };
+
     const rows = transactions.map((t, index) => {
       const service = t.serviceId || {};
       const customer = t.customerId || {};
@@ -407,6 +409,26 @@ router.get('/ledger/export', async (req, res) => {
       // ยอดสุทธิ = ยอดเงินที่โอนมา
       const netAmount = t.amount;
 
+      const prepaidVal = (t.prepaid != null ? t.prepaid : code15) || 0;
+      const couponVal  = (t.coupon  != null ? t.coupon  : code16) || 0;
+      const invGGVal   = t.invGG != null ? t.invGG : 0;
+      const invFBVal   = t.invFB != null ? t.invFB : 0;
+
+      // สะสมผลรวม
+      totals.amount  += t.amount || 0;
+      totals.newGG   += newCustomerGG;
+      totals.renewGG += renewGG;
+      totals.newFB   += newCustomerFB;
+      totals.renewFB += renewFB;
+      totals.click   += code11;
+      totals.prepaid += prepaidVal;
+      totals.coupon  += couponVal;
+      totals.invGG   += invGGVal;
+      totals.invFB   += invFBVal;
+      totals.vat36   += vat36;
+      totals.vat30   += vat30;
+      totals.net     += netAmount;
+
       return [
         index + 1,
         service.pageUrl || customer.name || '-',
@@ -423,10 +445,10 @@ router.get('/ledger/export', async (req, res) => {
         newCustomerFB || '',
         renewFB || '',
         code11 || '',
-        (t.prepaid != null ? t.prepaid : code15) || '',
-        (t.coupon != null ? t.coupon : code16) || '',
-        t.invGG != null ? t.invGG : '',
-        t.invFB != null ? t.invFB : '',
+        prepaidVal || '',
+        couponVal || '',
+        invGGVal || '',
+        invFBVal || '',
         vat36 ? vat36.toFixed(2) : '',
         vat30 ? vat30.toFixed(2) : '',
         netAmount.toFixed(2),
@@ -434,7 +456,28 @@ router.get('/ledger/export', async (req, res) => {
       ].join(',');
     });
 
-    const csv = [headers.join(','), ...rows].join('\n');
+    // แถวสรุปผลรวม
+    const summaryRow = [
+      'รวม',
+      '', '', '', '', '',
+      totals.amount.toFixed(2),
+      '', '', '',
+      totals.newGG   || '',
+      totals.renewGG || '',
+      totals.newFB   || '',
+      totals.renewFB || '',
+      totals.click   || '',
+      totals.prepaid || '',
+      totals.coupon  || '',
+      totals.invGG   || '',
+      totals.invFB   || '',
+      totals.vat36 ? totals.vat36.toFixed(2) : '',
+      totals.vat30 ? totals.vat30.toFixed(2) : '',
+      totals.net.toFixed(2),
+      ''
+    ].join(',');
+
+    const csv = [headers.join(','), ...rows, '', summaryRow].join('\n');
     
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=ledger-export.csv');
