@@ -33,7 +33,12 @@ const transactionSchema = new mongoose.Schema({
   cardCharged: { type: Boolean, default: false },
   cardChargedAt: { type: Date },
   cardChargedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  cardChargedCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' }
+  cardChargedCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' },
+  // Facebook Ads flow
+  fbToppedUp: { type: Boolean, default: false },       // เติมเงินเข้าบัตรแล้ว รอ FB ตัด
+  fbTopupCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' }, // บัตรที่เติมเงิน
+  fbChargedDate: { type: Date },                        // วันที่ FB ตัดเงิน
+  fbChargedAmount: { type: Number }                     // ยอดที่ FB ตัดจริง
 }, { timestamps: true });
 
 // Indexes to speed up typical queries (by service/user and recent first)

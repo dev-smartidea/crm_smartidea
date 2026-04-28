@@ -28,6 +28,7 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const fileInputRef = useRef();
+  const blobUrlRef = useRef(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -55,21 +56,23 @@ const ProfilePage = () => {
 
   useEffect(() => {
     return () => {
-      if (avatarPreview && avatarPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(avatarPreview);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (avatarPreview && avatarPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(avatarPreview);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
       }
+      const newUrl = URL.createObjectURL(file);
+      blobUrlRef.current = newUrl;
       setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
+      setAvatarPreview(newUrl);
     }
   };
 
@@ -96,6 +99,10 @@ const ProfilePage = () => {
         });
         avatarUrl = res.data.url;
         avatarCloudinaryId = res.data.cloudinaryId;
+        if (blobUrlRef.current) {
+          URL.revokeObjectURL(blobUrlRef.current);
+          blobUrlRef.current = null;
+        }
         setAvatarPreview(getAvatarUrl(avatarUrl));
       }
 

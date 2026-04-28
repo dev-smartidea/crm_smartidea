@@ -70,6 +70,10 @@ router.get('/ledger', async (req, res) => {
           path: 'cardChargedCardId',
           select: 'displayName last4'
         })
+        .populate({
+          path: 'fbTopupCardId',
+          select: 'displayName last4'
+        })
         .sort({ transactionDate: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -206,8 +210,17 @@ router.get('/ledger', async (req, res) => {
         // ยอดสุทธิ
         netAmount: netAmount,
         // ข้อมูลบริการ
+        serviceId: service._id?.toString() || null,
         serviceType: service.serviceType || '-',
         servicePrice: service.price || 0,
+        // สถานะตัดบัตร (สำหรับ Facebook Ads)
+        cardCharged: t.cardCharged || false,
+        cardChargedAt: t.cardChargedAt || null,
+        // Facebook Ads flow
+        fbToppedUp: t.fbToppedUp || false,
+        fbTopupCardId: t.fbTopupCardId?._id?.toString() || null,
+        fbChargedDate: t.fbChargedDate || null,
+        fbChargedAmount: t.fbChargedAmount || null,
         // หมายเหตุ
         notes: t.notes || '-',
         // ข้อมูลเพิ่มเติม
@@ -255,7 +268,8 @@ router.patch('/ledger/:id', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { cardNumber, cardTime, prepaid, coupon, invGG, invFB } = req.body;
+    const { cardNumber, cardTime, prepaid, coupon, invGG, invFB,
+            fbToppedUp, fbTopupCardId, cardCharged, fbChargedDate, fbChargedAmount } = req.body;
     const updateData = {};
     
     if (cardNumber !== undefined) updateData.cardNumber = cardNumber;
@@ -264,6 +278,12 @@ router.patch('/ledger/:id', async (req, res) => {
     if (coupon !== undefined) updateData.coupon = coupon === '' ? null : Number(coupon);
     if (invGG !== undefined) updateData.invGG = invGG === '' ? null : Number(invGG);
     if (invFB !== undefined) updateData.invFB = invFB === '' ? null : Number(invFB);
+    // Facebook Ads flow fields
+    if (fbToppedUp !== undefined) updateData.fbToppedUp = Boolean(fbToppedUp);
+    if (fbTopupCardId !== undefined) updateData.fbTopupCardId = fbTopupCardId || null;
+    if (cardCharged !== undefined) updateData.cardCharged = Boolean(cardCharged);
+    if (fbChargedDate !== undefined) updateData.fbChargedDate = fbChargedDate ? new Date(fbChargedDate) : null;
+    if (fbChargedAmount !== undefined) updateData.fbChargedAmount = fbChargedAmount === '' ? null : Number(fbChargedAmount);
 
     const transaction = await Transaction.findByIdAndUpdate(
       req.params.id,

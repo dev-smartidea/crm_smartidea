@@ -3,7 +3,8 @@ import axios from 'axios';
 import toast from '../../utils/toast';
 import { 
   FileEarmarkSpreadsheet, Search, Download, 
-  ChevronLeft, ChevronRight, Funnel, X, CreditCard2Back, CheckCircleFill
+  ChevronLeft, ChevronRight, Funnel, X, CreditCard2Back, CheckCircleFill,
+  WalletFill, PencilSquare, BoxArrowInDown
 } from 'react-bootstrap-icons';
 import './AccountLedgerPage.css';
 
@@ -82,6 +83,21 @@ export default function AccountLedgerPage() {
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargeNote, setChargeNote] = useState('');
   const [chargeHistory, setChargeHistory] = useState(null);
+
+  // Facebook Ads: topup modal
+  const [topupModal, setTopupModal] = useState(null);
+  const [topupCardId, setTopupCardId] = useState('');
+  const [topupAmount, setTopupAmount] = useState('');
+  const [topupLoading, setTopupLoading] = useState(false);
+
+  // Facebook Ads: record modal
+  const [fbRecordModal, setFbRecordModal] = useState(null);
+  const [fbRecordCardId, setFbRecordCardId] = useState('');
+  const [fbRecordDate, setFbRecordDate] = useState('');
+  const [fbRecordTime, setFbRecordTime] = useState('');
+  const [fbRecordAmount, setFbRecordAmount] = useState('');
+  const [fbRecordNote, setFbRecordNote] = useState('');
+  const [fbRecordLoading, setFbRecordLoading] = useState(false);
 
   const pageSummary = useMemo(() => {
     const hasActiveFilters = filters.startDate || filters.endDate || filters.bank || filters.serviceType || filters.search;
@@ -315,6 +331,83 @@ export default function AccountLedgerPage() {
     } else if (e.key === 'Escape') {
       setEditingCell(null);
       setEditValue('');
+    }
+  };
+
+  // ── Facebook Ads: เปิด topup modal ──
+  const openTopupModal = (item) => {
+    setTopupModal(item);
+    setTopupCardId('');
+    setTopupAmount(String(getBreakdownAmount(item, 11) || ''));
+  };
+
+  // ── Facebook Ads: เปิด record modal ──
+  const openFbRecordModal = (item) => {
+    setFbRecordModal(item);
+    setFbRecordCardId(item.fbTopupCardId || '');
+    setFbRecordDate(new Date().toISOString().split('T')[0]);
+    setFbRecordTime('');
+    setFbRecordAmount(String(getBreakdownAmount(item, 11) || ''));
+    setFbRecordNote('');
+  };
+
+  // ── Facebook Ads: ยืนยันเติมเงิน ──
+  const handleTopupConfirm = async () => {
+    if (!topupCardId || !topupAmount) {
+      toast.warning('กรุณาเลือกบัตรและระบุยอดเงิน');
+      return;
+    }
+    try {
+      setTopupLoading(true);
+      // 1. หักยอดบัตร (ไม่ mark cardCharged — ยังรอ FB ตัด)
+      await axios.post(`${api}/api/cards/charge`, {
+        cardId: topupCardId,
+        amount: Number(topupAmount),
+        channel: 'Facebook Ads',
+        reference: topupModal._id,
+        note: `เติมเงินรอ FB ตัด: ${topupModal.accountName}`,
+        serviceId: topupModal.serviceId,
+        breakdowns: topupModal.breakdowns || [],
+        skipMarkCharged: true,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      // 2. บันทึก fbToppedUp
+      await axios.patch(`${api}/api/ledger/${topupModal._id}`, {
+        fbToppedUp: true,
+        fbTopupCardId: topupCardId,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('บันทึกการเติมเงินสำเร็จ');
+      setTopupModal(null);
+      fetchLedger(currentPage);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'บันทึกการเติมเงินไม่สำเร็จ');
+    } finally {
+      setTopupLoading(false);
+    }
+  };
+
+  // ── Facebook Ads: ยืนยันบันทึกการตัด ──
+  const handleFbRecordConfirm = async () => {
+    if (!fbRecordCardId || !fbRecordDate || !fbRecordTime || !fbRecordAmount) {
+      toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+    try {
+      setFbRecordLoading(true);
+      const selectedCard = cards.find(c => c._id === fbRecordCardId);
+      await axios.patch(`${api}/api/ledger/${fbRecordModal._id}`, {
+        cardCharged: true,
+        cardNumber: selectedCard?.last4 || '',
+        cardTime: fbRecordTime,
+        fbChargedDate: fbRecordDate,
+        fbChargedAmount: Number(fbRecordAmount),
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('บันทึกการตัดเงินของ Facebook สำเร็จ');
+      setFbRecordModal(null);
+      fetchLedger(currentPage);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'บันทึกไม่สำเร็จ');
+    } finally {
+      setFbRecordLoading(false);
     }
   };
 
@@ -611,18 +704,63 @@ export default function AccountLedgerPage() {
                     {/* Vat 30: รวม 13, 17, 19 */}
                     <td className="col-vat">{formatNumber(getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19))}</td>
                     <td className="col-charge">
-                      {getBreakdownAmount(item, 11) > 0 ? (
-                        item.cardCharged ? (
-                          <span className="charge-done"><CheckCircleFill size={14} /> ตัดแล้ว</span>
+                      {item.cardCharged ? (
+                        <span className="charge-done">
+                          <CheckCircleFill size={14} />
+                          {item.serviceType === 'Facebook Ads' ? ' FB ตัดแล้ว' : ' ตัดแล้ว'}
+                        </span>
+                      ) : item.serviceType === 'Facebook Ads' && getBreakdownAmount(item, 11) > 0 ? (
+                        item.fbToppedUp ? (
+                          // เติมแล้ว รอ FB ตัด
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 3,
+                              padding: '2px 8px', borderRadius: 3,
+                              background: '#fff8e1', color: '#e65100',
+                              fontSize: '0.7rem', fontWeight: 600,
+                              border: '1px solid #ffe082', whiteSpace: 'nowrap'
+                            }}>
+                              ⏳ รอ FB ตัด
+                            </span>
+                            <button
+                              onClick={() => openFbRecordModal(item)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600,
+                                background: '#fff', color: '#1877f2',
+                                border: '1px solid #1877f2', borderRadius: 3,
+                                cursor: 'pointer', whiteSpace: 'nowrap'
+                              }}
+                            >
+                              <PencilSquare size={11} /> บันทึกการตัด
+                            </button>
+                          </div>
                         ) : (
-                          <button
-                            className="btn-charge"
-                            onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(item.amount || '')); setChargeNote(''); }}
-                            disabled={chargingId === item._id}
-                          >
-                            {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}
-                          </button>
+                          // ยังไม่เติมเงิน
+                          <div style={{ textAlign: 'center' }}>
+                            <button
+                              onClick={() => openTopupModal(item)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600,
+                                background: '#1877f2', color: '#fff',
+                                border: 'none', borderRadius: 4,
+                                cursor: 'pointer', whiteSpace: 'nowrap'
+                              }}
+                            >
+                              <WalletFill size={12} /> เติมเงิน
+                            </button>
+                          </div>
                         )
+                      ) : getBreakdownAmount(item, 11) > 0 ? (
+                        // Google Ads — ตัดเงินเอง
+                        <button
+                          className="btn-charge"
+                          onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(item.amount || '')); setChargeNote(''); }}
+                          disabled={chargingId === item._id}
+                        >
+                          {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}
+                        </button>
                       ) : null}
                     </td>
                   </tr>
@@ -677,6 +815,122 @@ export default function AccountLedgerPage() {
           >
             ถัดไป <ChevronRight />
           </button>
+        </div>
+      )}
+
+      {/* ══ Modal: Facebook Ads — เติมเงินเข้าบัตร ══ */}
+      {topupModal && (
+        <div className="charge-modal-backdrop" onClick={() => setTopupModal(null)}>
+          <div className="charge-modal" onClick={e => e.stopPropagation()}>
+            <div className="charge-modal-header" style={{ borderBottom: '3px solid #1877f2' }}>
+              <h3 style={{ color: '#1877f2' }}>
+                <WalletFill size={14} style={{ marginRight: 6 }} />
+                เติมเงินเข้าบัตร — Facebook Ads
+              </h3>
+              <button className="charge-modal-close" onClick={() => setTopupModal(null)}><X size={18} /></button>
+            </div>
+            <div className="charge-modal-body">
+              <div className="charge-info-row"><span className="charge-info-label">บัญชี</span><span className="charge-info-value">{topupModal.accountName}</span></div>
+              <div className="charge-info-row"><span className="charge-info-label">CID</span><span className="charge-info-value">{topupModal.customerCode}</span></div>
+              <div className="charge-info-row">
+                <span className="charge-info-label">ค่าคลิก (code 11)</span>
+                <span className="charge-info-value"><strong style={{ color: '#1877f2' }}>{formatNumber(getBreakdownAmount(topupModal, 11))} บาท</strong></span>
+              </div>
+              <div style={{ marginTop: 10, padding: '10px 12px', background: '#e8f0fe', borderRadius: 4, fontSize: '0.78rem', color: '#1967d2', lineHeight: 1.6 }}>
+                💳 เติมเงินเข้าบัตรเพื่อรอให้ Facebook ตัดเงินเอง
+              </div>
+              <div className="charge-form-group">
+                <label>เลือกบัตรที่เติมเงิน</label>
+                <select value={topupCardId} onChange={e => setTopupCardId(e.target.value)}>
+                  <option value="">— เลือกบัตร —</option>
+                  {cards.map(c => (
+                    <option key={c._id} value={c._id}>{c.displayName} ({c.last4}) — เหลือ {c.balance?.toLocaleString()} ฿</option>
+                  ))}
+                </select>
+              </div>
+              <div className="charge-form-group">
+                <label>จำนวนเงินที่เติม (บาท)</label>
+                <input type="number" className="charge-time-input" value={topupAmount}
+                  onChange={e => setTopupAmount(e.target.value)} min="0" step="0.01" />
+              </div>
+            </div>
+            <div className="charge-modal-footer">
+              <button className="btn-charge-cancel" onClick={() => setTopupModal(null)}>ยกเลิก</button>
+              <button
+                style={{ padding: '8px 20px', border: 'none', borderRadius: 4, color: '#fff', fontSize: '0.85rem', fontWeight: 600, cursor: (!topupCardId || !topupAmount || topupLoading) ? 'not-allowed' : 'pointer', background: (!topupCardId || !topupAmount || topupLoading) ? '#bdbdbd' : '#1877f2' }}
+                onClick={handleTopupConfirm}
+                disabled={!topupCardId || !topupAmount || topupLoading}
+              >
+                {topupLoading ? 'กำลังบันทึก...' : 'ยืนยันเติมเงิน'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Modal: Facebook Ads — บันทึกว่า FB ตัดแล้ว ══ */}
+      {fbRecordModal && (
+        <div className="charge-modal-backdrop" onClick={() => setFbRecordModal(null)}>
+          <div className="charge-modal" onClick={e => e.stopPropagation()}>
+            <div className="charge-modal-header" style={{ borderBottom: '3px solid #1877f2' }}>
+              <h3 style={{ color: '#1877f2' }}>
+                <BoxArrowInDown size={15} style={{ marginRight: 6 }} />
+                บันทึกการตัดเงิน — Facebook Ads
+              </h3>
+              <button className="charge-modal-close" onClick={() => setFbRecordModal(null)}><X size={18} /></button>
+            </div>
+            <div className="charge-modal-body">
+              <div className="charge-info-row"><span className="charge-info-label">บัญชี</span><span className="charge-info-value">{fbRecordModal.accountName}</span></div>
+              <div className="charge-info-row"><span className="charge-info-label">CID</span><span className="charge-info-value">{fbRecordModal.customerCode}</span></div>
+              <div className="charge-info-row">
+                <span className="charge-info-label">ค่าคลิก</span>
+                <span className="charge-info-value"><strong style={{ color: '#1877f2' }}>{formatNumber(getBreakdownAmount(fbRecordModal, 11))} บาท</strong></span>
+              </div>
+              <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff8e1', borderRadius: 4, fontSize: '0.78rem', color: '#6d4c00', lineHeight: 1.6 }}>
+                📋 Facebook ตัดเงินจากบัตรไปแล้ว กรอกรายละเอียดเพื่อบันทึก
+              </div>
+              <div className="charge-form-group">
+                <label>บัตรที่ Facebook ตัดเงิน</label>
+                <select value={fbRecordCardId} onChange={e => setFbRecordCardId(e.target.value)}>
+                  <option value="">— เลือกบัตร —</option>
+                  {cards.map(c => (
+                    <option key={c._id} value={c._id}>{c.displayName} (ท้าย {c.last4})</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="charge-form-group" style={{ flex: 1 }}>
+                  <label>วันที่ Facebook ตัด</label>
+                  <input type="date" className="charge-time-input" value={fbRecordDate} onChange={e => setFbRecordDate(e.target.value)} />
+                </div>
+                <div className="charge-form-group" style={{ flex: 1 }}>
+                  <label>เวลาที่ตัด</label>
+                  <input type="text" className="charge-time-input" placeholder="เช่น 08:00" value={fbRecordTime}
+                    onChange={e => setFbRecordTime(e.target.value.replace(/[^0-9:]/g, ''))} maxLength={5} />
+                </div>
+              </div>
+              <div className="charge-form-group">
+                <label>ยอดเงินที่ Facebook ตัดจริง (บาท)</label>
+                <input type="number" className="charge-time-input" value={fbRecordAmount}
+                  onChange={e => setFbRecordAmount(e.target.value)} min="0" step="0.01" />
+              </div>
+              <div className="charge-form-group">
+                <label>หมายเหตุ (ถ้ามี)</label>
+                <textarea className="charge-note-input" rows={2} value={fbRecordNote}
+                  onChange={e => setFbRecordNote(e.target.value)} placeholder="เช่น ตัดจาก Facebook Dashboard" />
+              </div>
+            </div>
+            <div className="charge-modal-footer">
+              <button className="btn-charge-cancel" onClick={() => setFbRecordModal(null)}>ยกเลิก</button>
+              <button
+                style={{ padding: '8px 20px', border: 'none', borderRadius: 4, color: '#fff', fontSize: '0.85rem', fontWeight: 600, cursor: (!fbRecordCardId || !fbRecordDate || !fbRecordTime || !fbRecordAmount || fbRecordLoading) ? 'not-allowed' : 'pointer', background: (!fbRecordCardId || !fbRecordDate || !fbRecordTime || !fbRecordAmount || fbRecordLoading) ? '#bdbdbd' : '#1877f2' }}
+                onClick={handleFbRecordConfirm}
+                disabled={!fbRecordCardId || !fbRecordDate || !fbRecordTime || !fbRecordAmount || fbRecordLoading}
+              >
+                {fbRecordLoading ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

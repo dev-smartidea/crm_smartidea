@@ -107,14 +107,14 @@ router.post('/cards/charge', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const { cardId, amount, channel, reference, note, chargeTime, serviceId, breakdowns } = req.body;
+  const { cardId, amount, channel, reference, note, chargeTime, serviceId, breakdowns, skipMarkCharged } = req.body;
   const numericAmount = Number(amount || 0);
   if (!cardId || numericAmount <= 0) {
     return res.status(400).json({ error: 'Invalid cardId or amount' });
   }
 
-  // ป้องกันตัดเงินซ้ำ: เช็คก่อนเริ่ม session (read-only pre-check)
-  if (reference) {
+  // ป้องกันตัดเงินซ้ำ: เช็คก่อนเริ่ม session (รีด-ออนลี่ pre-check)
+  if (reference && !skipMarkCharged) {
     const existingTx = await Transaction.findById(reference).lean();
     if (existingTx && existingTx.cardCharged) {
       return res.status(400).json({ error: 'รายการนี้ตัดเงินไปแล้ว' });
@@ -163,7 +163,8 @@ router.post('/cards/charge', async (req, res) => {
 
       // [3] mark transaction ว่าตัดเงินแล้ว — ต้องอยู่ใน session เดียวกับ [1] และ [2]
       // ถ้า step นี้ล้มเหลว MongoDB จะ rollback [1] และ [2] ทั้งคู่อัตโนมัติ
-      if (reference) {
+      // skipMarkCharged=true: ใช้สำหรับ Facebook Ads ตอนเติมเงิน (ยังไม่ตัดจริง)
+      if (reference && !skipMarkCharged) {
         await Transaction.findByIdAndUpdate(reference, {
           cardCharged: true,
           cardChargedAt: new Date(),
