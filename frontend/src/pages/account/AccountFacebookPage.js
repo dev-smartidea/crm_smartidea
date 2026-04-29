@@ -238,7 +238,7 @@ export default function AccountFacebookPage() {
               <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#495057' }}>ยอดเติมเงิน</th>
               <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#198754' }}>FB ตัดแล้ว</th>
               <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#fd7e14' }}>รอ FB ตัด</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#495057' }}>คงเหลือ</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#495057' }}>ยอดคงเหลือในบัญชี</th>
             </tr>
           </thead>
           <tbody>

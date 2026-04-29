@@ -77,15 +77,6 @@ router.post('/customers/:customerId/services', async (req, res) => {
     }
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    // Enforce rule: must have at least 1 activity and service count <= activity count
-    const activityCount = await Activity.countDocuments({ customerId: customer._id });
-    if (activityCount === 0) {
-      return res.status(400).json({ error: 'ต้องเพิ่มกิจกรรมก่อนเพิ่มบริการ', code: 'NO_ACTIVITY' });
-    }
-    const existingServiceCount = await Service.countDocuments({ customerId: customer._id });
-    if (existingServiceCount >= activityCount) {
-      return res.status(400).json({ error: `จำนวนบริการครบตามกิจกรรมแล้ว (กิจกรรม ${activityCount}, บริการ ${existingServiceCount})`, code: 'SERVICE_LIMIT' });
-    }
     // รับทั้งฟิลด์ใหม่และฟิลด์เดิม เพื่อความเข้ากันได้ย้อนหลัง
     const {
       // เดิม

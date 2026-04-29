@@ -131,25 +131,38 @@ router.post('/cards/charge', async (req, res) => {
   let card, ledger;
   try {
     await session.withTransaction(async () => {
-      // [1] หัก balance บัตร (atomic — ตรวจสอบ balance พอด้วย)
-      card = await Card.findOneAndUpdate(
-        { _id: cardId, balance: { $gte: numericAmount } },
-        { $inc: { balance: -numericAmount } },
-        { new: true, session }
-      );
-      if (!card) {
-        const exists = await Card.findById(cardId).session(session).lean();
-        const errMsg = exists ? 'ยอดคงเหลือไม่พอ' : 'Card not found';
-        const errStatus = exists ? 400 : 404;
-        throw Object.assign(new Error(errMsg), { statusCode: errStatus });
+      // [1] อัพเดต balance บัตร (atomic)
+      // skipMarkCharged=true (FB topup) = เติมเงิน → เพิ่ม balance (+)
+      // ปกติ (charge) = ตัดเงิน → ลด balance (-)
+      if (skipMarkCharged) {
+        card = await Card.findByIdAndUpdate(
+          cardId,
+          { $inc: { balance: numericAmount } },
+          { new: true, session }
+        );
+        if (!card) throw Object.assign(new Error('Card not found'), { statusCode: 404 });
+      } else {
+        card = await Card.findOneAndUpdate(
+          { _id: cardId, balance: { $gte: numericAmount } },
+          { $inc: { balance: -numericAmount } },
+          { new: true, session }
+        );
+        if (!card) {
+          const exists = await Card.findById(cardId).session(session).lean();
+          const errMsg = exists ? 'ยอดคงเหลือไม่พอ' : 'Card not found';
+          const errStatus = exists ? 400 : 404;
+          throw Object.assign(new Error(errMsg), { statusCode: errStatus });
+        }
       }
 
       // [2] บันทึก ledger entry
+      // skipMarkCharged=true → type 'topup', direction 'credit' (เติมเงิน +)
+      // ปกติ → type 'charge', direction 'debit' (ตัดยอด -)
       const [created] = await CardLedger.create([{
         cardId,
-        type: 'charge',
+        type: skipMarkCharged ? 'topup' : 'charge',
         amount: numericAmount,
-        direction: 'debit',
+        direction: skipMarkCharged ? 'credit' : 'debit',
         channel: channel === 'Google Ads' || channel === 'Facebook Ads' ? channel : 'Other',
         reference,
         note,
@@ -186,7 +199,7 @@ router.post('/cards/charge', async (req, res) => {
 
   // แจ้งเตือนยอดเงินต่ำ (non-critical — ทำหลัง transaction commit แล้ว)
   const LOW_BALANCE_THRESHOLD = 3000;
-  const previousBalance = card.balance + numericAmount;
+  const previousBalance = skipMarkCharged ? card.balance - numericAmount : card.balance + numericAmount;
   if (card.balance < LOW_BALANCE_THRESHOLD && previousBalance >= LOW_BALANCE_THRESHOLD) {
     try {
       const User = require('../models/User');

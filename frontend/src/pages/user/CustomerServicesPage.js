@@ -133,7 +133,7 @@ export default function CustomerServicesPage() {
         cid: ''
       });
     } catch (err) {
-      const detail = err?.response?.data?.detail || err?.message || '';
+      const detail = err?.response?.data?.error || err?.response?.data?.detail || err?.message || '';
       alert(`เพิ่มบริการไม่สำเร็จ${detail ? `: ${detail}` : ''}`);
     }
   };

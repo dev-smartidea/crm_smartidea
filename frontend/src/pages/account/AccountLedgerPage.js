@@ -394,6 +394,15 @@ export default function AccountLedgerPage() {
     try {
       setFbRecordLoading(true);
       const selectedCard = cards.find(c => c._id === fbRecordCardId);
+      // 1. ตัดยอดบัตรจริง (FB ตัดเงินแล้ว) → สร้าง CardLedger -amount
+      await axios.post(`${api}/api/cards/charge`, {
+        cardId: fbRecordCardId,
+        amount: Number(fbRecordAmount),
+        channel: 'Facebook Ads',
+        note: `FB ตัดเงิน: ${fbRecordModal.accountName}`,
+        serviceId: fbRecordModal.serviceId,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      // 2. บันทึก cardCharged บน Transaction
       await axios.patch(`${api}/api/ledger/${fbRecordModal._id}`, {
         cardCharged: true,
         cardNumber: selectedCard?.last4 || '',
