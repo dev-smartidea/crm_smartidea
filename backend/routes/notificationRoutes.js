@@ -8,7 +8,7 @@ router.post('/notifications', async (req, res) => {
   try {
     const { userId, type, title, message, link } = req.body;
     if (!userId || !type || !title || !message) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing required fields' }); 
     }
     const notification = new Notification({ userId, type, title, message, link });
     await notification.save();

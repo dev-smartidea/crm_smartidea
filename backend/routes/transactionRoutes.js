@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const Transaction = require('../models/Transaction');
 const Service = require('../models/Service');
-const Customer = require('../models/Customer');
+const Customer = require('../models/Customer'); 
 const Image = require('../models/Image');
 const Notification = require('../models/Notification');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
@@ -384,6 +384,10 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       console.error('Cloudinary upload error:', cloudinaryError);
       return res.status(500).json({ error: 'Failed to upload slip image', detail: cloudinaryError.message });
     }
+  } else if (req.body.slipImageUrl) {
+    // ใช้ URL ของสลิปที่อัปโหลดแล้วจากรายการก่อนหน้า (กรณีสลิปเดียวหลายบริการ)
+    slipImage = req.body.slipImageUrl;
+    cloudinaryId = req.body.slipCloudinaryId || null;
   }
 
     const transaction = new Transaction({
