@@ -35,28 +35,28 @@ export default function AllTransactionPage() {
   const [editTx, setEditTx] = useState(null); // รายการที่กำลังแก้ไข
   const [form, setForm] = useState({
     customerId: '',
-    serviceId: '',
-    amount: '',
+    serviceEntries: [
+      { serviceId: '', amount: '', breakdowns: [{ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }] }
+    ],
     transactionDate: '',
     transactionTime: '',
     notes: '',
     bank: 'KBANK',
     slipImage: null,
-    breakdowns: [
-      { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }
-    ]
   });
   const [slipPreview, setSlipPreview] = useState(null);
   // searchable customer combobox in create form
   const [formCustomerQuery, setFormCustomerQuery] = useState('');
   const [showFormCustomerDropdown, setShowFormCustomerDropdown] = useState(false);
+  // collapse/expand state for service entries
+  const [expandedEntries, setExpandedEntries] = useState(new Set([0]));
 
-  // คำนวณผลรวม breakdowns ในฟอร์มสร้างใหม่
-  const breakdownSum = (form.breakdowns || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
-
-  // เมื่อเปลี่ยนลูกค้าในฟอร์ม ให้รีเซ็ตบริการ
+  // เมื่อเปลี่ยนลูกค้าในฟอร์ม ให้รีเซ็ต serviceId ทุก entry
   useEffect(() => {
-    setForm(prev => ({ ...prev, serviceId: '' }));
+    setForm(prev => ({
+      ...prev,
+      serviceEntries: prev.serviceEntries.map(e => ({ ...e, serviceId: '' }))
+    }));
   }, [form.customerId]);
 
   const token = localStorage.getItem('token');
@@ -80,85 +80,113 @@ export default function AllTransactionPage() {
     { value: 'ค่าคลิกที่ยังไม่ต้องเติม', label: 'ค่าคลิกที่ยังไม่ต้องเติม' }
   ];
 
-  const addBreakdownRow = () => {
+  const addBreakdownRow = (entryIdx) => {
     setForm(prev => ({
       ...prev,
-      breakdowns: [...(prev.breakdowns || []), { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }]
+      serviceEntries: prev.serviceEntries.map((entry, ei) =>
+        ei !== entryIdx ? entry : {
+          ...entry,
+          breakdowns: [...(entry.breakdowns || []), { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }]
+        }
+      )
     }));
   };
 
-  const removeBreakdownRow = (idx) => {
-    setForm(prev => {
-      const rows = [...(prev.breakdowns || [])];
-      const current = rows[idx];
-      const next = rows[idx + 1];
-      const shouldRemovePair = current && !current.isAutoVat && next && next.isAutoVat;
-      const newRows = rows.filter((_, i) => {
-        if (shouldRemovePair) return i !== idx && i !== idx + 1;
-        return i !== idx;
-      });
-      if (newRows.length === 0) {
-        newRows.push({ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
-      }
-      return { ...prev, breakdowns: newRows };
-    });
-  };
-
-  const updateBreakdown = (idx, key, value) => {
+  const removeBreakdownRow = (entryIdx, idx) => {
     setForm(prev => ({
       ...prev,
-      breakdowns: prev.breakdowns.map((row, i) => (i === idx ? { ...row, [key]: value } : row))
+      serviceEntries: prev.serviceEntries.map((entry, ei) => {
+        if (ei !== entryIdx) return entry;
+        const rows = [...(entry.breakdowns || [])];
+        const current = rows[idx];
+        const next = rows[idx + 1];
+        const shouldRemovePair = current && !current.isAutoVat && next && next.isAutoVat;
+        const newRows = rows.filter((_, i) => {
+          if (shouldRemovePair) return i !== idx && i !== idx + 1;
+          return i !== idx;
+        });
+        if (newRows.length === 0) newRows.push({ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
+        return { ...entry, breakdowns: newRows };
+      })
     }));
   };
 
-  const computeVatForRow = (idx) => {
-    setForm(prev => {
-      const rows = [...(prev.breakdowns || [])];
-      const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
-      
-      // เพิ่ม logic สำหรับ 19/20
-      if (
-        current.code === '12' ||
-        current.code === '13' ||
-        current.code === '17' ||
-        current.code === '19'
-      ) {
-        alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
-        return prev;
-      }
+  const updateBreakdown = (entryIdx, idx, key, value) => {
+    setForm(prev => ({
+      ...prev,
+      serviceEntries: prev.serviceEntries.map((entry, ei) =>
+        ei !== entryIdx ? entry : {
+          ...entry,
+          breakdowns: entry.breakdowns.map((row, i) => (i === idx ? { ...row, [key]: value } : row))
+        }
+      )
+    }));
+  };
 
-      let base = parseFloat(current.amount);
-      if (Number.isNaN(base) || base <= 0) {
-        alert('กรุณากรอกยอดเงินในช่องนี้ก่อนคำนวณ VAT');
-        return prev;
-      }
-
-      const vat = Math.round(base * 0.07 * 100) / 100;
-      let vatCode = '12';
-      let vatStatus = current.statusNote;
-
-      if (current.code === '11') {
-        vatCode = '12';
-      } else if (current.code === '14') {
-        vatCode = '13';
-      } else if (current.code === '18') {
-        vatCode = '17';
-      } else if (current.code === '20') {
-        vatCode = '19';
-      } else {
-        vatCode = '12';
-      }
-
-      const newVatRow = {
-        code: vatCode,
-        amount: vat.toFixed(2),
-        statusNote: vatStatus,
-        isAutoVat: true
-      };
-
-      rows.splice(idx + 1, 0, newVatRow);
-      return { ...prev, breakdowns: rows };
+  const addServiceEntry = () => {
+    setForm(prev => ({
+      ...prev,
+      serviceEntries: [...prev.serviceEntries, { serviceId: '', amount: '', breakdowns: [{ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }] }]
+    }));
+    setExpandedEntries(prev => {
+      const next = new Set(prev);
+      next.add(form.serviceEntries.length); // index of the new entry
+      return next;
     });
+  };
+
+  const removeServiceEntry = (entryIdx) => {
+    setForm(prev => ({
+      ...prev,
+      serviceEntries: prev.serviceEntries.filter((_, i) => i !== entryIdx)
+    }));
+    setExpandedEntries(prev => {
+      const next = new Set();
+      prev.forEach(i => { if (i < entryIdx) next.add(i); else if (i > entryIdx) next.add(i - 1); });
+      return next;
+    });
+  };
+
+  const toggleEntry = (entryIdx) => {
+    setExpandedEntries(prev => {
+      const next = new Set(prev);
+      if (next.has(entryIdx)) next.delete(entryIdx); else next.add(entryIdx);
+      return next;
+    });
+  };
+
+  const updateServiceEntry = (entryIdx, key, value) => {
+    setForm(prev => ({
+      ...prev,
+      serviceEntries: prev.serviceEntries.map((entry, i) => i === entryIdx ? { ...entry, [key]: value } : entry)
+    }));
+  };
+
+  const computeVatForRow = (entryIdx, idx) => {
+    setForm(prev => ({
+      ...prev,
+      serviceEntries: prev.serviceEntries.map((entry, ei) => {
+        if (ei !== entryIdx) return entry;
+        const rows = [...(entry.breakdowns || [])];
+        const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
+        if (current.code === '12' || current.code === '13' || current.code === '17' || current.code === '19') {
+          alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
+          return entry;
+        }
+        const base = parseFloat(current.amount);
+        if (Number.isNaN(base) || base <= 0) {
+          alert('กรุณากรอกยอดเงินในช่องนี้ก่อนคำนวณ VAT');
+          return entry;
+        }
+        const vat = Math.round(base * 0.07 * 100) / 100;
+        let vatCode = '12';
+        if (current.code === '14') vatCode = '13';
+        else if (current.code === '18') vatCode = '17';
+        else if (current.code === '20') vatCode = '19';
+        rows.splice(idx + 1, 0, { code: vatCode, amount: vat.toFixed(2), statusNote: current.statusNote, isAutoVat: true });
+        return { ...entry, breakdowns: rows };
+      })
+    }));
   };
 
   // ดึงข้อมูลทั้งหมด (client-side pagination)
@@ -249,43 +277,58 @@ export default function AllTransactionPage() {
   // สร้างรายการเติมเงินใหม่
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.serviceId || !form.amount || !form.transactionDate) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+    if (!form.transactionDate) {
+      alert('กรุณาเลือกวันที่โอน');
       return;
+    }
+    for (const entry of form.serviceEntries) {
+      if (!entry.serviceId || !entry.amount) {
+        alert('กรุณากรอกข้อมูลบริการและจำนวนเงินให้ครบทุกรายการ');
+        return;
+      }
     }
 
     try {
-      const formData = new FormData();
-      formData.append('amount', parseFloat(form.amount));
-      formData.append('transactionDate', form.transactionDate);
-      if (form.transactionTime) formData.append('transactionTime', form.transactionTime);
-      formData.append('notes', form.notes || '');
-      formData.append('bank', form.bank);
-      if (form.slipImage) {
-        formData.append('slipImage', form.slipImage);
-      }
-      // แนบ breakdowns เป็น JSON string
-      const cleaned = (form.breakdowns || [])
-        .filter(r => r && r.amount !== '' && !Number.isNaN(parseFloat(r.amount)))
-        .map(r => ({ code: r.code, amount: parseFloat(r.amount), statusNote: r.statusNote }));
-      if (cleaned.length > 0) {
-        formData.append('breakdowns', JSON.stringify(cleaned));
-      }
+      let sharedSlipUrl = null;
+      let sharedCloudinaryId = null;
 
-      await axios.post(
-        `${api}/api/services/${form.serviceId}/transactions`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
+      for (let i = 0; i < form.serviceEntries.length; i++) {
+        const entry = form.serviceEntries[i];
+        const formData = new FormData();
+        formData.append('amount', parseFloat(entry.amount));
+        formData.append('transactionDate', form.transactionDate);
+        if (form.transactionTime) formData.append('transactionTime', form.transactionTime);
+        formData.append('notes', form.notes || '');
+        formData.append('bank', form.bank);
+
+        if (i === 0 && form.slipImage) {
+          formData.append('slipImage', form.slipImage);
+        } else if (sharedSlipUrl) {
+          formData.append('slipImageUrl', sharedSlipUrl);
+          if (sharedCloudinaryId) formData.append('slipCloudinaryId', sharedCloudinaryId);
         }
-      );
+
+        const cleaned = (entry.breakdowns || [])
+          .filter(r => r && r.amount !== '' && !Number.isNaN(parseFloat(r.amount)))
+          .map(r => ({ code: r.code, amount: parseFloat(r.amount), statusNote: r.statusNote }));
+        if (cleaned.length > 0) {
+          formData.append('breakdowns', JSON.stringify(cleaned));
+        }
+
+        const res = await axios.post(
+          `${api}/api/services/${entry.serviceId}/transactions`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
+        );
+
+        if (i === 0 && res.data?.slipImage) {
+          sharedSlipUrl = res.data.slipImage;
+          sharedCloudinaryId = res.data.cloudinaryId || null;
+        }
+      }
 
       setShowCreateForm(false);
       resetForm();
-      // Refresh ข้อมูลทั้งหมดเพื่อให้แน่ใจว่ารายการใหม่แสดงผล
       await fetchAllData();
     } catch (error) {
       console.error('Error creating transaction:', error);
@@ -316,19 +359,18 @@ export default function AllTransactionPage() {
   const resetForm = () => {
     setForm({
       customerId: '',
-      serviceId: '',
-      amount: '',
+      serviceEntries: [
+        { serviceId: '', amount: '', breakdowns: [{ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }] }
+      ],
       transactionDate: '',
       transactionTime: '',
       notes: '',
       bank: 'KBANK',
       slipImage: null,
-      breakdowns: [
-        { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }
-      ]
     });
     setSlipPreview(null);
     setFormCustomerQuery('');
+    setExpandedEntries(new Set([0]));
   };
 
   const handleSlipChange = (e) => {
@@ -904,225 +946,220 @@ export default function AllTransactionPage() {
       {/* Create Form Modal - outside container for proper overlay */}
       {showCreateForm && (
         <div className="svc-modal-overlay" onClick={() => setShowCreateForm(false)}>
-          <div className="svc-modal-card" onClick={e => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>เพิ่มรายการโอนเงินใหม่</h3>
+          <div className="svc-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px', width: '95vw' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>เพิ่มรายการโอนเงินใหม่</h3>
             <form onSubmit={handleCreate} className="svc-form">
-              <label>
-                เลือกลูกค้า *
-                <div className="combo" style={{ marginTop: '4px' }}>
-                  <input
-                    className="combo-input"
-                    type="text"
-                    placeholder="พิมพ์ค้นหาชื่อลูกค้า..."
-                    value={formCustomerQuery}
-                    onChange={e => {
-                      setFormCustomerQuery(e.target.value);
-                      setShowFormCustomerDropdown(true);
-                      if (!e.target.value) setForm(prev => ({ ...prev, customerId: '' }));
-                    }}
-                    onFocus={() => setShowFormCustomerDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowFormCustomerDropdown(false), 150)}
-                    autoComplete="off"
-                    required={!form.customerId}
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: form.customerId ? '1px solid #86efac' : '1px solid #ccc' }}
-                  />
-                  {showFormCustomerDropdown && (
-                    <div className="combo-panel">
-                      {customers
-                        .filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase()))
-                        .map(c => (
-                          <div
-                            key={c._id}
-                            className="combo-item"
-                            onMouseDown={() => {
-                              setForm(prev => ({ ...prev, customerId: c._id }));
-                              setFormCustomerQuery(c.name);
-                              setShowFormCustomerDropdown(false);
-                            }}
-                          >
+
+              {/* ── ข้อมูลหลัก ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', alignItems: 'start' }}>
+                <label style={{ gridColumn: '1 / -1', display: 'block' }}>
+                  เลือกลูกค้า *
+                  <div className="combo" style={{ marginTop: '4px' }}>
+                    <input
+                      className="combo-input"
+                      type="text"
+                      placeholder="พิมพ์ค้นหาชื่อลูกค้า..."
+                      value={formCustomerQuery}
+                      onChange={e => {
+                        setFormCustomerQuery(e.target.value);
+                        setShowFormCustomerDropdown(true);
+                        if (!e.target.value) setForm(prev => ({ ...prev, customerId: '' }));
+                      }}
+                      onFocus={() => setShowFormCustomerDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowFormCustomerDropdown(false), 150)}
+                      autoComplete="off"
+                      required={!form.customerId}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: form.customerId ? '1px solid #86efac' : '1px solid #ccc' }}
+                    />
+                    {showFormCustomerDropdown && (
+                      <div className="combo-panel">
+                        {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).map(c => (
+                          <div key={c._id} className="combo-item" onMouseDown={() => { setForm(prev => ({ ...prev, customerId: c._id })); setFormCustomerQuery(c.name); setShowFormCustomerDropdown(false); }}>
                             {c.name}
                           </div>
                         ))}
-                      {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).length === 0 && (
-                        <div className="combo-item" style={{ color: '#9ca3af' }}>ไม่พบลูกค้า</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </label>
-              <label>
-                เลือกบริการ *
-                <select value={form.serviceId} onChange={e => setForm({ ...form, serviceId: e.target.value })} required disabled={!form.customerId}>
-                  <option value="">-- เลือกบริการ --</option>
-                  {services
-                    .filter(service => service.customerId === form.customerId || service.customerId?._id === form.customerId)
-                    .map(service => (
-                      <option key={service._id} value={service._id}>
-                        {service.name} - {service.customerIdField || service.cid || '-'} — {service.pageUrl || '-'}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label>
-                จำนวนเงิน (บาท)
-                <input
-                  type="number"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={e => setForm({ ...form, amount: e.target.value })}
-                  required
-                  placeholder="0.00"
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
-                />
-              </label>
-              <label>
-                วันที่โอน
-                <input
-                  type="date"
-                  value={form.transactionDate}
-                  onChange={e => setForm({ ...form, transactionDate: e.target.value })}
-                  required
-                />
-              </label>
-              <label>
-                เวลาที่โอน (เช่น 14:30)
-                <input
-                  type="text"
-                  value={form.transactionTime}
-                  onChange={e => setForm({ ...form, transactionTime: e.target.value })}
-                  placeholder="14:30"
-                  pattern="[0-2][0-9]:[0-5][0-9]"
-                  title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
-                  maxLength="5"
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
-                />
-              </label>
-              <label>
-                บัญชีธนาคาร
-                <select
-                  value={form.bank}
-                  onChange={e => setForm({ ...form, bank: e.target.value })}
-                >
-                  <option value="KBANK">KBANK (กสิกรไทย)</option>
-                  <option value="SCB">SCB (ไทยพาณิชย์)</option>
-                  <option value="BBL">BBL (กรุงเทพ)</option>
-                  <option value="BAY-4396">BAY-4396</option>
-                  <option value="BAY-7146">BAY-7146</option>
-                  <option value="Cr.-8508">Cr.-8508</option>
-                  <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
-                </select>
-              </label>
-              {/* Breakdown Rows */}
-              <div style={{ marginTop: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <strong>แยกสัดส่วนการโอนเงิน</strong>
-                </div>
-                <div style={{ fontSize: '0.9rem', color: breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? '#dc3545' : '#6c757d', marginTop: 4 }}>
-                  ยอดรวม: {breakdownSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท {form.amount ? `(ยอดทั้งหมด ${parseFloat(form.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท)` : ''}
-                </div>
-                {form.breakdowns.map((row, idx) => (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1.8fr 1fr auto', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
-                    {/* Add button moved to front as small + icon, appears only on last row */}
-                    <div>
-                      {idx === form.breakdowns.length - 1 && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-primary"
-                          onClick={addBreakdownRow}
-                          title="เพิ่มแถว"
-                          style={{ padding: '4px 10px', lineHeight: 1 }}
-                        >
-                          +
-                        </button>
-                      )}
-                    </div>
-                    <select value={row.code} onChange={e => updateBreakdown(idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
-                      {BREAKDOWN_CODE_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="ยอดเงิน"
-                        value={row.amount}
-                        onChange={e => updateBreakdown(idx, 'amount', e.target.value)}
-                        style={{ 
-                          flex: '1 1 auto',
-                          minWidth: 0,
-                          paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' ? '95px' : '8px'
-                        }}
-                        disabled={row.isAutoVat}
-                      />
-                      {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
-                      {row.code !== '12' && row.code !== '13' && row.code !== '17' && (
-                        <button
-                          type="button"
-                          onClick={() => computeVatForRow(idx)}
-                          title="คำนวณ VAT 7%"
-                          style={{
-                            position: 'absolute',
-                            right: '4px',
-                            padding: '3px 7px',
-                            border: '1px solid #d3d8e2',
-                            background: '#f8f9fa',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                            fontSize: '10px',
-                            color: '#334155',
-                            fontWeight: '500'
-                          }}
-                        >
-                          คำนวณ VAT
-                        </button>
-                      )}
-                    </div>
-                    <select value={row.statusNote} onChange={e => updateBreakdown(idx, 'statusNote', e.target.value)} style={{ minWidth: 0 }}>
-                      {STATUS_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <div style={{ display: 'flex', gap: '4px', minWidth: 0 }}>
-                      {form.breakdowns.length > 1 && (
-                        <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdownRow(idx)} style={{ whiteSpace: 'nowrap' }}>ลบ</button>
-                      )}
-                    </div>
+                        {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).length === 0 && (
+                          <div className="combo-item" style={{ color: '#9ca3af' }}>ไม่พบลูกค้า</div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ))}
+                </label>
+                <label style={{ display: 'block' }}>
+                  วันที่โอน *
+                  <input type="date" value={form.transactionDate} onChange={e => setForm({ ...form, transactionDate: e.target.value })} required
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }} />
+                </label>
+                <label style={{ display: 'block' }}>
+                  เวลาที่โอน
+                  <input type="text" value={form.transactionTime} onChange={e => setForm({ ...form, transactionTime: e.target.value })} placeholder="14:30" pattern="[0-2][0-9]:[0-5][0-9]" maxLength="5"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }} />
+                </label>
+                <label style={{ display: 'block' }}>
+                  บัญชีธนาคาร
+                  <select value={form.bank} onChange={e => setForm({ ...form, bank: e.target.value })}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}>
+                    <option value="KBANK">KBANK</option>
+                    <option value="SCB">SCB</option>
+                    <option value="BBL">BBL</option>
+                    <option value="BAY-4396">BAY-4396</option>
+                    <option value="BAY-7146">BAY-7146</option>
+                    <option value="Cr.-8508">Cr.-8508</option>
+                    <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
+                  </select>
+                </label>
+                <label style={{ display: 'block' }}>
+                  หมายเหตุ
+                  <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="เลขอ้างอิง, หมายเหตุ..."
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px', resize: 'vertical' }} />
+                </label>
               </div>
-              {/* หมายเหตุอยู่หลังแยกสัดส่วนและก่อนอัปโหลดสลิป */}
-              <label>
-                หมายเหตุ
-                <textarea
-                  value={form.notes}
-                  onChange={e => setForm({ ...form, notes: e.target.value })}
-                  rows={3}
-                  placeholder="เช่น เลขที่อ้างอิง, หมายเหตุเพิ่มเติม"
-                />
-              </label>
+
+              {/* ── Summary Bar ── */}
+              {form.serviceEntries.some(e => e.amount) && (
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', fontSize: '0.88rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontWeight: '600', color: '#1d4ed8' }}>สรุปยอดรวม</span>
+                    <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '1rem' }}>
+                      ฿{form.serviceEntries.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {form.serviceEntries.map((entry, i) => {
+                    const svc = services.find(s => s._id === entry.serviceId);
+                    const bdSum = (entry.breakdowns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                    const mismatch = entry.amount && bdSum.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
+                    return entry.amount ? (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderTop: '1px solid #dbeafe', color: mismatch ? '#dc2626' : '#374151' }}>
+                        <span>{svc ? `${svc.name} - ${svc.cid || svc.customerIdField || '-'}` : `บริการที่ ${i + 1}`}</span>
+                        <span style={{ fontWeight: '600' }}>฿{parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}{mismatch ? ' ⚠️' : ''}</span>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              )}
+
+              {/* ── Service Entries ── */}
+              {form.serviceEntries.map((entry, entryIdx) => {
+                const isExpanded = expandedEntries.has(entryIdx);
+                const entryBdSum = (entry.breakdowns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                const mismatch = entry.amount && entryBdSum.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
+                const svc = services.find(s => s._id === entry.serviceId);
+                return (
+                  <div key={entryIdx} style={{ border: `1px solid ${mismatch ? '#fca5a5' : '#e5e7eb'}`, borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
+                    {/* Header (always visible) */}
+                    <div
+                      onClick={() => toggleEntry(entryIdx)}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: isExpanded ? '#f0f9ff' : '#f8fafc', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '700', background: '#3b82f6', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{entryIdx + 1}</span>
+                        <span style={{ fontWeight: '600', fontSize: '0.9rem', color: '#374151' }}>
+                          {svc ? `${svc.name} — ${svc.cid || svc.customerIdField || '-'}` : 'เลือกบริการ...'}
+                        </span>
+                        {entry.amount && (
+                          <span style={{ fontSize: '0.88rem', color: mismatch ? '#dc2626' : '#16a34a', fontWeight: '600' }}>
+                            ฿{parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                            {mismatch && ' ⚠️ breakdown ไม่ตรง'}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {form.serviceEntries.length > 1 && (
+                          <button type="button" onClick={e => { e.stopPropagation(); removeServiceEntry(entryIdx); }}
+                            style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}>
+                            ✕
+                          </button>
+                        )}
+                        <span style={{ color: '#94a3b8', fontSize: '1rem' }}>{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                    </div>
+
+                    {/* Body (collapsible) */}
+                    {isExpanded && (
+                      <div style={{ padding: '12px 14px', borderTop: '1px solid #e5e7eb' }}>
+                        <label>
+                          เลือกบริการ *
+                          <select value={entry.serviceId} onChange={e => updateServiceEntry(entryIdx, 'serviceId', e.target.value)} required disabled={!form.customerId} style={{ width: '100%', marginTop: '4px' }}>
+                            <option value="">-- เลือกบริการ --</option>
+                            {services.filter(s => s.customerId === form.customerId || s.customerId?._id === form.customerId).map(s => (
+                              <option key={s._id} value={s._id}>{s.name} - {s.customerIdField || s.cid || '-'} — {s.pageUrl || '-'}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label style={{ marginTop: '10px', display: 'block' }}>
+                          จำนวนเงิน (บาท) *
+                          <input type="number" step="0.01" value={entry.amount} onChange={e => updateServiceEntry(entryIdx, 'amount', e.target.value)} required placeholder="0.00"
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }} />
+                        </label>
+
+                        {/* Breakdown */}
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontWeight: '600', fontSize: '0.88rem', color: '#374151' }}>แยกสัดส่วน</span>
+                            <span style={{ fontSize: '0.82rem', color: mismatch ? '#dc2626' : '#6c757d' }}>
+                              รวม ฿{entryBdSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} {entry.amount ? `/ ฿${parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : ''}
+                            </span>
+                          </div>
+                          {entry.breakdowns.map((row, idx) => (
+                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1.6fr 1fr auto', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
+                              <div>
+                                {idx === entry.breakdowns.length - 1 && (
+                                  <button type="button" className="btn btn-sm btn-primary" onClick={() => addBreakdownRow(entryIdx)} style={{ padding: '4px 8px', lineHeight: 1 }}>+</button>
+                                )}
+                              </div>
+                              <select value={row.code} onChange={e => updateBreakdown(entryIdx, idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0, fontSize: '0.82rem' }}>
+                                {BREAKDOWN_CODE_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                              </select>
+                              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                                <input type="number" step="0.01" placeholder="ยอดเงิน" value={row.amount}
+                                  onChange={e => updateBreakdown(entryIdx, idx, 'amount', e.target.value)}
+                                  style={{ flex: '1 1 auto', minWidth: 0, paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' && row.code !== '19' ? '80px' : '8px' }}
+                                  disabled={row.isAutoVat} />
+                                {row.code !== '12' && row.code !== '13' && row.code !== '17' && row.code !== '19' && (
+                                  <button type="button" onClick={() => computeVatForRow(entryIdx, idx)}
+                                    style={{ position: 'absolute', right: '4px', padding: '2px 6px', border: '1px solid #d3d8e2', background: '#f8f9fa', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '9px', color: '#334155', fontWeight: '600' }}>
+                                    +VAT 7%
+                                  </button>
+                                )}
+                              </div>
+                              <select value={row.statusNote} onChange={e => updateBreakdown(entryIdx, idx, 'statusNote', e.target.value)} style={{ minWidth: 0, fontSize: '0.82rem' }}>
+                                {STATUS_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                              </select>
+                              <div>
+                                {entry.breakdowns.length > 1 && (
+                                  <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdownRow(entryIdx, idx)} style={{ padding: '3px 7px' }}>✕</button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* ── Add Service Button ── */}
+              <button type="button" onClick={addServiceEntry} disabled={!form.customerId}
+                style={{ width: '100%', padding: '9px', border: '2px dashed #3b82f6', borderRadius: '8px', background: 'transparent', color: '#3b82f6', cursor: form.customerId ? 'pointer' : 'not-allowed', fontSize: '0.9rem', fontWeight: '500', marginBottom: '14px', opacity: form.customerId ? 1 : 0.45 }}>
+                + เพิ่มบริการอีกรายการ (สลิปเดียวกัน)
+              </button>
+
+              {/* ── Slip Upload ── */}
               <label>
                 อัปโหลดสลิปโอนเงิน
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleSlipChange}
-                  style={{ marginTop: '8px' }}
-                />
+                <input type="file" accept="image/*" onChange={handleSlipChange} style={{ marginTop: '8px' }} />
                 {slipPreview && (
                   <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
                     <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #ddd' }} />
-                    <button
-                      type="button"
-                      onClick={removeSlipPreview}
-                      style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '18px' }}
-                    >
+                    <button type="button" onClick={removeSlipPreview}
+                      style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', fontSize: '16px' }}>
                       ×
                     </button>
                   </div>
                 )}
               </label>
+
               <div className="svc-actions">
                 <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreateForm(false)}>
                   <XCircle /> ยกเลิก
@@ -1130,8 +1167,14 @@ export default function AllTransactionPage() {
                 <button
                   type="submit"
                   className="btn-modal btn-modal-save"
-                  disabled={breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2)}
-                  title={breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? 'ยอดรวมจากการแยกไม่ตรงกับยอดเงินหลัก' : ''}
+                  disabled={form.serviceEntries.some(entry => {
+                    const s = (entry.breakdowns || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+                    return s.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
+                  })}
+                  title={form.serviceEntries.some(entry => {
+                    const s = (entry.breakdowns || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+                    return s.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
+                  }) ? 'ยอดรวม breakdown ไม่ตรงกับยอดเงินบางรายการ' : ''}
                 >
                   บันทึก
                 </button>
