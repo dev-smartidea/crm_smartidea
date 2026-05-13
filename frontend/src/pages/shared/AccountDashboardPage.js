@@ -450,7 +450,7 @@ export default function AccountDashboardPage() {
             ) : (
               <div className="no-data-chart">
                 <CashCoin size={32} style={{ opacity: 0.2, marginBottom: 8 }} />
-                <p>ยังไม่มีข้อมูลยอดขาย</p>
+                <p>ยังไม่มีข้อมูล</p>
               </div>
             )}
           </div>

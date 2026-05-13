@@ -98,11 +98,9 @@ router.get('/transactions', async (req, res) => {
     }
 
     // ถ้ากรองรายการที่เติมเงินแล้ว (cardCharged หรือ fbToppedUp)
-    // บังคับ scope เฉพาะของ user นั้นเสมอ ไม่ว่าจะเป็น role ใด
+    // ใช้ userId ตรงๆ เพื่อให้ครอบคลุมทุกรายการของ user ไม่ว่า service จะ assign ให้ใครก็ตาม
     if (funded === 'true') {
-      const ownServices = await Service.find({ userId: user.id });
-      const ownServiceIds = ownServices.map(s => s._id);
-      query = Transaction.find({ serviceId: { $in: ownServiceIds }, $or: [{ cardCharged: true }, { fbToppedUp: true }] });
+      query = Transaction.find({ userId: user.id, $or: [{ cardCharged: true }, { fbToppedUp: true }] });
     }
 
     // นับจำนวนทั้งหมดก่อน pagination

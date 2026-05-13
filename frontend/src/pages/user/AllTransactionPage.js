@@ -47,6 +47,9 @@ export default function AllTransactionPage() {
     ]
   });
   const [slipPreview, setSlipPreview] = useState(null);
+  // searchable customer combobox in create form
+  const [formCustomerQuery, setFormCustomerQuery] = useState('');
+  const [showFormCustomerDropdown, setShowFormCustomerDropdown] = useState(false);
 
   // คำนวณผลรวม breakdowns ในฟอร์มสร้างใหม่
   const breakdownSum = (form.breakdowns || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
@@ -325,6 +328,7 @@ export default function AllTransactionPage() {
       ]
     });
     setSlipPreview(null);
+    setFormCustomerQuery('');
   };
 
   const handleSlipChange = (e) => {
@@ -905,14 +909,46 @@ export default function AllTransactionPage() {
             <form onSubmit={handleCreate} className="svc-form">
               <label>
                 เลือกลูกค้า *
-                <select value={form.customerId} onChange={e => setForm({ ...form, customerId: e.target.value })} required>
-                  <option value="">-- เลือกลูกค้า --</option>
-                  {customers.map(customer => (
-                    <option key={customer._id} value={customer._id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="combo" style={{ marginTop: '4px' }}>
+                  <input
+                    className="combo-input"
+                    type="text"
+                    placeholder="พิมพ์ค้นหาชื่อลูกค้า..."
+                    value={formCustomerQuery}
+                    onChange={e => {
+                      setFormCustomerQuery(e.target.value);
+                      setShowFormCustomerDropdown(true);
+                      if (!e.target.value) setForm(prev => ({ ...prev, customerId: '' }));
+                    }}
+                    onFocus={() => setShowFormCustomerDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowFormCustomerDropdown(false), 150)}
+                    autoComplete="off"
+                    required={!form.customerId}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: form.customerId ? '1px solid #86efac' : '1px solid #ccc' }}
+                  />
+                  {showFormCustomerDropdown && (
+                    <div className="combo-panel">
+                      {customers
+                        .filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase()))
+                        .map(c => (
+                          <div
+                            key={c._id}
+                            className="combo-item"
+                            onMouseDown={() => {
+                              setForm(prev => ({ ...prev, customerId: c._id }));
+                              setFormCustomerQuery(c.name);
+                              setShowFormCustomerDropdown(false);
+                            }}
+                          >
+                            {c.name}
+                          </div>
+                        ))}
+                      {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).length === 0 && (
+                        <div className="combo-item" style={{ color: '#9ca3af' }}>ไม่พบลูกค้า</div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </label>
               <label>
                 เลือกบริการ *

@@ -405,6 +405,8 @@ export default function SubmittedTransactionsPage() {
                           <td style={{ whiteSpace: 'nowrap', color: '#374151', fontSize: '0.9rem' }}>
                             {tx.cardChargedAt
                               ? new Date(tx.cardChargedAt).toLocaleDateString('th-TH') + ' ' + new Date(tx.cardChargedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                              : tx.cardTime
+                              ? tx.cardTime
                               : '-'}
                           </td>
                         )}

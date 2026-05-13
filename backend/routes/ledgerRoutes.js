@@ -282,7 +282,16 @@ router.patch('/ledger/:id', async (req, res) => {
     // Facebook Ads flow fields
     if (fbToppedUp !== undefined) updateData.fbToppedUp = Boolean(fbToppedUp);
     if (fbTopupCardId !== undefined) updateData.fbTopupCardId = fbTopupCardId || null;
-    if (cardCharged !== undefined) updateData.cardCharged = Boolean(cardCharged);
+    if (cardCharged !== undefined) {
+      updateData.cardCharged = Boolean(cardCharged);
+      // ถ้าเพิ่งตั้งเป็น true และยังไม่มี cardChargedAt ให้ set เวลาปัจจุบัน
+      if (Boolean(cardCharged)) {
+        const existing = await Transaction.findById(req.params.id).select('cardChargedAt').lean();
+        if (!existing?.cardChargedAt) {
+          updateData.cardChargedAt = new Date();
+        }
+      }
+    }
     if (fbChargedDate !== undefined) updateData.fbChargedDate = fbChargedDate ? new Date(fbChargedDate) : null;
     if (fbChargedAmount !== undefined) updateData.fbChargedAmount = fbChargedAmount === '' ? null : Number(fbChargedAmount);
 
