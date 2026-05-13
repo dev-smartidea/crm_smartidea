@@ -229,4 +229,58 @@ router.delete('/services/:id', async (req, res) => {
   }
 });
 
+// POST /services/:id/transfer - โอนบัญชี FB Ads ไปให้ลูกค้าใหม่ (account + admin เท่านั้น)
+router.post('/services/:id/transfer', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (user.role !== 'admin' && user.role !== 'account') {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+
+    const { newCustomerId, note } = req.body;
+    if (!newCustomerId) return res.status(400).json({ error: 'newCustomerId is required' });
+
+    const oldService = await Service.findById(req.params.id);
+    if (!oldService) return res.status(404).json({ error: 'Service not found' });
+    if (oldService.transferStatus === 'transferred') {
+      return res.status(400).json({ error: 'บริการนี้โอนแล้ว' });
+    }
+
+    const newCustomer = await Customer.findById(newCustomerId);
+    if (!newCustomer) return res.status(404).json({ error: 'Customer not found' });
+
+    // สร้าง service ใหม่สำหรับลูกค้าใหม่ (copy รายละเอียด FB เดิม)
+    const newService = await Service.create({
+      customerId: newCustomer._id,
+      userId: newCustomer.userId,
+      serviceType: oldService.serviceType,
+      name: oldService.name,
+      cid: oldService.cid,
+      customerIdField: oldService.customerIdField,
+      acquisitionRole: oldService.acquisitionRole,
+      acquisitionPerson: oldService.acquisitionPerson,
+      ownership: oldService.ownership,
+      pageUrl: oldService.pageUrl,
+      price: oldService.price,
+      notes: note || oldService.notes,
+      status: 'อยู่ระหว่างบริการ',
+      transferStatus: 'active',
+      transferredFrom: oldService._id,
+      transferDate: new Date(),
+    });
+
+    // mark บริการเก่าว่าโอนแล้ว
+    oldService.transferStatus = 'transferred';
+    oldService.transferredTo = newService._id;
+    oldService.transferDate = new Date();
+    await oldService.save();
+
+    res.json({ message: 'โอนบัญชีสำเร็จ', newService });
+  } catch (err) {
+    console.error('Transfer service error:', err);
+    res.status(500).json({ error: 'Transfer failed' });
+  }
+});
+
 module.exports = router;

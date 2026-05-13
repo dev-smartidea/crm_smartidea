@@ -27,7 +27,10 @@ export default function SubmittedTransactionsPage() {
   const fetchTransactions = async (signal) => {
     try {
       setLoading(true);
-      const res = await axios.get(`${api}/api/transactions?submissionStatus=${activeTab}&limit=200`, {
+      const url = activeTab === 'funded'
+        ? `${api}/api/transactions?funded=true&limit=200`
+        : `${api}/api/transactions?submissionStatus=${activeTab}&limit=200`;
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
         ...(signal ? { signal } : {})
       });
@@ -179,7 +182,8 @@ export default function SubmittedTransactionsPage() {
     const labels = {
       'submitted': 'รอการอนุมัติ',
       'approved': 'อนุมัติแล้ว',
-      'rejected': 'รายการที่ถูกปฏิเสธ'
+      'rejected': 'รายการที่ถูกปฏิเสธ',
+      'funded': 'เติมเงินแล้ว'
     };
     return labels[tab] || tab;
   };
@@ -188,6 +192,7 @@ export default function SubmittedTransactionsPage() {
     if (tab === 'submitted') return <ClockFill size={16} />;
     if (tab === 'approved') return <CheckCircleFill size={16} />;
     if (tab === 'rejected') return <XCircleFill size={16} />;
+    if (tab === 'funded') return <CashCoin size={16} />;
     return null;
   };
 
@@ -248,7 +253,7 @@ export default function SubmittedTransactionsPage() {
           display: 'flex',
           gap: '8px'
         }}>
-          {['submitted', 'approved', 'rejected'].map(tab => (
+          {['submitted', 'approved', 'rejected', 'funded'].map(tab => (
             <button
               key={tab}
               className={`tab ${activeTab === tab ? 'active' : ''}`}
@@ -307,6 +312,7 @@ export default function SubmittedTransactionsPage() {
                       <th>ธนาคาร</th>
                       <th>สลิป</th>
                       <th>หมายเหตุ</th>
+                      {activeTab === 'funded' && <th>วันที่ตัดบัตร</th>}
                       <th>สถานะ</th>
                     </tr>
                   </thead>
@@ -351,6 +357,8 @@ export default function SubmittedTransactionsPage() {
                             >
                               <Eye /> ดูสลิป
                             </button>
+                          ) : activeTab === 'funded' ? (
+                            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>-</span>
                           ) : (
                             <>
                               <button
@@ -385,7 +393,6 @@ export default function SubmittedTransactionsPage() {
                                       <span className="bd-sep"> :</span>{' '}
                                       <span className="bd-label">{label}:</span>{' '}
                                       <span className="bd-amount">{bd.amount?.toLocaleString('th-TH')} บาท</span>
-                                      {bd.statusNote && <span className="bd-status"> — {bd.statusNote}</span>}
                                     </div>
                                   );
                                 })}
@@ -394,6 +401,13 @@ export default function SubmittedTransactionsPage() {
                             {!tx.notes && (!tx.breakdowns || tx.breakdowns.length === 0) && '-'}
                           </div>
                         </td>
+                        {activeTab === 'funded' && (
+                          <td style={{ whiteSpace: 'nowrap', color: '#374151', fontSize: '0.9rem' }}>
+                            {tx.cardChargedAt
+                              ? new Date(tx.cardChargedAt).toLocaleDateString('th-TH') + ' ' + new Date(tx.cardChargedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                              : '-'}
+                          </td>
+                        )}
                         <td>
                           {activeTab === 'submitted' && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -419,6 +433,12 @@ export default function SubmittedTransactionsPage() {
                             <span className="badge" style={{ background: '#f0fdf4', color: '#16a34a', padding: '6px 10px', borderRadius: '6px', border: '1px solid #86efac' }}>
                               <CheckCircleFill size={14} style={{ marginRight: '4px' }} />
                               อนุมัติ
+                            </span>
+                          )}
+                          {activeTab === 'funded' && (
+                            <span className="badge" style={{ background: '#f0fdf4', color: '#059669', padding: '6px 10px', borderRadius: '6px', border: '1px solid #6ee7b7' }}>
+                              <CashCoin size={14} style={{ marginRight: '4px' }} />
+                              {tx.cardCharged ? 'ตัดบัตรแล้ว' : 'เติมเงินแล้ว'}
                             </span>
                           )}
                           {activeTab === 'rejected' && (

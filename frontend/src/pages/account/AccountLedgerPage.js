@@ -896,7 +896,7 @@ export default function AccountLedgerPage() {
                 <span className="charge-info-value"><strong style={{ color: '#1877f2' }}>{formatNumber(getBreakdownAmount(fbRecordModal, 11))} บาท</strong></span>
               </div>
               <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff8e1', borderRadius: 4, fontSize: '0.78rem', color: '#6d4c00', lineHeight: 1.6 }}>
-                📋 Facebook ตัดเงินจากบัตรไปแล้ว กรอกรายละเอียดเพื่อบันทึก
+                📋 ถ้า Facebook ตัดเงินจากบัตรไปแล้ว กรอกรายละเอียดเพื่อบันทึก
               </div>
               <div className="charge-form-group">
                 <label>บัตรที่ Facebook ตัดเงิน</label>

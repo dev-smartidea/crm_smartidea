@@ -78,6 +78,7 @@ router.get('/transactions', async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
     const submissionStatus = req.query.submissionStatus;
+    const funded = req.query.funded;
 
     let query;
     
@@ -94,6 +95,14 @@ router.get('/transactions', async (req, res) => {
     // ถ้ามีการกรอง submissionStatus
     if (submissionStatus) {
       query = query.where({ submissionStatus });
+    }
+
+    // ถ้ากรองรายการที่เติมเงินแล้ว (cardCharged หรือ fbToppedUp)
+    // บังคับ scope เฉพาะของ user นั้นเสมอ ไม่ว่าจะเป็น role ใด
+    if (funded === 'true') {
+      const ownServices = await Service.find({ userId: user.id });
+      const ownServiceIds = ownServices.map(s => s._id);
+      query = Transaction.find({ serviceId: { $in: ownServiceIds }, $or: [{ cardCharged: true }, { fbToppedUp: true }] });
     }
 
     // นับจำนวนทั้งหมดก่อน pagination

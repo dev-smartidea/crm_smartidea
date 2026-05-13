@@ -26,7 +26,7 @@ router.get('/ledger', async (req, res) => {
     // ดึง query params สำหรับ filter
     const { startDate, endDate, bank, serviceType, search } = req.query;
     const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 5000);
     const skip = (page - 1) * limit;
 
     // สร้าง filter สำหรับ Transaction
@@ -56,7 +56,7 @@ router.get('/ledger', async (req, res) => {
       Transaction.find(filter)
         .populate({
           path: 'serviceId',
-          select: 'name serviceType pageUrl price customerIdField cid status'
+          select: 'name serviceType pageUrl price customerIdField cid status transferStatus'
         })
         .populate({
           path: 'customerId',
@@ -213,6 +213,7 @@ router.get('/ledger', async (req, res) => {
         serviceId: service._id?.toString() || null,
         serviceType: service.serviceType || '-',
         servicePrice: service.price || 0,
+        serviceTransferStatus: service.transferStatus || 'active',
         // สถานะตัดบัตร (สำหรับ Facebook Ads)
         cardCharged: t.cardCharged || false,
         cardChargedAt: t.cardChargedAt || null,

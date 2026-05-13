@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import {
   Search, ChevronDown, ChevronRight,
-  CheckCircleFill, Clock, Facebook, X
+  CheckCircleFill, Clock, Facebook, X, ArrowRepeat
 } from 'react-bootstrap-icons';
 import './AccountLedgerPage.css';
 
@@ -14,15 +14,28 @@ export default function AccountFacebookPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(new Set());
+  const [expandedLimit, setExpandedLimit] = useState({});
+  const EXPAND_DEFAULT = 20;
+  const LOAD_MORE_STEP = 20;
   const [dateFilter, setDateFilter] = useState('');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
+
+  // Transfer modal state
+  const [transferModal, setTransferModal] = useState(null); // { serviceId, accountName }
+  const [transferSearch, setTransferSearch] = useState('');
+  const [transferCustomers, setTransferCustomers] = useState([]);
+  const [transferSelected, setTransferSelected] = useState(null);
+  const [transferNote, setTransferNote] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferSearchLoading, setTransferSearchLoading] = useState(false);
+  const [transferError, setTransferError] = useState('');
 
   const fetchData = useCallback(async (signal) => {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/ledger?serviceType=Facebook+Ads&limit=200`,
+        `${process.env.REACT_APP_API_URL}/api/ledger?serviceType=Facebook+Ads&limit=5000`,
         { headers: { Authorization: `Bearer ${token}` }, signal }
       );
       setItems(res.data.items || []);
@@ -55,6 +68,7 @@ export default function AccountFacebookPage() {
           accountName: item.accountName,
           customerCode: item.customerCode,
           customerName: item.customerName,
+          transferStatus: item.serviceTransferStatus || 'active',
           transactions: [],
           totalTopup: 0,
           fbCharged: 0,
@@ -110,7 +124,62 @@ export default function AccountFacebookPage() {
     return next;
   });
   const expandAll = () => setExpanded(new Set(filtered.map(g => g.key)));
-  const collapseAll = () => setExpanded(new Set());
+  const collapseAll = () => { setExpanded(new Set()); setExpandedLimit({}); };
+
+  const openTransferModal = (g, e) => {
+    e.stopPropagation();
+    setTransferModal({ serviceId: g.key, accountName: g.accountName });
+    setTransferSearch('');
+    setTransferCustomers([]);
+    setTransferSelected(null);
+    setTransferNote('');
+    setTransferError('');
+  };
+
+  const searchTransferCustomers = useCallback(async (q) => {
+    if (!q.trim()) { setTransferCustomers([]); return; }
+    setTransferSearchLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/customers?search=${encodeURIComponent(q)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setTransferCustomers(res.data || []);
+    } catch { setTransferCustomers([]); }
+    finally { setTransferSearchLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => searchTransferCustomers(transferSearch), 350);
+    return () => clearTimeout(t);
+  }, [transferSearch, searchTransferCustomers]);
+
+  const handleTransferConfirm = async () => {
+    if (!transferSelected) { setTransferError('กรุณาเลือกลูกค้าใหม่'); return; }
+    setTransferLoading(true);
+    setTransferError('');
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/services/${transferModal.serviceId}/transfer`,
+        { newCustomerId: transferSelected._id, note: transferNote },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setTransferModal(null);
+      fetchData(new AbortController().signal);
+    } catch (err) {
+      setTransferError(err?.response?.data?.error || 'โอนบัญชีไม่สำเร็จ');
+    } finally { setTransferLoading(false); }
+  };
+
+  const getLimit = (key) => expandedLimit[key] || EXPAND_DEFAULT;
+  const loadMore = (key) => {
+    setExpandedLimit(prev => ({ ...prev, [key]: (prev[key] || EXPAND_DEFAULT) + LOAD_MORE_STEP }));
+  };
+  const collapseLimit = (key) => {
+    setExpandedLimit(prev => { const n = { ...prev }; delete n[key]; return n; });
+  };
 
   if (loading) {
     return (
@@ -121,6 +190,7 @@ export default function AccountFacebookPage() {
   }
 
   return (
+    <>
     <div style={{ padding: '24px 28px', maxWidth: 1200, margin: '0 auto' }}>
 
       {/* Header */}
@@ -293,18 +363,44 @@ export default function AccountFacebookPage() {
                     }
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <span style={{
-                      fontWeight: 700, fontSize: 14,
+                    <span style={{ fontWeight: 700, fontSize: 14,
                       color: g.remaining > 0 ? '#0d6efd' : g.remaining < 0 ? '#dc3545' : '#adb5bd',
                     }}>
                       {fmt(g.remaining)}
                     </span>
+                    {g.transferStatus !== 'transferred' && (
+                      <button
+                        onClick={e => openTransferModal(g, e)}
+                        title="โอนบัญชีนี้ให้ลูกค้าใหม่"
+                        style={{
+                          display: 'block', margin: '4px auto 0', padding: '2px 7px',
+                          fontSize: 11, fontWeight: 600, borderRadius: 5,
+                          background: 'none', border: '1px solid #dee2e6',
+                          color: '#6c757d', cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <ArrowRepeat size={10} style={{ marginRight: 3 }} />โอนบัญชี
+                      </button>
+                    )}
+                    {g.transferStatus === 'transferred' && (
+                      <div style={{ fontSize: 10, color: '#adb5bd', marginTop: 3, textAlign: 'center' }}>
+                        ✓ โอนแล้ว
+                      </div>
+                    )}
                   </td>
                 </tr>
 
-                {expanded.has(g.key) && g.transactions
-                  .slice().sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate))
-                  .map(tx => (
+                {expanded.has(g.key) && (() => {
+                  const sorted = g.transactions.slice().sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+                  const limit = getLimit(g.key);
+                  const visible = sorted.slice(0, limit);
+                  const remaining = sorted.length - limit;
+                  const canLoadMore = remaining > 0;
+                  const canCollapse = limit > EXPAND_DEFAULT;
+                  return (
+                    <>
+                      {visible.map(tx => (
                     <tr key={tx._id} style={{
                       background: '#f5f8ff', fontSize: 12.5,
                       borderLeft: '3px solid #1877f2', borderBottom: '1px solid #e8edf8',
@@ -347,8 +443,38 @@ export default function AccountFacebookPage() {
                       </td>
                       <td></td>
                     </tr>
-                  ))
-                }
+                      ))}
+                      {(canLoadMore || canCollapse) && (
+                        <tr style={{ background: '#eef4ff', borderLeft: '3px solid #1877f2', borderBottom: '1px solid #e8edf8' }}>
+                          <td colSpan={8} style={{ padding: '6px 12px', textAlign: 'center', display: 'flex', gap: 12, justifyContent: 'center' }}>
+                            {canLoadMore && (
+                              <button
+                                onClick={e => { e.stopPropagation(); loadMore(g.key); }}
+                                style={{
+                                  background: 'none', border: 'none', cursor: 'pointer',
+                                  color: '#1877f2', fontSize: 12, fontWeight: 600,
+                                }}
+                              >
+                                ▼ แสดงเพิ่มอีก {Math.min(LOAD_MORE_STEP, remaining)} รายการ ({remaining} คงเหลือ)
+                              </button>
+                            )}
+                            {canCollapse && (
+                              <button
+                                onClick={e => { e.stopPropagation(); collapseLimit(g.key); }}
+                                style={{
+                                  background: 'none', border: 'none', cursor: 'pointer',
+                                  color: '#6c757d', fontSize: 12,
+                                }}
+                              >
+                                ▲ ย่อกลับ
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })()}
               </React.Fragment>
             ))}
           </tbody>
@@ -407,5 +533,142 @@ export default function AccountFacebookPage() {
         </div>
       )}
     </div>
+
+      {/* Transfer Modal */}
+      {transferModal && (
+        <div
+          onClick={() => setTransferModal(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+            zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: 12, padding: 28,
+              width: 480, maxWidth: '95vw', maxHeight: '85vh',
+              display: 'flex', flexDirection: 'column', gap: 16,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: '#212529' }}>
+                  <ArrowRepeat size={15} style={{ marginRight: 6, color: '#1877f2' }} />
+                  โอนบัญชี Facebook Ads
+                </div>
+                <div style={{ fontSize: 12, color: '#6c757d', marginTop: 3 }}>
+                  {transferModal.accountName}
+                </div>
+              </div>
+              <button onClick={() => setTransferModal(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#6c757d' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Search customer */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#495057', display: 'block', marginBottom: 6 }}>
+                ค้นหาลูกค้าใหม่
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd' }} />
+                <input
+                  autoFocus
+                  value={transferSearch}
+                  onChange={e => { setTransferSearch(e.target.value); setTransferSelected(null); }}
+                  placeholder="ชื่อหรือรหัสลูกค้า..."
+                  style={{
+                    width: '100%', padding: '8px 12px 8px 32px', fontSize: 13,
+                    border: '1px solid #dee2e6', borderRadius: 7, outline: 'none',
+                  }}
+                />
+              </div>
+              {/* Results */}
+              {transferSearchLoading && (
+                <div style={{ padding: '10px 0', textAlign: 'center', fontSize: 12, color: '#6c757d' }}>กำลังค้นหา...</div>
+              )}
+              {!transferSearchLoading && transferCustomers.length > 0 && (
+                <div style={{
+                  border: '1px solid #dee2e6', borderRadius: 7, marginTop: 6,
+                  maxHeight: 220, overflowY: 'auto',
+                }}>
+                  {transferCustomers.map(c => (
+                    <div
+                      key={c._id}
+                      onClick={() => setTransferSelected(c)}
+                      style={{
+                        padding: '9px 14px', cursor: 'pointer', fontSize: 13,
+                        background: transferSelected?._id === c._id ? '#eef4ff' : '#fff',
+                        borderBottom: '1px solid #f0f0f0',
+                        borderLeft: transferSelected?._id === c._id ? '3px solid #1877f2' : '3px solid transparent',
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: '#212529' }}>{c.name}</span>
+                      <span style={{ color: '#6c757d', fontSize: 11.5, marginLeft: 8 }}>{c.customerCode}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!transferSearchLoading && transferSearch.trim() && transferCustomers.length === 0 && (
+                <div style={{ padding: '10px 0', fontSize: 12, color: '#adb5bd', textAlign: 'center' }}>ไม่พบลูกค้า</div>
+              )}
+            </div>
+
+            {/* Selected */}
+            {transferSelected && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 7, padding: '10px 14px', fontSize: 13 }}>
+                เลือก: <strong>{transferSelected.name}</strong>
+                <span style={{ color: '#6c757d', marginLeft: 8 }}>({transferSelected.customerCode})</span>
+              </div>
+            )}
+
+            {/* Note */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#495057', display: 'block', marginBottom: 6 }}>
+                หมายเหตุ <span style={{ fontWeight: 400, color: '#adb5bd' }}>(optional)</span>
+              </label>
+              <input
+                value={transferNote}
+                onChange={e => setTransferNote(e.target.value)}
+                placeholder="เช่น เปลี่ยนเจ้าของเดือน ..."
+                style={{
+                  width: '100%', padding: '8px 12px', fontSize: 13,
+                  border: '1px solid #dee2e6', borderRadius: 7, outline: 'none',
+                }}
+              />
+            </div>
+
+            {transferError && (
+              <div style={{ color: '#dc3545', fontSize: 13 }}>{transferError}</div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button
+                onClick={() => setTransferModal(null)}
+                style={{ padding: '8px 18px', borderRadius: 7, border: '1px solid #dee2e6', background: '#fff', fontSize: 13, cursor: 'pointer' }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleTransferConfirm}
+                disabled={transferLoading || !transferSelected}
+                style={{
+                  padding: '8px 22px', borderRadius: 7, border: 'none',
+                  background: transferSelected ? '#1877f2' : '#dee2e6',
+                  color: '#fff', fontWeight: 600, fontSize: 13, cursor: transferSelected ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {transferLoading ? 'กำลังโอน...' : 'ยืนยันโอนบัญชี'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -45,7 +45,13 @@ const serviceSchema = new mongoose.Schema({
       'รอคิวทำเว็บ', 'รอคิวสร้างบัญชี', 'รอลูกค้าส่งข้อมูล', 'กำลังรันโฆษณา'
     ],
     default: 'อยู่ระหว่างบริการ'
-  }
+  },
+
+  // โอนบัญชี FB Ads
+  transferStatus: { type: String, enum: ['active', 'transferred'], default: 'active' },
+  transferredTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+  transferredFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+  transferDate: { type: Date },
 }, {
   timestamps: true,
   toJSON: {
