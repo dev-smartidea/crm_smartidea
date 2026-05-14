@@ -12,7 +12,8 @@ export default function BaseNotificationPage({
   iconMap = {},
   onNotificationClick,
   socketEnabled = false,
-  toastEnabled = false
+  toastEnabled = false,
+  excludeTypes = []
 }) {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
@@ -129,7 +130,11 @@ export default function BaseNotificationPage({
   };
 
   // Filter
-  const filtered = notifications.filter(n => {
+  const visibleNotifications = excludeTypes.length > 0
+    ? notifications.filter(n => !excludeTypes.includes(n.type))
+    : notifications;
+
+  const filtered = visibleNotifications.filter(n => {
     if (filter === 'unread') return !n.isRead;
     if (filter === 'read') return n.isRead;
     return true;
@@ -163,9 +168,9 @@ export default function BaseNotificationPage({
   }, [filter]);
 
   const stats = {
-    total: notifications.length,
-    unread: notifications.filter(n => !n.isRead).length,
-    read: notifications.filter(n => n.isRead).length
+    total: visibleNotifications.length,
+    unread: visibleNotifications.filter(n => !n.isRead).length,
+    read: visibleNotifications.filter(n => n.isRead).length
   };
 
   const getNotificationIcon = (type) => {

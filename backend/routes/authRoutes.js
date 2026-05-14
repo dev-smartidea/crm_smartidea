@@ -59,6 +59,49 @@ router.patch('/users/:id/role', requireAdmin, async (req, res) => {
   res.json({ message: 'เปลี่ยน role สำเร็จ', user });
 });
 
+// PATCH /users/:id/reset-password — admin reset password ของ user
+router.patch('/users/:id/reset-password', requireAdmin, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' });
+    }
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.findByIdAndUpdate(req.params.id, { password: hash }, { new: true });
+    if (!user) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    res.json({ message: 'Reset password สำเร็จ' });
+  } catch (err) {
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
+  }
+});
+
+// POST /admin/create-user — admin สร้าง user ใหม่
+router.post('/admin/create-user', requireAdmin, async (req, res) => {
+  try {
+    const { username, name, email, password, role = 'user' } = req.body;
+    if (!username || !name || !email || !password) {
+      return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
+    }
+    if (!['user', 'account', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Role ไม่ถูกต้อง' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' });
+    }
+    const existUsername = await User.findOne({ username });
+    if (existUsername) return res.status(400).json({ error: 'Username นี้ถูกใช้แล้ว' });
+    const existEmail = await User.findOne({ email });
+    if (existEmail) return res.status(400).json({ error: 'Email นี้ถูกใช้แล้ว' });
+    const hash = await bcrypt.hash(password, 10);
+    const user = new User({ username, name, email, password: hash, role });
+    await user.save();
+    res.status(201).json({ message: 'สร้างผู้ใช้สำเร็จ', user: { _id: user._id, username, name, email, role, createdAt: user.createdAt } });
+  } catch (err) {
+    console.error('Admin create user error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
+  }
+});
+
 // DELETE /users/:id - ลบ user (admin เท่านั้น)
 router.delete('/users/:id', requireAdmin, async (req, res) => {
   // ค้นหา user ก่อนลบเพื่อดึงข้อมูล avatar

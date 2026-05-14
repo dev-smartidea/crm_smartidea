@@ -74,9 +74,11 @@ function App() {
           path="/dashboard"
           element={
             token
-              ? (getRoleFromToken() === 'account'
-                  ? <Navigate to="/dashboard/account" />
-                  : <DashboardLayout />)
+              ? (getRoleFromToken() === 'admin'
+                  ? <Navigate to="/dashboard/admin" />
+                  : getRoleFromToken() === 'account'
+                    ? <Navigate to="/dashboard/account" />
+                    : <DashboardLayout />)
               : <Navigate to="/login" />
           }
         >
@@ -132,7 +134,7 @@ function App() {
           element={<UserDetailPageWrapper token={token} />}
         />
 
-        <Route path="*" element={<Navigate to={token ? "/dashboard" : "/login"} />} />
+        <Route path="*" element={<Navigate to={token ? (getRoleFromToken() === 'admin' ? '/dashboard/admin' : getRoleFromToken() === 'account' ? '/dashboard/account' : '/dashboard') : '/login'} />} />
       </Routes>
     </Router>
   );

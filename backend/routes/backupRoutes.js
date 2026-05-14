@@ -68,4 +68,31 @@ router.get('/admin/backup', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/stats — สถิติภาพรวมระบบ
+router.get('/admin/stats', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [usersByRole, totalCustomers, totalTransactions, pendingTransactions, thisMonthTx] = await Promise.all([
+      User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+      Customer.countDocuments(),
+      Transaction.countDocuments(),
+      Transaction.countDocuments({ status: 'pending' }),
+      Transaction.countDocuments({ createdAt: { $gte: monthStart } }),
+    ]);
+    const roleMap = { user: 0, account: 0, admin: 0 };
+    usersByRole.forEach(r => { roleMap[r._id] = r.count; });
+    res.json({
+      users: { total: Object.values(roleMap).reduce((a, b) => a + b, 0), ...roleMap },
+      totalCustomers,
+      totalTransactions,
+      pendingTransactions,
+      thisMonthTransactions: thisMonthTx,
+    });
+  } catch (err) {
+    console.error('Stats error:', err);
+    res.status(500).json({ error: 'Stats error' });
+  }
+});
+
 module.exports = router;

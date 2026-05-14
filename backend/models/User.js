@@ -9,6 +9,6 @@ const userSchema = new mongoose.Schema({
   phone: { type: String },
   avatar: { type: String },
   avatarCloudinaryId: { type: String },
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

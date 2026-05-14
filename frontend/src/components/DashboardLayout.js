@@ -43,7 +43,7 @@ export default function DashboardLayout() {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/notifications`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const unread = res.data.filter(n => !n.isRead).length;
+        const unread = res.data.filter(n => !n.isRead && n.type !== 'new_transaction').length;
         setUnreadCount(unread);
       } catch (err) {
         console.warn('Failed to fetch notifications:', err.message);
