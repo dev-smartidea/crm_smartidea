@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
+const { createAuditLog } = require('../utils/auditLogger');
 
 // Rate Limiter สำหรับ Login - ป้องกัน Brute Force
 const loginLimiter = rateLimit({
@@ -69,6 +70,7 @@ router.patch('/users/:id/reset-password', requireAdmin, async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const user = await User.findByIdAndUpdate(req.params.id, { password: hash }, { new: true });
     if (!user) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    createAuditLog({ userId: req.user._id, username: req.user.username, action: 'reset_password', target: user.username, ip: req.ip });
     res.json({ message: 'Reset password สำเร็จ' });
   } catch (err) {
     res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
@@ -95,6 +97,7 @@ router.post('/admin/create-user', requireAdmin, async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const user = new User({ username, name, email, password: hash, role });
     await user.save();
+    createAuditLog({ userId: req.user._id, username: req.user.username, action: 'create_user', target: username, detail: `role: ${role}`, ip: req.ip });
     res.status(201).json({ message: 'สร้างผู้ใช้สำเร็จ', user: { _id: user._id, username, name, email, role, createdAt: user.createdAt } });
   } catch (err) {
     console.error('Admin create user error:', err);
@@ -118,6 +121,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
   }
   // ลบ user จาก database
   await User.findByIdAndDelete(req.params.id);
+  createAuditLog({ userId: req.user._id, username: req.user.username, action: 'delete_user', target: user.username, ip: req.ip });
   // ลบไฟล์ avatar ถ้ามี
   if (avatarPath) {
     const fs = require('fs');
@@ -188,6 +192,7 @@ router.post('/login',
       return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
     }
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    createAuditLog({ userId: user._id, username: user.username, action: 'login', target: user.username, ip: req.ip });
     res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
   } catch (err) {
     console.error('Login error:', err);

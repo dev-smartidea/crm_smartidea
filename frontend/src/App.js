@@ -12,6 +12,7 @@ import TransactionHistoryPage from './pages/user/TransactionHistoryPage';
 import DashboardLayout from './components/DashboardLayout';
 import DashboardPage from './pages/shared/DashboardPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AuditLogPage from './pages/admin/AuditLogPage';
 import AccountDashboardPage from './pages/shared/AccountDashboardPage';
 import AccountTransactionsPage from './pages/account/AccountTransactionsPage';
 import RejectedTransactionsPage from './pages/account/RejectedTransactionsPage';
@@ -107,6 +108,11 @@ function App() {
           element={
             token && getRoleFromToken() === 'admin' ? <AdminDashboardPage /> : <Navigate to="/dashboard" />
           }
+        />
+
+        <Route
+          path="/dashboard/admin/audit-log"
+          element={token && getRoleFromToken() === 'admin' ? <AuditLogPage /> : <Navigate to="/dashboard" />}
         />
 
         {/* Admin standalone routes (no DashboardLayout sidebar) */}

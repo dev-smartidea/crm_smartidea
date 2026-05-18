@@ -1,0 +1,215 @@
+.audit-page {
+  min-height: 100vh;
+  background: #f3f4f6;
+  padding: 28px 32px;
+}
+
+/* Header */
+.audit-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.audit-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.audit-back-btn:hover { background: #f9fafb; }
+
+.audit-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  flex: 1;
+}
+
+.audit-total {
+  font-size: 0.88rem;
+  color: #6b7280;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+/* Filter Bar */
+.audit-filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.audit-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.audit-filter-icon {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.audit-filter-group input,
+.audit-filter-group select {
+  border: none;
+  background: transparent;
+  font-size: 0.88rem;
+  color: #374151;
+  outline: none;
+  min-width: 110px;
+}
+
+.audit-filter-sep {
+  color: #9ca3af;
+  padding: 0 2px;
+}
+
+.audit-search-btn {
+  background: #1e40af;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.audit-search-btn:hover { opacity: 0.88; }
+
+.audit-clear-btn {
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.audit-clear-btn:hover { background: #f9fafb; }
+
+/* Error */
+.audit-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.88rem;
+}
+
+/* Table */
+.audit-table-wrap {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.audit-table thead tr {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.audit-table th {
+  padding: 11px 14px;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.audit-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.audit-table tbody tr:last-child td { border-bottom: none; }
+.audit-table tbody tr:hover { background: #f9fafb; }
+
+.audit-td-date { white-space: nowrap; color: #6b7280; font-size: 0.82rem; }
+.audit-td-user { font-weight: 600; color: #111827; }
+.audit-td-detail { color: #9ca3af; font-size: 0.82rem; max-width: 220px; }
+.audit-td-ip { color: #9ca3af; font-size: 0.78rem; font-family: monospace; }
+
+.audit-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.audit-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px;
+}
+
+/* Pagination */
+.audit-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.audit-pagination button {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.audit-pagination button:hover:not(:disabled) { background: #f3f4f6; }
+.audit-pagination button:disabled { opacity: 0.4; cursor: default; }
+
+@media (max-width: 768px) {
+  .audit-page { padding: 16px; }
+  .audit-filter-bar { flex-direction: column; align-items: stretch; }
+  .audit-filter-group { width: 100%; }
+}

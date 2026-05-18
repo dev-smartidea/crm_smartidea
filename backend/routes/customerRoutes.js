@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const { authMiddleware } = require('../middleware/auth');
+const { createAuditLog } = require('../utils/auditLogger');
 
 router.get('/', async (req, res) => {
   try {
@@ -99,6 +100,12 @@ router.post('/', async (req, res) => {
     });
 
     await customer.save();
+
+    // log โดย lookup username จาก User (JWT payload มีแค่ id/role)
+    const User = require('../models/User');
+    User.findById(decoded.id).then(u => {
+      createAuditLog({ userId: decoded.id, username: u ? u.username : decoded.id, action: 'create_customer', target: customer.name, detail: `code: ${customer.customerCode}`, ip: req.ip });
+    }).catch(() => {});
 
     // สร้างการแจ้งเตือนลูกค้าใหม่
     try {
@@ -223,7 +230,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       // 7. ลบลูกค้า
       await Customer.findByIdAndDelete(customerId).session(session);
     });
-    
+
+    createAuditLog({ userId: req.user.id, username: req.user.username, action: 'delete_customer', target: customer.name, ip: req.ip });
     res.json({ message: '✅ ลบลูกค้าและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ' });
   } catch (err) {
     console.error('Delete customer error:', err);
@@ -262,6 +270,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     );
+    // log reassign
+    if (req.user.role === 'admin' && req.body.userId !== undefined) {
+      createAuditLog({ userId: req.user.id, username: req.user.username, action: 'reassign_customer', target: customer.name, detail: `โยกไป user: ${req.body.userId}`, ip: req.ip });
+    }
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
