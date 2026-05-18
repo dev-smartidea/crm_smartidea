@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { FaUserShield, FaTrashAlt, FaSignInAlt, FaDownload, FaPlus, FaKey, FaUsers, FaChartBar } from 'react-icons/fa';
+import { FaUserShield, FaTrashAlt, FaSignInAlt, FaDownload, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
 import { AuthContext } from '../../context/AuthContext';
 import './AdminDashboardPage.css';
@@ -28,6 +28,17 @@ const AdminDashboardPage = () => {
   const [resetPwUser, setResetPwUser] = useState(null);
   const [resetPwVal, setResetPwVal] = useState('');
   const [resetPwLoading, setResetPwLoading] = useState(false);
+  // Customers
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  // Search & pagination
+  const [custSearch, setCustSearch] = useState('');
+  const [custPage, setCustPage] = useState(1);
+  const [userSearch, setUserSearch] = useState('');
+  const [userPage, setUserPage] = useState(1);
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const CUST_PAGE_SIZE = 10;
+  const USER_PAGE_SIZE = 20;
   const api = process.env.REACT_APP_API_URL;
 
 
@@ -59,6 +70,21 @@ const AdminDashboardPage = () => {
     fetchStats();
   }, [api, token]);
 
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setCustomersLoading(true);
+        const res = await axios.get(`${api}/api/customers`, { headers: { Authorization: `Bearer ${token}` } });
+        setCustomers(res.data);
+      } catch { /* ignore */ } finally {
+        setCustomersLoading(false);
+      }
+    };
+    fetchCustomers();
+  }, [api, token]);
+
+  useEffect(() => { setCustPage(1); }, [custSearch]);
+  useEffect(() => { setUserPage(1); }, [userSearch, userRoleFilter]);
 
   const handleImpersonate = async (userId) => {
     setImpersonateLoading(userId);
@@ -149,8 +175,61 @@ const AdminDashboardPage = () => {
     }
   };
 
-  if (loading) return <div>กำลังโหลด...</div>;
-  if (error) return <div style={{ color: 'red' }}>{error}</div>;
+  // Customer delete
+  const [showDeleteCust, setShowDeleteCust] = useState(false);
+  const [custToDelete, setCustToDelete] = useState(null);
+  const [deleteCustLoading, setDeleteCustLoading] = useState(false);
+
+  // Reassign customer
+  const [showReassign, setShowReassign] = useState(false);
+  const [reassignCust, setReassignCust] = useState(null);
+  const [reassignToUserId, setReassignToUserId] = useState('');
+  const [reassignLoading, setReassignLoading] = useState(false);
+  const handleDeleteCustClick = (cust) => {
+    setCustToDelete(cust);
+    setShowDeleteCust(true);
+  };
+  const handleConfirmDeleteCust = async () => {
+    if (!custToDelete) return;
+    setDeleteCustLoading(true);
+    try {
+      await axios.delete(`${api}/api/customers/${custToDelete._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setShowDeleteCust(false);
+      setCustToDelete(null);
+      setCustomers(prev => prev.filter(c => c._id !== custToDelete._id));
+    } catch (err) {
+      alert(err.response?.data?.error || 'ลบลูกค้าไม่สำเร็จ');
+    } finally {
+      setDeleteCustLoading(false);
+    }
+  };
+
+  const handleConfirmReassign = async () => {
+    if (!reassignCust || !reassignToUserId) return;
+    setReassignLoading(true);
+    try {
+      await axios.put(`${api}/api/customers/${reassignCust._id}`, { userId: reassignToUserId }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCustomers(prev => prev.map(c => {
+        if (c._id !== reassignCust._id) return c;
+        const newUser = users.find(u => u._id === reassignToUserId);
+        return { ...c, userId: newUser ? { _id: newUser._id, name: newUser.name, username: newUser.username } : c.userId };
+      }));
+      setShowReassign(false);
+      setReassignCust(null);
+      setReassignToUserId('');
+    } catch (err) {
+      alert(err.response?.data?.error || 'ย้ายลูกค้าไม่สำเร็จ');
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
+  if (loading) return <div className="admin-loading">กำลังโหลด...</div>;
+  if (error) return <div className="admin-error">{error}</div>;
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -180,55 +259,157 @@ const AdminDashboardPage = () => {
     }
   };
 
+  // Filtered + paged customers
+  const filteredCustomers = customers.filter(c =>
+    [c.name, c.customerCode, c.phone, c.userId?.name, c.userId?.username]
+      .some(v => v?.toLowerCase().includes(custSearch.toLowerCase()))
+  );
+  const custTotalPages = Math.max(1, Math.ceil(filteredCustomers.length / CUST_PAGE_SIZE));
+  const pagedCustomers = filteredCustomers.slice((custPage - 1) * CUST_PAGE_SIZE, custPage * CUST_PAGE_SIZE);
+
+  // Filtered + paged users
+  const filteredUsers = users.filter(u => {
+    const matchSearch = [u.name, u.username, u.email].some(v => v?.toLowerCase().includes(userSearch.toLowerCase()));
+    const matchRole = userRoleFilter === 'all' || u.role === userRoleFilter;
+    return matchSearch && matchRole;
+  });
+  const userTotalPages = Math.max(1, Math.ceil(filteredUsers.length / USER_PAGE_SIZE));
+  const pagedUsers = filteredUsers.slice((userPage - 1) * USER_PAGE_SIZE, userPage * USER_PAGE_SIZE);
+
   return (
-    <div className="admin-dashboard-container">
+    <div className="admin-page">
+
+      {/* ── Reassign Customer Modal ── */}
+      {showReassign && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal admin-modal-sm">
+            <div className="admin-modal-header">
+              <div className="admin-modal-header-icon blue"><FaUserPlus /></div>
+              <h3 className="admin-modal-title">ย้ายลูกค้าไปให้ผู้ดูแลคนใหม่</h3>
+            </div>
+            <div className="admin-modal-body">
+              <p style={{ margin: '0 0 12px', color: '#374151', fontWeight: 600 }}>{reassignCust?.name}</p>
+              <p style={{ margin: '0 0 8px', color: '#6b7280', fontSize: '0.875rem' }}>
+                ผู้ดูแลปัจจุบัน: <strong>{reassignCust?.userId?.name || '-'}</strong>
+              </p>
+              <label style={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151', display: 'block', marginBottom: 6 }}>
+                เลือกผู้ดูแลคนใหม่
+              </label>
+              <select
+                value={reassignToUserId}
+                onChange={e => setReassignToUserId(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: '0.9rem' }}
+              >
+                <option value="">-- เลือกผู้ดูแล --</option>
+                {users.filter(u => u.role === 'user').map(u => (
+                  <option key={u._id} value={u._id}>{u.name} (@{u.username})</option>
+                ))}
+              </select>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="modal-btn modal-btn-cancel" onClick={() => { setShowReassign(false); setReassignCust(null); setReassignToUserId(''); }} disabled={reassignLoading}>
+                <XCircle /> ยกเลิก
+              </button>
+              <button className="modal-btn modal-btn-primary" onClick={handleConfirmReassign} disabled={reassignLoading || !reassignToUserId}>
+                <FaUserPlus /> {reassignLoading ? 'กำลังบันทึก...' : 'ยืนยันย้าย'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Customer Confirm Modal ── */}
+      {showDeleteCust && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal admin-modal-sm">
+            <div className="admin-modal-header">
+              <div className="admin-modal-header-icon red"><FaTrashAlt /></div>
+              <h3 className="admin-modal-title">ยืนยันการลบลูกค้า</h3>
+            </div>
+            <div className="admin-modal-body">
+              <p style={{ margin: 0, color: '#374151', fontWeight: 600 }}>{custToDelete?.name}</p>
+              <p style={{ margin: '6px 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
+                ลบลูกค้าพร้อมบริการ, รายการโอน, และข้อมูลทั้งหมด<br />การกระทำนี้ไม่สามารถยกเลิกได้
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="modal-btn modal-btn-cancel" onClick={() => setShowDeleteCust(false)} disabled={deleteCustLoading}>
+                <XCircle /> ยกเลิก
+              </button>
+              <button className="modal-btn modal-btn-danger" onClick={handleConfirmDeleteCust} disabled={deleteCustLoading}>
+                <FaTrashAlt /> {deleteCustLoading ? 'กำลังลบ...' : 'ยืนยันลบ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Delete Confirm Modal ── */}
       {showDeleteConfirm && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 16px rgba(0,0,0,0.15)', minWidth: 320, textAlign: 'center' }}>
-            <h3 style={{ marginBottom: 18 }}>ยืนยันการลบผู้ใช้</h3>
-            <div style={{ marginBottom: 24, color: '#555' }}>คุณต้องการลบผู้ใช้นี้ใช่หรือไม่?</div>
-            <button style={{ marginRight: 16, padding: '8px 24px', borderRadius: 6, border: 'none', background: '#888', color: '#fff', fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}><XCircle /> ยกเลิก</button>
-            <button style={{ padding: '8px 24px', borderRadius: 6, border: 'none', background: '#dc3545', color: '#fff', fontWeight: 500, cursor: 'pointer' }} onClick={handleConfirmDelete} disabled={deleteLoading}>{deleteLoading ? 'กำลังลบ...' : 'ยืนยันลบ'}</button>
+        <div className="admin-modal-overlay">
+          <div className="admin-modal admin-modal-sm">
+            <div className="admin-modal-header">
+              <div className="admin-modal-header-icon red"><FaTrashAlt /></div>
+              <h3 className="admin-modal-title">ยืนยันการลบผู้ใช้</h3>
+            </div>
+            <div className="admin-modal-body">
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
+                คุณต้องการลบผู้ใช้นี้ใช่หรือไม่?<br />การกระทำนี้ไม่สามารถยกเลิกได้
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="modal-btn modal-btn-cancel" onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}>
+                <XCircle /> ยกเลิก
+              </button>
+              <button className="modal-btn modal-btn-danger" onClick={handleConfirmDelete} disabled={deleteLoading}>
+                <FaTrashAlt /> {deleteLoading ? 'กำลังลบ...' : 'ยืนยันลบ'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Create User Modal ── */}
       {showCreateUser && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 24px rgba(0,0,0,0.15)', width: 420, maxWidth: '95vw' }}>
-            <h3 style={{ marginTop: 0, marginBottom: 20, color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 8 }}><FaPlus /> สร้างผู้ใช้ใหม่</h3>
-            {createUserError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '8px 12px', borderRadius: 6, marginBottom: 14, fontSize: '0.9rem' }}>{createUserError}</div>}
+        <div className="admin-modal-overlay">
+          <div className="admin-modal">
+            <div className="admin-modal-header">
+              <div className="admin-modal-header-icon blue"><FaPlus /></div>
+              <h3 className="admin-modal-title">สร้างผู้ใช้ใหม่</h3>
+            </div>
             <form onSubmit={handleCreateUser}>
-              {[
-                { label: 'Username *', key: 'username', type: 'text', placeholder: 'username' },
-                { label: 'ชื่อ-นามสกุล *', key: 'name', type: 'text', placeholder: 'ชื่อผู้ใช้' },
-                { label: 'Email *', key: 'email', type: 'email', placeholder: 'email@example.com' },
-                { label: 'Password *', key: 'password', type: 'password', placeholder: 'อย่างน้อย 6 ตัวอักษร' },
-              ].map(f => (
-                <label key={f.key} style={{ display: 'block', marginBottom: 12, fontSize: '0.9rem', fontWeight: 600 }}>
-                  {f.label}
-                  <input type={f.type} value={createUserForm[f.key]} onChange={e => setCreateUserForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    required placeholder={f.placeholder}
-                    style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '1rem' }} />
-                </label>
-              ))}
-              <label style={{ display: 'block', marginBottom: 20, fontSize: '0.9rem', fontWeight: 600 }}>
-                Role
-                <select value={createUserForm.role} onChange={e => setCreateUserForm(p => ({ ...p, role: e.target.value }))}
-                  style={{ display: 'block', width: '100%', marginTop: 4, padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '1rem' }}>
-                  <option value="user">user</option>
-                  <option value="account">account</option>
-                  <option value="admin">admin</option>
-                </select>
-              </label>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => { setShowCreateUser(false); setCreateUserError(''); }}
-                  style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #d1d5db', background: '#f9fafb', cursor: 'pointer', fontWeight: 500 }}>ยกเลิก</button>
-                <button type="submit" disabled={createUserLoading}
-                  style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontWeight: 600, opacity: createUserLoading ? 0.7 : 1 }}>
-                  {createUserLoading ? 'กำลังสร้าง...' : 'สร้างผู้ใช้'}
+              <div className="admin-modal-body">
+                {createUserError && <div className="admin-alert-error">{createUserError}</div>}
+                {[
+                  { label: 'Username', key: 'username', type: 'text', placeholder: 'username' },
+                  { label: 'ชื่อ-นามสกุล', key: 'name', type: 'text', placeholder: 'ชื่อผู้ใช้' },
+                  { label: 'Email', key: 'email', type: 'email', placeholder: 'email@example.com' },
+                  { label: 'Password', key: 'password', type: 'password', placeholder: 'อย่างน้อย 6 ตัวอักษร' },
+                ].map(f => (
+                  <div className="admin-form-group" key={f.key}>
+                    <label className="admin-form-label">
+                      {f.label} <span style={{ color: '#dc2626' }}>*</span>
+                    </label>
+                    <input className="admin-form-input" type={f.type} value={createUserForm[f.key]}
+                      onChange={e => setCreateUserForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      required placeholder={f.placeholder} />
+                  </div>
+                ))}
+                <div className="admin-form-group">
+                  <label className="admin-form-label">Role</label>
+                  <select className="admin-form-select" value={createUserForm.role}
+                    onChange={e => setCreateUserForm(p => ({ ...p, role: e.target.value }))}>
+                    <option value="user">user</option>
+                    <option value="account">account</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" className="modal-btn modal-btn-cancel"
+                  onClick={() => { setShowCreateUser(false); setCreateUserError(''); }}>ยกเลิก</button>
+                <button type="submit" className="modal-btn modal-btn-primary" disabled={createUserLoading}>
+                  <FaPlus /> {createUserLoading ? 'กำลังสร้าง...' : 'สร้างผู้ใช้'}
                 </button>
               </div>
             </form>
@@ -238,128 +419,328 @@ const AdminDashboardPage = () => {
 
       {/* ── Reset Password Modal ── */}
       {showResetPw && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 32, boxShadow: '0 2px 24px rgba(0,0,0,0.15)', width: 380, maxWidth: '95vw' }}>
-            <h3 style={{ marginTop: 0, marginBottom: 8, color: '#1d4ed8' }}><FaKey style={{ marginRight: 8 }} />Reset Password</h3>
-            <p style={{ color: '#6b7280', marginBottom: 20 }}>ผู้ใช้: <strong>{resetPwUser?.name}</strong> (@{resetPwUser?.username})</p>
-            <label style={{ display: 'block', fontWeight: 600, marginBottom: 16 }}>
-              รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)
-              <input type="password" value={resetPwVal} onChange={e => setResetPwVal(e.target.value)} autoFocus
-                style={{ display: 'block', width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '1rem' }} />
-            </label>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowResetPw(false); setResetPwVal(''); }}
-                style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #d1d5db', background: '#f9fafb', cursor: 'pointer', fontWeight: 500 }}>ยกเลิก</button>
-              <button onClick={handleResetPassword} disabled={resetPwLoading || resetPwVal.length < 6}
-                style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', cursor: resetPwVal.length < 6 ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: (resetPwLoading || resetPwVal.length < 6) ? 0.6 : 1 }}>
-                {resetPwLoading ? 'กำลัง Reset...' : 'ยืนยัน Reset'}
+        <div className="admin-modal-overlay">
+          <div className="admin-modal admin-modal-sm">
+            <div className="admin-modal-header">
+              <div className="admin-modal-header-icon amber"><FaKey /></div>
+              <h3 className="admin-modal-title">Reset Password</h3>
+            </div>
+            <div className="admin-modal-body">
+              <p style={{ margin: '0 0 16px', fontSize: '0.88rem', color: '#6b7280' }}>
+                ผู้ใช้: <strong style={{ color: '#111827' }}>{resetPwUser?.name}</strong>
+                <span style={{ color: '#9ca3af' }}> (@{resetPwUser?.username})</span>
+              </p>
+              <div className="admin-form-group">
+                <label className="admin-form-label">รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)</label>
+                <input className="admin-form-input" type="password" value={resetPwVal}
+                  onChange={e => setResetPwVal(e.target.value)} autoFocus placeholder="รหัสผ่านใหม่" />
+              </div>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="modal-btn modal-btn-cancel"
+                onClick={() => { setShowResetPw(false); setResetPwVal(''); }}>ยกเลิก</button>
+              <button className="modal-btn modal-btn-amber" onClick={handleResetPassword}
+                disabled={resetPwLoading || resetPwVal.length < 6}>
+                <FaKey /> {resetPwLoading ? 'กำลัง Reset...' : 'ยืนยัน Reset'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="admin-dashboard-card">
-        {/* ── Stats Cards ── */}
+      {/* ── Topbar ── */}
+      <header className="admin-topbar">
+        <div className="admin-topbar-brand">
+          <div className="admin-topbar-brand-icon"><FaUserShield /></div>
+          <div className="admin-topbar-brand-text">
+            <span className="admin-topbar-brand-title">Admin Dashboard</span>
+            <span className="admin-topbar-brand-subtitle">CRM SmartIdea Management</span>
+          </div>
+        </div>
+        <div className="admin-topbar-actions">
+          <button className="topbar-btn topbar-btn-green"
+            onClick={() => navigate('/dashboard/admin/add-customer')}>
+            <FaUserPlus /><span> เพิ่มลูกค้า</span>
+          </button>
+          <button className="topbar-btn topbar-btn-green"
+            onClick={() => { setShowCreateUser(true); setCreateUserError(''); }}>
+            <FaPlus /><span> สร้างผู้ใช้ใหม่</span>
+          </button>
+          <button className="topbar-btn topbar-btn-white" onClick={handleBackup} disabled={backupLoading}>
+            <FaDownload /><span> {backupLoading ? 'กำลัง Export...' : 'Export Backup'}</span>
+          </button>
+          <button className="topbar-btn topbar-btn-logout" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      </header>
+
+      {/* ── Main Content ── */}
+      <main className="admin-content">
+
+        {/* Stats Grid */}
         {stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+          <div className="admin-stats-grid">
             {[
-              { icon: <FaUsers />, label: 'ผู้ใช้ทั้งหมด', value: stats.users.total, color: '#2563eb', sub: `user: ${stats.users.user} · account: ${stats.users.account} · admin: ${stats.users.admin}` },
-              { icon: <FaChartBar />, label: 'ลูกค้าทั้งหมด', value: stats.totalCustomers, color: '#059669', sub: null },
-              { icon: <FaChartBar />, label: 'รายการโอนทั้งหมด', value: stats.totalTransactions, color: '#7c3aed', sub: `เดือนนี้: ${stats.thisMonthTransactions}` },
-              { icon: <FaChartBar />, label: 'รออนุมัติ', value: stats.pendingTransactions, color: stats.pendingTransactions > 0 ? '#dc2626' : '#6b7280', sub: null },
+              { colorClass: 'blue',   icon: <FaUsers />,    value: stats.users.total,          label: 'ผู้ใช้ทั้งหมด',      sub: `user: ${stats.users.user} · account: ${stats.users.account} · admin: ${stats.users.admin}` },
+              { colorClass: 'green',  icon: <FaChartBar />, value: stats.totalCustomers,        label: 'ลูกค้าทั้งหมด',      sub: null },
+              { colorClass: 'purple', icon: <FaChartBar />, value: stats.totalTransactions,     label: 'รายการโอนทั้งหมด',   sub: `เดือนนี้: ${stats.thisMonthTransactions}` },
             ].map((s, i) => (
-              <div key={i} style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: s.color, fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>{s.icon} {s.label}</div>
-                <div style={{ fontSize: '1.8rem', fontWeight: '700', color: s.color, lineHeight: 1 }}>{s.value.toLocaleString()}</div>
-                {s.sub && <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: 4 }}>{s.sub}</div>}
+              <div key={i} className={`admin-stat-card ${s.colorClass}`}>
+                <div className="admin-stat-icon-box">{s.icon}</div>
+                <div className="admin-stat-body">
+                  <div className="admin-stat-value">{s.value.toLocaleString()}</div>
+                  <div className="admin-stat-label">{s.label}</div>
+                  {s.sub && <div className="admin-stat-sub">{s.sub}</div>}
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: 8 }}>
-          <h2 className="admin-dashboard-title" style={{ margin: 0 }}><FaUserShield style={{ marginRight: 8 }}/> Admin Dashboard</h2>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => { setShowCreateUser(true); setCreateUserError(''); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>
-              <FaPlus /> สร้างผู้ใช้ใหม่
+        {/* Customers Section */}
+        <div className="admin-section-card">
+          <div className="admin-section-header">
+            <h2 className="admin-section-title">
+              <FaListAlt /> รายการลูกค้าทั้งหมด
+              <span className="section-count">
+                {custSearch ? `${filteredCustomers.length}/${customers.length}` : customers.length}
+              </span>
+            </h2>
+            <button className="topbar-btn topbar-btn-green" style={{ padding: '6px 14px', fontSize: 13 }}
+              onClick={() => navigate('/dashboard/admin/add-customer')}>
+              <FaUserPlus /> เพิ่มลูกค้า
             </button>
-            <button onClick={handleBackup} disabled={backupLoading}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, fontSize: '0.9rem', cursor: backupLoading ? 'not-allowed' : 'pointer', opacity: backupLoading ? 0.7 : 1 }}>
-              <FaDownload /> {backupLoading ? 'กำลัง Export...' : 'Export Backup'}
-            </button>
+          </div>
+          {customers.length > 0 && (
+            <div className="table-toolbar">
+              <input
+                className="table-search-input"
+                type="text"
+                placeholder="ค้นหาชื่อ, รหัส, เบอร์โทร, ผู้ดูแล..."
+                value={custSearch}
+                onChange={e => setCustSearch(e.target.value)}
+              />
+              {custSearch && (
+                <button className="table-search-clear" onClick={() => setCustSearch('')}>✕</button>
+              )}
+            </div>
+          )}
+          <div className="admin-section-body">
+            {customersLoading ? (
+              <div className="admin-loading">กำลังโหลด...</div>
+            ) : customers.length === 0 ? (
+              <div className="table-empty">ยังไม่มีลูกค้า</div>
+            ) : filteredCustomers.length === 0 ? (
+              <div className="table-empty">ไม่พบลูกค้าที่ค้นหา</div>
+            ) : (
+              <>
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>รหัส / ชื่อลูกค้า</th>
+                      <th>ประเภท</th>
+                      <th>สินค้า / บริการของลูกค้า</th>
+                      <th style={{ textAlign: 'center' }}>บริการในระบบ</th>
+                      <th>ผู้ดูแล</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedCustomers.map((cust) => (
+                      <tr key={cust._id}>
+                        <td>
+                          <div className="user-info-name">{cust.name}</div>
+                          <div className="user-info-username">{cust.customerCode}</div>
+                          <div className="user-info-email">{cust.phone}</div>
+                        </td>
+                        <td><span className={`type-badge type-badge-${cust.customerType === 'บุคคลธรรมดา' ? 'individual' : 'corporate'}`}>{cust.customerType}</span></td>
+                        <td>
+                          <div className="user-info-name" style={{ maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.4 }}>{cust.productService || '-'}</div>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className={`service-count-badge${(cust.serviceCount || 0) > 0 ? ' has-service' : ''}`}>
+                            {cust.serviceCount || 0}
+                          </span>
+                        </td>
+                        <td>
+                          {cust.userId?.name
+                            ? <div className="user-cell">
+                                <div className="user-avatar user-avatar-user" style={{ width: 28, height: 28, fontSize: '0.75rem' }}>
+                                  {cust.userId.name[0]?.toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="user-info-name">{cust.userId.name}</div>
+                                  <div className="user-info-username">@{cust.userId.username}</div>
+                                </div>
+                              </div>
+                            : <span style={{ color: '#aaa' }}>-</span>}
+                        </td>
+                        <td>
+                          <div className="action-btn-group">
+                            <button className="action-btn action-btn-blue"
+                              onClick={() => navigate(`/dashboard/admin/customer/${cust._id}`)}>รายละเอียด</button>
+                            <button className="action-btn action-btn-green"
+                              onClick={() => navigate(`/dashboard/admin/customer/${cust._id}/services`)}>
+                              <FaTools /> บริการ
+                            </button>
+                            <button className="action-btn action-btn-amber"
+                              onClick={() => { setReassignCust(cust); setReassignToUserId(cust.userId?._id || ''); setShowReassign(true); }}>
+                              <FaUserPlus /> ย้าย
+                            </button>
+                            <button className="action-btn action-btn-red"
+                              onClick={() => handleDeleteCustClick(cust)}>
+                              <FaTrashAlt /> ลบ
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {custTotalPages > 1 && (
+                  <div className="admin-pagination">
+                    <button className="page-btn" onClick={() => setCustPage(p => Math.max(1, p - 1))} disabled={custPage === 1}>‹</button>
+                    {Array.from({ length: custTotalPages }, (_, i) => i + 1).map(p => (
+                      <button key={p} className={`page-btn${custPage === p ? ' active' : ''}`} onClick={() => setCustPage(p)}>{p}</button>
+                    ))}
+                    <button className="page-btn" onClick={() => setCustPage(p => Math.min(custTotalPages, p + 1))} disabled={custPage === custTotalPages}>›</button>
+                    <span className="page-info">หน้า {custPage}/{custTotalPages}</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* ── User Table ── */}
-        <div className="admin-dashboard-table-wrapper">
-          <table className="admin-dashboard-table">
-            <thead>
-              <tr>
-                <th>ชื่อ / Username</th>
-                <th>Role</th>
-                <th>สมัครเมื่อ</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user._id}>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{user.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>@{user.username}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{user.email}</div>
-                  </td>
-                  <td>
-                    <select className="admin-dashboard-select" value={user.role}
-                      onChange={e => handleRoleChange(user._id, e.target.value)}
-                      disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
-                      <option value="user">user</option>
-                      <option value="account">account</option>
-                      <option value="admin">admin</option>
-                    </select>
-                  </td>
-                  <td style={{ fontSize: '0.85rem', color: '#6b7280', whiteSpace: 'nowrap' }}>
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Link to={`/user/${user._id}`}
-                        style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', textDecoration: 'none', fontSize: '0.85rem' }}>
-                        รายละเอียด
-                      </Link>
-                      {user.role !== 'admin' && (
-                        <button onClick={() => handleImpersonate(user._id)} disabled={!!impersonateLoading}
-                          style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4, opacity: impersonateLoading === user._id ? 0.7 : 1 }}>
-                          <FaSignInAlt /> {impersonateLoading === user._id ? '...' : 'View'}
-                        </button>
-                      )}
-                      {user.role !== 'admin' && (
-                        <button onClick={() => { setResetPwUser(user); setResetPwVal(''); setShowResetPw(true); }}
-                          style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <FaKey /> Reset PW
-                        </button>
-                      )}
-                      <button className="admin-dashboard-delete-btn" onClick={() => handleDeleteClick(user._id)}
-                        disabled={user.role === 'admin' && user.email === 'admin@mail.com'}
-                        style={{ fontSize: '0.85rem', padding: '4px 10px' }}>
-                        <FaTrashAlt style={{ marginRight: 3 }}/> ลบ
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Users Section */}
+        <div className="admin-section-card">
+          <div className="admin-section-header">
+            <h2 className="admin-section-title">
+              <FaUsers /> รายชื่อผู้ใช้
+              <span className="section-count">
+                {(userSearch || userRoleFilter !== 'all') ? `${filteredUsers.length}/${users.length}` : users.length}
+              </span>
+            </h2>
+          </div>
+          {users.length > 0 && (
+            <div className="table-toolbar">
+              <input
+                className="table-search-input"
+                type="text"
+                placeholder="ค้นหาชื่อ, username, email..."
+                value={userSearch}
+                onChange={e => setUserSearch(e.target.value)}
+              />
+              {userSearch && (
+                <button className="table-search-clear" onClick={() => setUserSearch('')}>✕</button>
+              )}
+              <div className="role-filter-tabs">
+                {['ทั้งหมด', 'user', 'account', 'admin'].map(r => {
+                  const val = r === 'ทั้งหมด' ? 'all' : r;
+                  const count = val === 'all' ? users.length : users.filter(u => u.role === val).length;
+                  return (
+                    <button key={val}
+                      className={`role-filter-tab${userRoleFilter === val ? ' active' : ''}${val !== 'all' ? ` tab-${val}` : ''}`}
+                      onClick={() => setUserRoleFilter(val)}>
+                      {r}
+                      <span className="role-tab-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="admin-section-body">
+            {loading ? (
+              <div className="admin-loading">กำลังโหลด...</div>
+            ) : error ? (
+              <div className="admin-error">{error}</div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="table-empty">ไม่พบผู้ใช้ที่ค้นหา</div>
+            ) : (
+              <>
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>ชื่อ / Username</th>
+                      <th>Role</th>
+                      <th>สมัครเมื่อ</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedUsers.map((user) => (
+                      <tr key={user._id}>
+                        <td>
+                          <div className="user-cell">
+                            <div className={`user-avatar user-avatar-${user.role}`}>{user.name?.[0]?.toUpperCase() || '?'}</div>
+                            <div>
+                              <div className="user-info-name">{user.name}</div>
+                              <div className="user-info-username">@{user.username}</div>
+                              <div className="user-info-email">{user.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <select className={`admin-role-select role-select-${user.role}`} value={user.role}
+                            onChange={e => handleRoleChange(user._id, e.target.value)}
+                            disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
+                            <option value="user">user</option>
+                            <option value="account">account</option>
+                            <option value="admin">admin</option>
+                          </select>
+                        </td>
+                        <td className="date-cell">
+                          {user.createdAt
+                            ? new Date(user.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+                            : '-'}
+                        </td>
+                        <td>
+                          <div className="action-btn-group">
+                            <Link to={`/user/${user._id}`} className="action-btn action-btn-blue">
+                              รายละเอียด
+                            </Link>
+                            {user.role !== 'admin' && (
+                              <button className="action-btn action-btn-green"
+                                onClick={() => handleImpersonate(user._id)} disabled={!!impersonateLoading}
+                                style={{ opacity: impersonateLoading === user._id ? 0.6 : 1 }}>
+                                <FaSignInAlt /> {impersonateLoading === user._id ? '...' : 'View'}
+                              </button>
+                            )}
+                            {user.role !== 'admin' && (
+                              <button className="action-btn action-btn-amber"
+                                onClick={() => { setResetPwUser(user); setResetPwVal(''); setShowResetPw(true); }}>
+                                <FaKey /> Reset PW
+                              </button>
+                            )}
+                            <button className="action-btn action-btn-red"
+                              onClick={() => handleDeleteClick(user._id)}
+                              disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
+                              <FaTrashAlt /> ลบ
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {userTotalPages > 1 && (
+                  <div className="admin-pagination">
+                    <button className="page-btn" onClick={() => setUserPage(p => Math.max(1, p - 1))} disabled={userPage === 1}>‹</button>
+                    {Array.from({ length: userTotalPages }, (_, i) => i + 1).map(p => (
+                      <button key={p} className={`page-btn${userPage === p ? ' active' : ''}`} onClick={() => setUserPage(p)}>{p}</button>
+                    ))}
+                    <button className="page-btn" onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))} disabled={userPage === userTotalPages}>›</button>
+                    <span className="page-info">หน้า {userPage}/{userTotalPages}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      <button onClick={handleLogout}
-        style={{ position: 'fixed', right: 32, bottom: 32, padding: '14px 28px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: '1rem', cursor: 'pointer', zIndex: 1000 }}>
-        Logout
-      </button>
+      </main>
     </div>
   );
 };

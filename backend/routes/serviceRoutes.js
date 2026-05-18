@@ -64,11 +64,14 @@ router.get('/customers/:customerId/services', async (req, res) => {
   }
 });
 
-// Create service for a customer
+// Create service for a customer (admin only)
 router.post('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มบริการได้' });
+    }
     let customer;
     if (user.role === 'admin') {
       customer = await Customer.findById(req.params.customerId);

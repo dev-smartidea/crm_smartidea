@@ -7,6 +7,16 @@ import './CustomerListPage.css';
 
 export default function CustomerListPage() {
   const navigate = useNavigate();
+
+  // decode role
+  let userRole = null;
+  try {
+    const _b64 = (localStorage.getItem('token') || '').split('.')[1] || '';
+    const _norm = _b64.replace(/-/g, '+').replace(/_/g, '/');
+    const _pl = JSON.parse(decodeURIComponent(atob(_norm).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+    userRole = _pl.role || null;
+  } catch {}
+
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -204,9 +214,11 @@ export default function CustomerListPage() {
                             <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}/services`); setOpenDropdown(null); }}>
                               <EyeFill /> บริการ
                             </button>
-                            <button className="dropdown-item danger" onClick={() => { handleDeleteClick(cust._id); setOpenDropdown(null); }}>
-                              <TrashFill /> ลบ
-                            </button>
+                            {userRole === 'admin' && (
+                              <button className="dropdown-item danger" onClick={() => { handleDeleteClick(cust._id); setOpenDropdown(null); }}>
+                                <TrashFill /> ลบ
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

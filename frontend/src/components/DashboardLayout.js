@@ -5,7 +5,7 @@ import ImpersonationBanner from './ImpersonationBanner';
 import axios from 'axios';
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { HouseDoor, PersonPlus, People, PersonCircle, BoxArrowRight, Bell, Image, ClockHistory, Wallet, Send } from 'react-bootstrap-icons';
+import { HouseDoor, People, PersonCircle, BoxArrowRight, Bell, Image, ClockHistory, Wallet, Send } from 'react-bootstrap-icons';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -89,7 +89,6 @@ export default function DashboardLayout() {
         <aside className="sidebar" role="navigation" aria-label="เมนูหลัก" style={{ top: 64 + BANNER_H, height: `calc(100vh - ${64 + BANNER_H}px)` }}>
           <ul className="nav-menu"> 
             <li><NavLink to="/dashboard" end><HouseDoor /> แดชบอร์ด</NavLink></li>
-            <li><NavLink to="add"><PersonPlus /> เพิ่มลูกค้า</NavLink></li>
             <li><NavLink to="list"><People /> รายชื่อลูกค้า</NavLink></li>
             <li>
               <NavLink to="activities" className="notification-link">

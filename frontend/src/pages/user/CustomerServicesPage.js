@@ -9,6 +9,16 @@ import '../shared/ImageGalleryPage.css'; // reuse btn-header-upload style for gr
 export default function CustomerServicesPage() {
   const { id } = useParams(); // customer id
   const navigate = useNavigate();
+
+  // Decode role from token
+  let userRole = null;
+  try {
+    const _b64 = (localStorage.getItem('token') || '').split('.')[1] || '';
+    const _norm = _b64.replace(/-/g, '+').replace(/_/g, '/');
+    const _pl = JSON.parse(decodeURIComponent(atob(_norm).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+    userRole = _pl.role || null;
+  } catch {}
+
   const [customer, setCustomer] = useState(null);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -262,6 +272,7 @@ export default function CustomerServicesPage() {
               >
                 จัดการกิจกรรม
               </button>
+              {userRole === 'admin' && (
               <button 
                 className="btn-add-service" 
                 onClick={() => setShowCreate(true)}
@@ -271,6 +282,7 @@ export default function CustomerServicesPage() {
               >
                 <Plus /> เพิ่มบริการ
               </button>
+              )}
             </div>
           </div>
         </div>
@@ -304,7 +316,7 @@ export default function CustomerServicesPage() {
                   const isExpired = svc.dueDate && new Date(svc.dueDate) < new Date();
                   
                   return (
-                    <tr key={svc._id} className={isExpired ? 'expired-service' : ''} style={{ cursor: 'pointer' }}
+                    <tr key={svc._id} className={isExpired ? 'expired-service' : ''} style={{ cursor: 'pointer', position: 'relative', zIndex: openDropdown === svc._id ? 100 : 1 }}
                       onClick={() => { setSelectedService(svc); setShowDetail(true); }}>
                       <td>{svc.serviceType || svc.name}</td>
                     <td>{svc.cid || svc.customerIdField || '-'}</td>
@@ -361,7 +373,7 @@ export default function CustomerServicesPage() {
                           <button className="btn btn-edit" onClick={() => setEditingId(null)}><XCircle /> ยกเลิก</button>
                         </>
                       ) : (
-                        <div className="dropdown-container">
+                        <div className="dropdown-container" onClick={(e) => e.stopPropagation()}>
                           <button 
                             className="btn-dropdown-toggle" 
                             onClick={(e) => {
@@ -379,9 +391,11 @@ export default function CustomerServicesPage() {
                               <button className="dropdown-item" onClick={() => { navigate(`/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
                                 <EyeFill style={{ opacity: 0.7 }} /> ประวัติการโอน
                               </button>
-                              <button className="dropdown-item danger" onClick={() => { askDelete(svc._id); setOpenDropdown(null); }}>
-                                <TrashFill /> ลบ
-                              </button>
+                              {userRole === 'admin' && (
+                                <button className="dropdown-item danger" onClick={() => { askDelete(svc._id); setOpenDropdown(null); }}>
+                                  <TrashFill /> ลบ
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>

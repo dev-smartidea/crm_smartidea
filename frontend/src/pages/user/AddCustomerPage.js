@@ -9,6 +9,15 @@ import './AddCustomerPage.css';
 import '../shared/ImageGalleryPage.css'; 
 
 export default function AddCustomerPage() {
+  // Decode role from token (computed at render time, not a hook)
+  let userRole = null;
+  try {
+    const _b64 = (localStorage.getItem('token') || '').split('.')[1] || '';
+    const _norm = _b64.replace(/-/g, '+').replace(/_/g, '/');
+    const _pl = JSON.parse(decodeURIComponent(atob(_norm).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+    userRole = _pl.role || null;
+  } catch {}
+
   // 1. Initial States
   const customerTypeOptions = ['บุคคลธรรมดา', 'นิติบุคคล'];
   const businessSizeOptions = ['ธุรกิจขนาดเล็ก', 'ธุรกิจขนาดกลาง'];
@@ -48,6 +57,10 @@ export default function AddCustomerPage() {
 
   const nameInputRef = useRef(null);
   const taxIdInputRef = useRef(null);
+
+  // Admin: users list + assign
+  const [users, setUsers] = useState([]);
+  const [assignUserId, setAssignUserId] = useState('');
 
   // 2. Effects
   // ดึงข้อมูลลูกค้าทั้งหมดเพื่อใช้ตรวจสอบชื่อซ้ำและ Autocomplete
@@ -106,6 +119,24 @@ export default function AddCustomerPage() {
       !!code && allCustomers.some(c => (c.customerCode || '').trim() === code)
     );
   }, [formData.customerCode, allCustomers]);
+
+  // Fetch users list for admin (to assign customer)
+  useEffect(() => {
+    if (userRole !== 'admin') return;
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/users`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUsers(res.data || []);
+      } catch (err) {
+        console.error('Fetch users error:', err);
+      }
+    };
+    fetchUsers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole]);
 
   // 3. Handlers
   const handleChange = (e) => {
@@ -197,10 +228,16 @@ export default function AddCustomerPage() {
     setIsSubmitting(true);
     setSubmitError('');
 
+    // Admin must pick an assignee
+    if (!assignUserId) {
+      setSubmitError('กรุณาเลือกผู้ดูแลลูกค้า (Assign User)');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      // ตรวจสอบค่าจาก Query State กรณีลืมเลือกจาก dropdown (ถ้ามี logic รองรับ custom text)
-      const payload = { ...formData, _id: previewId };
+      const payload = { ...formData, _id: previewId, assignUserId };
       
       await axios.post(`${process.env.REACT_APP_API_URL}/api/customers`, payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -220,6 +257,17 @@ export default function AddCustomerPage() {
   };
 
   const progress = calculateProgress();
+
+  // Non-admin: show access denied
+  if (userRole !== 'admin') {
+    return (
+      <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🔒</div>
+        <h3 style={{ color: '#dc2626', marginBottom: 8 }}>ไม่มีสิทธิ์เข้าถึง</h3>
+        <p style={{ color: '#6b7280' }}>เฉพาะ Admin เท่านั้นที่สามารถเพิ่มลูกค้าได้</p>
+      </div>
+    );
+  }
 
   return (
     <div className="add-customer-page">
@@ -266,6 +314,30 @@ export default function AddCustomerPage() {
         )}
 
         <form onSubmit={handleSubmit}>
+
+          {/* ── Admin: Assign User ── */}
+          <div className="form-card" style={{ borderLeft: '4px solid #2563eb', marginBottom: 16 }}>
+            <div className="card-header" style={{ background: '#eff6ff' }}>
+              <h3 className="card-title" style={{ color: '#1d4ed8', margin: 0 }}>👤 มอบหมายผู้ดูแลลูกค้า <span style={{ color: '#dc2626' }}>*</span></h3>
+            </div>
+            <div className="card-body">
+              <div className="form-group">
+                <label style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 6, display: 'block' }}>เลือก User ที่จะดูแลลูกค้ารายนี้</label>
+                <select
+                  value={assignUserId}
+                  onChange={e => setAssignUserId(e.target.value)}
+                  required
+                  style={{ display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.95rem', background: '#fff' }}
+                >
+                  <option value="">-- เลือกผู้ดูแล --</option>
+                  {users.filter(u => u.role === 'user').map(u => (
+                    <option key={u._id} value={u._id}>{u.name} (@{u.username}) — {u.role}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div className="form-card">
             <div className="card-header">
               <BriefcaseFill className="card-icon" />

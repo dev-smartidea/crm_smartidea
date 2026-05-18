@@ -14,7 +14,7 @@ const UserDetailPage = ({ user, onBack }) => {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/customers?userId=${user._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setCustomers(res.data.filter(c => c.userId === user._id || c.userId === user.id));
+      setCustomers(res.data);
     } catch {}
     setLoading(false);
   }, [user]);
@@ -79,15 +79,19 @@ const UserDetailPage = ({ user, onBack }) => {
         ) : customers.length === 0 ? (
           <div style={{ color: '#888' }}>ไม่มีลูกค้าที่ดูแลอยู่</div>
         ) : (
-          <ul style={{ paddingLeft: 18, marginBottom: 0 }}>
-            {customers.map(c => (
-              <li key={c._id} style={{ marginBottom: 10, display: 'flex', alignItems: 'center', background: '#f7f8fa', borderRadius: 8, padding: '10px 16px' }}>
-                <span style={{ fontWeight: 600, color: '#222' }}>{c.name}</span>
-                <span style={{ color: '#007bff', fontSize: 14, marginLeft: 8, marginRight: 8 }}>- {c.service}</span>
-                <span style={{ color: '#888', fontSize: 14 }}>({c.phone})</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div style={{ maxHeight: 320, overflowY: 'auto', borderRadius: 8, border: '1px solid #e9ecef', padding: '4px 0' }}>
+              <ul style={{ paddingLeft: 0, marginBottom: 0, listStyle: 'none' }}>
+                {customers.map((c, idx) => (
+                  <li key={c._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: idx < customers.length - 1 ? '1px solid #f0f0f0' : 'none', background: '#fff' }}>
+                    <span style={{ fontWeight: 600, color: '#222' }}>{c.name}</span>
+                    <span style={{ color: '#888', fontSize: 13 }}>({c.phone})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div style={{ marginTop: 6, textAlign: 'right', fontSize: 13, color: '#888' }}>ทั้งหมด {customers.length} ราย</div>
+          </>
         )}
         <button onClick={onBack} className="user-detail-back-btn" style={{ marginTop: 32, width: '100%', height: 44, fontSize: 17, fontWeight: 600, borderRadius: 8 }}>ย้อนกลับ</button>
       </div>

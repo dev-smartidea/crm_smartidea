@@ -109,6 +109,20 @@ function App() {
           }
         />
 
+        {/* Admin standalone routes (no DashboardLayout sidebar) */}
+        <Route
+          path="/dashboard/admin/add-customer"
+          element={token && getRoleFromToken() === 'admin' ? <AddCustomerPage /> : <Navigate to="/dashboard" />}
+        />
+        <Route
+          path="/dashboard/admin/customer/:id/services"
+          element={token && getRoleFromToken() === 'admin' ? <CustomerServicesPage /> : <Navigate to="/dashboard" />}
+        />
+        <Route
+          path="/dashboard/admin/customer/:id"
+          element={token && getRoleFromToken() === 'admin' ? <CustomerDetailPage /> : <Navigate to="/dashboard" />}
+        />
+
         <Route
           path="/dashboard/account"
           element={

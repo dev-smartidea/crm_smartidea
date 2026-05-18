@@ -22,8 +22,13 @@ router.get('/', async (req, res) => {
 
   const { search } = req.query;
   let query = {};
-    // Always use the logged-in user's ID — ignore any client-supplied userId to prevent IDOR
-    query.userId = loggedInUserId;
+    // Admin sees all customers; other roles see only their own assigned customers
+    if (decoded.role !== 'admin') {
+      query.userId = loggedInUserId;
+    } else if (req.query.userId) {
+      // Admin can filter by specific userId (e.g. viewing user detail)
+      query.userId = req.query.userId;
+    }
     if (search) {
       // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
       // และป้องกัน regex injection ด้วยการ escape อักขระพิเศษ
@@ -37,8 +42,16 @@ router.get('/', async (req, res) => {
         { productService: regex },
       ];
     }
-    const customers = await Customer.find(query);
-    res.json(customers);
+    const customers = await Customer.find(query).populate('userId', 'name username email');
+    // นับจำนวนบริการต่อลูกค้าหนึ่งรอบ
+    const customerIds = customers.map(c => c._id);
+    const serviceCounts = await Service.aggregate([
+      { $match: { customerId: { $in: customerIds } } },
+      { $group: { _id: '$customerId', count: { $sum: 1 } } }
+    ]);
+    const countMap = Object.fromEntries(serviceCounts.map(s => [s._id.toString(), s.count]));
+    const result = customers.map(c => ({ ...c.toObject(), serviceCount: countMap[c._id.toString()] || 0 }));
+    res.json(result);
   } catch (err) {
     if (err.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Invalid token' });
@@ -57,7 +70,12 @@ router.post('/', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id;
+    // Only admin can create customers
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มลูกค้าได้' });
+    }
+    // Admin must assign to a specific user; fallback to admin's own id if not provided
+    const userId = req.body.assignUserId || decoded.id;
 
     // Allow client to provide a pre-generated _id (from preview). If provided and valid, use it.
     let idToUse = null;
@@ -131,7 +149,11 @@ router.get('/:id', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const customer = await Customer.findOne({ _id: req.params.id, userId: userId });
+    const query = decoded.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, userId: userId };
+
+    const customer = await Customer.findOne(query);
     if (!customer) {
       return res.status(404).json({ error: 'Customer not found' });
     }
@@ -150,7 +172,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    if (String(customer.userId) !== String(userId)) {
+    if (req.user.role !== 'admin' && String(customer.userId) !== String(userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     await session.withTransaction(async () => {
@@ -216,11 +238,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    if (String(customer.userId) !== String(userId)) {
+    if (req.user.role !== 'admin' && String(customer.userId) !== String(userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    // Whitelist fields to prevent userId/other-field injection
+    // Whitelist fields to prevent injection
     const allowedFields = [
       'customerCode', 'name', 'customerType', 'address', 'phone', 'email',
       'taxId', 'businessSize', 'productService', 'contactPerson',
@@ -229,6 +251,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const updateData = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) updateData[field] = req.body[field];
+    }
+    // Admin สามารถโยกลูกค้าไปให้ user คนอื่นได้
+    if (req.user.role === 'admin' && req.body.userId !== undefined) {
+      updateData.userId = req.body.userId;
     }
 
     const updated = await Customer.findByIdAndUpdate(
