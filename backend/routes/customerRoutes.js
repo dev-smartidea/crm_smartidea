@@ -270,6 +270,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     );
+    // โยก Service และ Transaction ไปให้ user คนใหม่ด้วย
+    if (req.user.role === 'admin' && req.body.userId !== undefined) {
+      await Promise.all([
+        Service.updateMany({ customerId: req.params.id }, { userId: req.body.userId }),
+        Transaction.updateMany({ customerId: req.params.id }, { userId: req.body.userId }),
+      ]);
+    }
     // log reassign
     if (req.user.role === 'admin' && req.body.userId !== undefined) {
       createAuditLog({ userId: req.user.id, username: req.user.username, action: 'reassign_customer', target: customer.name, detail: `โยกไป user: ${req.body.userId}`, ip: req.ip });
