@@ -18,6 +18,121 @@ function getUserFromReq(req) {
   }
 }
 
+// GET /api/services/due-monthly?month=4&year=2026
+// ดึงบริการที่ครบกำหนดในเดือนและปีที่ระบุ พร้อมข้อมูลการชำระล่าสุด
+router.get('/services/due-monthly', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const month = parseInt(req.query.month, 10); // 1-12
+    const year = parseInt(req.query.year, 10);
+    if (!month || !year || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'month (1-12) and year are required' });
+    }
+
+    // ช่วงวันที่ของเดือนที่เลือก
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const Transaction = require('../models/Transaction');
+
+    // codes ที่ถือว่าเป็นค่าบริการ (ไม่ใช่ค่าคลิก)
+    const SERVICE_FEE_CODES = ['13', '14', '15', '17', '18', '19', '20'];
+
+    // หา serviceId ที่มี transaction ค่าบริการ (approved) ในเดือนนั้น
+    // (= service ที่ครบกำหนดเดือนนี้และลูกค้าได้ต่ออายุแล้ว → dueDate ย้ายไปเดือนหน้าแต่ยังต้องแสดงที่เดือนนี้)
+    const paidTxAgg = await Transaction.aggregate([
+      {
+        $match: {
+          transactionDate: { $gte: startOfMonth, $lte: endOfMonth },
+          submissionStatus: 'approved',
+          'breakdowns.code': { $in: SERVICE_FEE_CODES }
+        }
+      },
+      { $group: { _id: '$serviceId' } }
+    ]);
+    const paidServiceIds = paidTxAgg.map(t => t._id);
+
+    // query: dueDate อยู่ในเดือนนี้ (ยังไม่ต่ออายุ) OR มี transaction ค่าบริการในเดือนนี้ (ต่ออายุแล้ว)
+    let userFilter = {};
+    if (user.role !== 'admin' && user.role !== 'account') {
+      userFilter.userId = user.id;
+    }
+    const serviceQuery = {
+      ...userFilter,
+      $or: [
+        { dueDate: { $gte: startOfMonth, $lte: endOfMonth } },
+        { _id: { $in: paidServiceIds } }
+      ]
+    };
+
+    const services = await Service.find(serviceQuery)
+      .populate('customerId', 'name customerCode')
+      .populate('userId', 'name role')
+      .sort({ dueDate: 1 });
+
+    // ดึง transaction ค่าบริการ (approved) ล่าสุดของแต่ละ service เฉพาะในเดือนที่เลือกเท่านั้น
+    const serviceIds = services.map(s => s._id);
+    const lastTransactions = await Transaction.aggregate([
+      {
+        $match: {
+          serviceId: { $in: serviceIds },
+          submissionStatus: 'approved',
+          'breakdowns.code': { $in: SERVICE_FEE_CODES },
+          transactionDate: { $gte: startOfMonth, $lte: endOfMonth }
+        }
+      },
+      { $sort: { transactionDate: -1 } },
+      {
+        $group: {
+          _id: '$serviceId',
+          transactionDate: { $first: '$transactionDate' },
+          bank: { $first: '$bank' },
+          amount: { $first: '$amount' },
+          notes: { $first: '$notes' }
+        }
+      }
+    ]);
+
+    const txMap = Object.fromEntries(lastTransactions.map(t => [t._id.toString(), t]));
+
+    const result = services.map(s => {
+      const sObj = s.toJSON();
+      const lastTx = txMap[s._id.toString()] || null;
+      // คำนวณระยะเวลา (เดือน) จาก startDate ถึง dueDate (= ระยะเวลาบริการปัจจุบัน)
+      let durationMonths = null;
+      if (s.startDate && s.dueDate) {
+        const start = new Date(s.startDate);
+        const end = new Date(s.dueDate);
+        const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+        durationMonths = months > 0 ? months : null;
+      }
+      // ตรวจสอบว่า dueDate อยู่ในเดือนที่เลือกจริงหรือไม่
+      // ถ้าไม่ = service ถูกดึงมาจาก transaction ในเดือนนี้ (ต่ออายุแล้ว dueDate ย้ายไปเดือนหน้า)
+      const due = s.dueDate ? new Date(s.dueDate) : null;
+      const isDueThisMonth = due
+        ? due >= startOfMonth && due <= endOfMonth
+        : false;
+      return {
+        ...sObj,
+        customerName: s.customerId?.name || '',
+        customerCode: s.customerId?.customerCode || '',
+        ownerName: s.userId?.name || '',
+        ownerRole: s.userId?.role || '',
+        durationMonths,
+        isDueThisMonth,
+        lastTransaction: lastTx
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('due-monthly error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get all services (for admin or filter by user)
 router.get('/services', async (req, res) => {
   try {
@@ -199,6 +314,20 @@ router.put('/services/:id', async (req, res) => {
     const update = { ...req.body };
     if (update.startDate) update.startDate = new Date(update.startDate);
     if (update.dueDate) update.dueDate = new Date(update.dueDate);
+
+    // ถ้ามีการเปลี่ยน dueDate ให้บันทึก durationMonths เดิมก่อน overwrite
+    if (update.dueDate || update.startDate) {
+      const existing = await Service.findById(req.params.id);
+      if (existing && existing.startDate && existing.dueDate) {
+        const oldStart = new Date(existing.startDate);
+        const oldEnd = new Date(existing.dueDate);
+        const oldMonths = (oldEnd.getFullYear() - oldStart.getFullYear()) * 12 + (oldEnd.getMonth() - oldStart.getMonth());
+        if (oldMonths > 0) {
+          update.previousDurationMonths = oldMonths;
+        }
+      }
+    }
+
     let service;
     if (user.role === 'admin') {
       service = await Service.findByIdAndUpdate(req.params.id, update, { new: true });

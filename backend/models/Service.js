@@ -47,6 +47,9 @@ const serviceSchema = new mongoose.Schema({
     default: 'อยู่ระหว่างบริการ'
   },
 
+  // ระยะเวลาของสัญญาก่อนต่ออายุ (เก็บไว้อัตโนมัติเมื่อมีการแก้ไข dueDate)
+  previousDurationMonths: { type: Number, default: null },
+
   // โอนบัญชี FB Ads
   transferStatus: { type: String, enum: ['active', 'transferred'], default: 'active' },
   transferredTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },

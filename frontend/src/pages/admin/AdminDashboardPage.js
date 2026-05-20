@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { FaUserShield, FaTrashAlt, FaSignInAlt, FaDownload, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools, FaClipboardList } from 'react-icons/fa';
+import { FaUserShield, FaTrashAlt, FaSignInAlt, FaDownload, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools, FaClipboardList, FaCalendarAlt } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
 import { AuthContext } from '../../context/AuthContext';
 import './AdminDashboardPage.css';
@@ -468,6 +468,9 @@ const AdminDashboardPage = () => {
           </button>
           <button className="topbar-btn topbar-btn-white" onClick={handleBackup} disabled={backupLoading}>
             <FaDownload /><span> {backupLoading ? 'กำลัง Export...' : 'Export Backup'}</span>
+          </button>
+          <button className="topbar-btn topbar-btn-white" onClick={() => navigate('/dashboard/admin/due-customers')}>
+            <FaCalendarAlt /><span> ลูกค้าครบกำหนด</span>
           </button>
           <button className="topbar-btn topbar-btn-white" onClick={() => navigate('/dashboard/admin/audit-log')}>
             <FaClipboardList /><span> Audit Log</span>

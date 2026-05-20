@@ -5,7 +5,7 @@ import ImpersonationBanner from './ImpersonationBanner';
 import axios from 'axios';
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Wallet, CheckCircleFill, XCircleFill, CreditCard, FileEarmarkSpreadsheet, Facebook } from 'react-bootstrap-icons';
+import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Wallet, CheckCircleFill, XCircleFill, CreditCard, FileEarmarkSpreadsheet, Facebook, CalendarCheck } from 'react-bootstrap-icons';
 
 export default function AccountDashboardLayout() {
   const navigate = useNavigate();
@@ -62,6 +62,7 @@ export default function AccountDashboardLayout() {
         <aside className="sidebar" role="navigation" aria-label="เมนูบัญชี" style={{ top: 64 + BANNER_H, height: `calc(100vh - ${64 + BANNER_H}px)` }}>
           <ul className="nav-menu"> 
             <li><NavLink to="/dashboard/account" end><HouseDoor /> แดชบอร์ด</NavLink></li>
+            <li><NavLink to="due-customers"><CalendarCheck /> ลูกค้าครบกำหนด</NavLink></li>
             <li><NavLink to="alltransactions"><Wallet /> รายการรอพิจารณา</NavLink></li>
             <li><NavLink to="approved"><CheckCircleFill /> รายการที่อนุมัติแล้ว</NavLink></li>
             <li><NavLink to="rejected"><XCircleFill /> รายการที่ปฏิเสธ</NavLink></li>

@@ -30,6 +30,7 @@ import NotificationPage from './pages/shared/NotificationPage';
 import ImageGalleryPage from './pages/shared/ImageGalleryPage';
 import AllTransactionPage from './pages/user/AllTransactionPage';
 import SubmittedTransactionsPage from './pages/user/SubmittedTransactionsPage';
+import DueCustomersPage from './pages/user/DueCustomersPage';
 import axios from 'axios';
 
 function App() {
@@ -99,6 +100,7 @@ function App() {
           <Route path="activities" element={<AllActivitiesPage />} />
           <Route path="services/:serviceId/transactions" element={<TransactionHistoryPage />} />
           <Route path="submitted-transactions" element={<SubmittedTransactionsPage />} />
+          <Route path="due-customers" element={<DueCustomersPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
@@ -113,6 +115,10 @@ function App() {
         <Route
           path="/dashboard/admin/audit-log"
           element={token && getRoleFromToken() === 'admin' ? <AuditLogPage /> : <Navigate to="/dashboard" />}
+        />
+        <Route
+          path="/dashboard/admin/due-customers"
+          element={token && getRoleFromToken() === 'admin' ? <DueCustomersPage /> : <Navigate to="/dashboard" />}
         />
 
         {/* Admin standalone routes (no DashboardLayout sidebar) */}
@@ -146,6 +152,7 @@ function App() {
           <Route path="rejected" element={<RejectedTransactionsPage />} />
           <Route path="approved" element={<ApprovedTransactionsPage />} />
           <Route path="images" element={<ImageGalleryPage />} />
+          <Route path="due-customers" element={<DueCustomersPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
