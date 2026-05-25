@@ -10,7 +10,7 @@ const serviceSchema = new mongoose.Schema({
   customerIdField: { type: String }, // เพื่อความเข้ากันได้ย้อนหลัง
 
   // ประเภทบริการ
-  serviceType: { type: String, enum: ['Google Ads', 'Facebook Ads'] },
+  serviceType: { type: String, enum: ['Google Ads', 'Facebook Ads', 'เว็บไซต์'] },
   // ชื่อบริการเดิม (คงไว้เพื่อเข้ากันได้) — จะ sync กับ serviceType ถ้าไม่กำหนด
   name: { type: String },
 
@@ -23,6 +23,10 @@ const serviceSchema = new mongoose.Schema({
 
   // URL / Facebook Page
   pageUrl: { type: String },
+
+  // Domain / Hosting (สำหรับบริการเว็บไซต์)
+  domain: { type: String },
+  hosting: { type: String },
 
   // วันที่เริ่ม-ครบกำหนด
   startDate: { type: Date },

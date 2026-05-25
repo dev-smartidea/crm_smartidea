@@ -38,7 +38,7 @@ export default function AllTransactionPage() {
     serviceEntries: [
       { serviceId: '', amount: '', breakdowns: [{ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }] }
     ],
-    transactionDate: '',
+    transactionDate: new Date().toISOString().split('T')[0],
     transactionTime: '',
     notes: '',
     bank: 'KBANK',
@@ -362,7 +362,7 @@ export default function AllTransactionPage() {
       serviceEntries: [
         { serviceId: '', amount: '', breakdowns: [{ code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }] }
       ],
-      transactionDate: '',
+      transactionDate: new Date().toISOString().split('T')[0],
       transactionTime: '',
       notes: '',
       bank: 'KBANK',

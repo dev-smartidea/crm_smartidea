@@ -36,7 +36,9 @@ export default function CustomerServicesPage() {
     pageUrl: '', 
     startDate: '', 
     dueDate: '',
-    cid: ''
+    cid: '',
+    domain: '',
+    hosting: ''
   });
   const [editingId, setEditingId] = useState(null);
   // state สำหรับจำนวนวัน
@@ -112,7 +114,15 @@ export default function CustomerServicesPage() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.serviceType) return;
+    const isWebsite = form.serviceType === 'เว็บไซต์';
+    if (!form.serviceType || !form.caretaker || !form.pageUrl || form.price === '' || !form.startDate || !form.dueDate || !form.cid) {
+      alert('กรุณากรอกข้อมูลให้ครบทุกช่อง (ยกเว้น note)');
+      return;
+    }
+    if (isWebsite && (!form.domain || !form.hosting)) {
+      alert('กรุณากรอก Domain และ Hosting ให้ครบ');
+      return;
+    }
     
     try {
       const payload = {
@@ -140,7 +150,9 @@ export default function CustomerServicesPage() {
         pageUrl: '',
         startDate: '',
         dueDate: '',
-        cid: ''
+        cid: '',
+        domain: '',
+        hosting: ''
       });
     } catch (err) {
       const detail = err?.response?.data?.error || err?.response?.data?.detail || err?.message || '';
@@ -318,7 +330,16 @@ export default function CustomerServicesPage() {
                   return (
                     <tr key={svc._id} className={isExpired ? 'expired-service' : ''} style={{ cursor: 'pointer', position: 'relative', zIndex: openDropdown === svc._id ? 100 : 1 }}
                       onClick={() => { setSelectedService(svc); setShowDetail(true); }}>
-                      <td>{svc.serviceType || svc.name}</td>
+                      <td>
+                        <span className={`badge badge-service ${
+                          (svc.serviceType || svc.name) === 'Google Ads' ? 'badge-google' :
+                          (svc.serviceType || svc.name) === 'Facebook Ads' ? 'badge-facebook' :
+                          (svc.serviceType || svc.name) === 'เว็บไซต์' ? 'badge-website' :
+                          'badge-other'
+                        }`}>
+                          {svc.serviceType || svc.name}
+                        </span>
+                      </td>
                     <td>{svc.cid || svc.customerIdField || '-'}</td>
                     <td>
                       <span className={
@@ -419,11 +440,24 @@ export default function CustomerServicesPage() {
             <form onSubmit={handleCreate} className="svc-form">
               <label>
                 ประเภทบริการ
-                <select value={form.serviceType} onChange={e => setForm({ ...form, serviceType: e.target.value })} required>
+                <select value={form.serviceType} onChange={e => setForm({ ...form, serviceType: e.target.value, domain: '', hosting: '' })} required>
                   <option value="Google Ads">Google Ads</option>
                   <option value="Facebook Ads">Facebook Ads</option>
+                  <option value="เว็บไซต์">เว็บไซต์</option>
                 </select>
               </label>
+              {form.serviceType === 'เว็บไซต์' && (
+                <div className="svc-row-2">
+                  <label>
+                    Domain
+                    <input type="text" value={form.domain} onChange={e => setForm({ ...form, domain: e.target.value })} placeholder="เช่น example.com" required />
+                  </label>
+                  <label>
+                    Hosting
+                    <input type="text" value={form.hosting} onChange={e => setForm({ ...form, hosting: e.target.value })} placeholder="เช่น SiteGround" required />
+                  </label>
+                </div>
+              )}
               <div className="svc-row-2">
                 <label>
                   ช่องทางการได้มา
@@ -461,7 +495,7 @@ export default function CustomerServicesPage() {
               </div>
               <label>
                 ผู้ดูแล
-                <select value={form.caretaker || ''} onChange={e => setForm({ ...form, caretaker: e.target.value })}>
+                <select value={form.caretaker || ''} onChange={e => setForm({ ...form, caretaker: e.target.value })} required>
                   <option value="">เลือกผู้ดูแล</option>
                   <option value="บิว">บิว</option>
                   <option value="น้ำ">น้ำ</option>
@@ -473,7 +507,7 @@ export default function CustomerServicesPage() {
               </label>
               <label>
                 Website / Facebook Page
-                <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="" />
+                <input type="text" value={form.pageUrl} onChange={e => setForm({ ...form, pageUrl: e.target.value })} placeholder="" required />
               </label>
               <div className="svc-row-2">
                 <label>
@@ -485,17 +519,17 @@ export default function CustomerServicesPage() {
                 </label>
                 <label>
                   ราคาบริการ (บาท)
-                  <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+                  <input type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
                 </label>
               </div>
               <div className="svc-row-2">
                 <label>
                   วันที่เริ่มต้น
-                  <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+                  <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} required />
                 </label>
                 <label>
                   วันที่ครบกำหนด
-                  <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
+                  <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} required />
                   {form.startDate && form.dueDate && daysDiff !== '' && (
                     <div style={{ fontSize: '0.95em', color: '#1a7f37', marginTop: 4 }}>
                       รวม {daysDiff} วัน
@@ -505,7 +539,7 @@ export default function CustomerServicesPage() {
               </div>
               <label>
                 CID
-                <input type="text" value={form.cid} onChange={e => setForm({ ...form, cid: e.target.value })} placeholder="" />
+                <input type="text" value={form.cid} onChange={e => setForm({ ...form, cid: e.target.value })} placeholder="" required />
               </label>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>สถานะ</label>

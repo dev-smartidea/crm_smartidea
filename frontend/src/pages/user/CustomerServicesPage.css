@@ -205,6 +205,9 @@
 .badge-service.badge-other {
   background: #43a047;
 }
+.badge-service.badge-website {
+  background: #f57c00;
+}
 .btn-view-details {
   background: #1976d2;
   color: #fff;

@@ -19,9 +19,9 @@ const connectDB = async () => {
       maxIdleTimeMS: 30000,
       heartbeatFrequencyMS: 30000,
     });
-    console.log('✅ MongoDB connected successfully');
+    console.log('✅ MongoDB connected successfully'); 
     isConnecting = false;
-
+ 
     // Register event handlers only once
     if (!listenersRegistered) {
       listenersRegistered = true;

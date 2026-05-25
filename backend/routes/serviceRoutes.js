@@ -211,7 +211,9 @@ router.post('/customers/:customerId/services', async (req, res) => {
       notes,
       pageUrl,
       startDate,
-      dueDate
+      dueDate,
+      domain,
+      hosting
     } = req.body;
 
     const effectiveName = serviceType || name; // ใช้ค่าใหม่เป็นหลัก
@@ -235,7 +237,9 @@ router.post('/customers/:customerId/services', async (req, res) => {
       startDate: startDate ? new Date(startDate) : undefined,
       dueDate: dueDate ? new Date(dueDate) : undefined,
       // store human-entered Customer ID (separate from ObjectId customerId)
-      customerIdField: customerIdField || cid || undefined
+      customerIdField: customerIdField || cid || undefined,
+      domain: domain || undefined,
+      hosting: hosting || undefined
     });
     await service.save();
 
