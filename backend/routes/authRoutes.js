@@ -54,7 +54,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 // PATCH /users/:id/role - เปลี่ยน role (admin เท่านั้น)
 router.patch('/users/:id/role', requireAdmin, async (req, res) => {
   const { role } = req.body;
-  if (!['user', 'account', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+  if (!['user', 'account', 'admin', 'admin_google', 'admin_facebook'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
   const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true, runValidators: true });
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ message: 'เปลี่ยน role สำเร็จ', user });

@@ -765,7 +765,7 @@ export default function AccountLedgerPage() {
                         // Google Ads — ตัดเงินเอง
                         <button
                           className="btn-charge"
-                          onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(item.amount || '')); setChargeNote(''); }}
+                          onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(getBreakdownAmount(item, 11) || '')); setChargeNote(''); }}
                           disabled={chargingId === item._id}
                         >
                           {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}

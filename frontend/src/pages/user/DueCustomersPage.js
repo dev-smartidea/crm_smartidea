@@ -68,7 +68,7 @@ export default function DueCustomersPage() {
       return payload.role || null;
     } catch { return null; }
   })();
-  const isAdmin = currentRole === 'admin' || currentRole === 'account';
+  const isAdmin = ['admin', 'admin_google', 'admin_facebook', 'account'].includes(currentRole);
 
   const fetchDue = useCallback(async () => {
     setLoading(true);

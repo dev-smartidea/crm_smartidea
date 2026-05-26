@@ -41,7 +41,7 @@ function LoginPage({ onLoginSuccess }) {
         }
         
         // Navigate by role
-        if (role === 'admin') {
+        if (role === 'admin' || role === 'admin_google' || role === 'admin_facebook') {
           navigate('/dashboard/admin');
         } else if (role === 'account') {
           navigate('/dashboard/account');

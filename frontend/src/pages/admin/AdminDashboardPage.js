@@ -11,6 +11,16 @@ const AdminDashboardPage = () => {
   // ลบ handleShowDetail (ใช้ Link แทน)
   const navigate = useNavigate();
   const { startImpersonation } = useContext(AuthContext);
+  // decode role ของ admin ที่ login อยู่
+  const currentRole = (() => {
+    try {
+      const t = localStorage.getItem('token') || '';
+      const b64 = t.split('.')[1];
+      const norm = b64.replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(decodeURIComponent(atob(norm).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))).role || null;
+    } catch { return null; }
+  })();
+  const isSuperAdmin = currentRole === 'admin';
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,6 +47,7 @@ const AdminDashboardPage = () => {
   const [userSearch, setUserSearch] = useState('');
   const [userPage, setUserPage] = useState(1);
   const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [pendingRoleChange, setPendingRoleChange] = useState(null); // { userId, userName, newRole }
   const CUST_PAGE_SIZE = 10;
   const USER_PAGE_SIZE = 20;
   const api = process.env.REACT_APP_API_URL;
@@ -57,8 +68,9 @@ const AdminDashboardPage = () => {
   }, [token]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (isSuperAdmin) fetchUsers();
+    else setLoading(false);
+  }, [isSuperAdmin, fetchUsers]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -99,7 +111,9 @@ const AdminDashboardPage = () => {
     }
   };
 
-  const handleRoleChange = async (userId, newRole) => {
+  const handleRoleChange = async () => {
+    if (!pendingRoleChange) return;
+    const { userId, newRole } = pendingRoleChange;
     try {
       await axios.patch(`${process.env.REACT_APP_API_URL}/api/auth/users/${userId}/role`, { role: newRole }, {
         headers: { Authorization: `Bearer ${token}` },
@@ -107,6 +121,8 @@ const AdminDashboardPage = () => {
       fetchUsers();
     } catch (err) {
       setError('เปลี่ยน role ไม่สำเร็จ');
+    } finally {
+      setPendingRoleChange(null);
     }
   };
 
@@ -229,7 +245,6 @@ const AdminDashboardPage = () => {
   };
 
   if (loading) return <div className="admin-loading">กำลังโหลด...</div>;
-  if (error) return <div className="admin-error">{error}</div>;
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -278,6 +293,32 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="admin-page">
+
+      {/* ── Confirm Role Change Modal ── */}
+      {pendingRoleChange && (
+        <div className="admin-modal-overlay">
+          <div className="admin-modal admin-modal-sm">
+            <div className="admin-modal-header">
+              <div className="admin-modal-header-icon blue"><FaUserShield /></div>
+              <h3 className="admin-modal-title">ยืนยันการเปลี่ยน Role</h3>
+            </div>
+            <div className="admin-modal-body">
+              <p style={{ margin: 0, color: '#374151' }}>
+                ต้องการเปลี่ยน role ของ <strong>{pendingRoleChange.userName}</strong> เป็น{' '}
+                <strong style={{ color: '#2563eb' }}>{pendingRoleChange.newRole}</strong> ใช่หรือไม่?
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="modal-btn modal-btn-cancel" onClick={() => setPendingRoleChange(null)}>
+                <XCircle /> ยกเลิก
+              </button>
+              <button className="modal-btn modal-btn-amber" onClick={handleRoleChange}>
+                <FaUserShield /> ยืนยัน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Reassign Customer Modal ── */}
       {showReassign && (
@@ -462,19 +503,23 @@ const AdminDashboardPage = () => {
             onClick={() => navigate('/dashboard/admin/add-customer')}>
             <FaUserPlus /><span> เพิ่มลูกค้า</span>
           </button>
+          {isSuperAdmin && (
           <button className="topbar-btn topbar-btn-green"
             onClick={() => { setShowCreateUser(true); setCreateUserError(''); }}>
             <FaPlus /><span> สร้างผู้ใช้ใหม่</span>
           </button>
+          )}
           <button className="topbar-btn topbar-btn-white" onClick={handleBackup} disabled={backupLoading}>
             <FaDownload /><span> {backupLoading ? 'กำลัง Export...' : 'Export Backup'}</span>
           </button>
           <button className="topbar-btn topbar-btn-white" onClick={() => navigate('/dashboard/admin/due-customers')}>
             <FaCalendarAlt /><span> ลูกค้าครบกำหนด</span>
           </button>
+          {isSuperAdmin && (
           <button className="topbar-btn topbar-btn-white" onClick={() => navigate('/dashboard/admin/audit-log')}>
             <FaClipboardList /><span> Audit Log</span>
           </button>
+          )}
           <button className="topbar-btn topbar-btn-logout" onClick={handleLogout}>
             Logout
           </button>
@@ -619,7 +664,8 @@ const AdminDashboardPage = () => {
           </div>
         </div>
 
-        {/* Users Section */}
+        {/* Users Section - แสดงเฉพาะ Super Admin */}
+        {isSuperAdmin && (
         <div className="admin-section-card">
           <div className="admin-section-header">
             <h2 className="admin-section-title">
@@ -642,7 +688,7 @@ const AdminDashboardPage = () => {
                 <button className="table-search-clear" onClick={() => setUserSearch('')}>✕</button>
               )}
               <div className="role-filter-tabs">
-                {['ทั้งหมด', 'user', 'account', 'admin'].map(r => {
+                {['ทั้งหมด', 'user', 'account', 'admin', 'admin_google', 'admin_facebook'].map(r => {
                   const val = r === 'ทั้งหมด' ? 'all' : r;
                   const count = val === 'all' ? users.length : users.filter(u => u.role === val).length;
                   return (
@@ -690,11 +736,13 @@ const AdminDashboardPage = () => {
                         </td>
                         <td>
                           <select className={`admin-role-select role-select-${user.role}`} value={user.role}
-                            onChange={e => handleRoleChange(user._id, e.target.value)}
+                            onChange={e => setPendingRoleChange({ userId: user._id, userName: user.name || user.username, newRole: e.target.value })}
                             disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
                             <option value="user">user</option>
                             <option value="account">account</option>
                             <option value="admin">admin</option>
+                            <option value="admin_google">admin_google</option>
+                            <option value="admin_facebook">admin_facebook</option>
                           </select>
                         </td>
                         <td className="date-cell">
@@ -745,6 +793,7 @@ const AdminDashboardPage = () => {
             )}
           </div>
         </div>
+        )} {/* end isSuperAdmin users section */}
 
       </main>
     </div>

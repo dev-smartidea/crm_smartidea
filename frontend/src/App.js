@@ -76,7 +76,7 @@ function App() {
           path="/dashboard"
           element={
             token
-              ? (getRoleFromToken() === 'admin'
+              ? (['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken())
                   ? <Navigate to="/dashboard/admin" />
                   : getRoleFromToken() === 'account'
                     ? <Navigate to="/dashboard/account" />
@@ -108,7 +108,7 @@ function App() {
         <Route
           path="/dashboard/admin"
           element={
-            token && getRoleFromToken() === 'admin' ? <AdminDashboardPage /> : <Navigate to="/dashboard" />
+            token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <AdminDashboardPage /> : <Navigate to="/dashboard" />
           }
         />
 
@@ -118,21 +118,21 @@ function App() {
         />
         <Route
           path="/dashboard/admin/due-customers"
-          element={token && getRoleFromToken() === 'admin' ? <DueCustomersPage /> : <Navigate to="/dashboard" />}
+          element={token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <DueCustomersPage /> : <Navigate to="/dashboard" />}
         />
 
         {/* Admin standalone routes (no DashboardLayout sidebar) */}
         <Route
           path="/dashboard/admin/add-customer"
-          element={token && getRoleFromToken() === 'admin' ? <AddCustomerPage /> : <Navigate to="/dashboard" />}
+          element={token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <AddCustomerPage /> : <Navigate to="/dashboard" />}
         />
         <Route
           path="/dashboard/admin/customer/:id/services"
-          element={token && getRoleFromToken() === 'admin' ? <CustomerServicesPage /> : <Navigate to="/dashboard" />}
+          element={token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <CustomerServicesPage /> : <Navigate to="/dashboard" />}
         />
         <Route
           path="/dashboard/admin/customer/:id"
-          element={token && getRoleFromToken() === 'admin' ? <CustomerDetailPage /> : <Navigate to="/dashboard" />}
+          element={token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <CustomerDetailPage /> : <Navigate to="/dashboard" />}
         />
 
         <Route
@@ -161,7 +161,7 @@ function App() {
           element={<UserDetailPageWrapper token={token} />}
         />
 
-        <Route path="*" element={<Navigate to={token ? (getRoleFromToken() === 'admin' ? '/dashboard/admin' : getRoleFromToken() === 'account' ? '/dashboard/account' : '/dashboard') : '/login'} />} />
+        <Route path="*" element={<Navigate to={token ? (['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? '/dashboard/admin' : getRoleFromToken() === 'account' ? '/dashboard/account' : '/dashboard') : '/login'} />} />
       </Routes>
     </Router>
   );

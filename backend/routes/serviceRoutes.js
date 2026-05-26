@@ -55,9 +55,15 @@ router.get('/services/due-monthly', async (req, res) => {
     const paidServiceIds = paidTxAgg.map(t => t._id);
 
     // query: dueDate อยู่ในเดือนนี้ (ยังไม่ต่ออายุ) OR มี transaction ค่าบริการในเดือนนี้ (ต่ออายุแล้ว)
+    const serviceScope =
+      user.role === 'admin_google' ? 'Google Ads' :
+      user.role === 'admin_facebook' ? 'Facebook Ads' : null;
     let userFilter = {};
-    if (user.role !== 'admin' && user.role !== 'account') {
+    if (user.role !== 'admin' && user.role !== 'account' && !serviceScope) {
       userFilter.userId = user.id;
+    }
+    if (serviceScope) {
+      userFilter.serviceType = serviceScope;
     }
     const serviceQuery = {
       ...userFilter,
@@ -162,16 +168,21 @@ router.get('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(user.role);
+    const serviceScope =
+      user.role === 'admin_google' ? 'Google Ads' :
+      user.role === 'admin_facebook' ? 'Facebook Ads' : null;
     let customer;
-    if (user.role === 'admin') {
+    if (isAdminRole) {
       customer = await Customer.findById(req.params.customerId);
     } else {
       customer = await Customer.findOne({ _id: req.params.customerId, userId: user.id });
     }
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    const services = user.role === 'admin'
-      ? await Service.find({ customerId: customer._id }).sort({ createdAt: -1 })
-      : await Service.find({ customerId: customer._id, userId: user.id }).sort({ createdAt: -1 });
+    let svcQuery = { customerId: customer._id };
+    if (!isAdminRole) svcQuery.userId = user.id;
+    if (serviceScope) svcQuery.serviceType = serviceScope;
+    const services = await Service.find(svcQuery).sort({ createdAt: -1 });
     res.json(services);
   } catch (err) {
     console.error('Get services error:', err);
@@ -184,16 +195,26 @@ router.post('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    if (user.role !== 'admin') {
+    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(user.role);
+    const serviceScope =
+      user.role === 'admin_google' ? 'Google Ads' :
+      user.role === 'admin_facebook' ? 'Facebook Ads' : null;
+    if (!isAdminRole) {
       return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มบริการได้' });
     }
     let customer;
-    if (user.role === 'admin') {
+    if (isAdminRole) {
       customer = await Customer.findById(req.params.customerId);
     } else {
       customer = await Customer.findOne({ _id: req.params.customerId, userId: user.id });
     }
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+    // ตรวจสอป scope: admin_google เพิ่ม Google Ads ได้, admin_facebook เพิ่ม Facebook Ads ได้
+    const effectiveServiceType = serviceType || name;
+    if (serviceScope && effectiveServiceType && effectiveServiceType !== serviceScope) {
+      return res.status(403).json({ error: `คุณได้รับอนุญาตเพิ่มเฉพาะบริการประเภท ${serviceScope} เท่านั้น` });
+    }
 
     // รับทั้งฟิลด์ใหม่และฟิลด์เดิม เพื่อความเข้ากันได้ย้อนหลัง
     const {

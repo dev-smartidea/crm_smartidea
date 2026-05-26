@@ -214,7 +214,7 @@ export default function CustomerListPage() {
                             <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}/services`); setOpenDropdown(null); }}>
                               <EyeFill /> บริการ
                             </button>
-                            {userRole === 'admin' && (
+                            {['admin', 'admin_google', 'admin_facebook'].includes(userRole) && (
                               <button className="dropdown-item danger" onClick={() => { handleDeleteClick(cust._id); setOpenDropdown(null); }}>
                                 <TrashFill /> ลบ
                               </button>

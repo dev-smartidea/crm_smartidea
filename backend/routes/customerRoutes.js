@@ -23,12 +23,22 @@ router.get('/', async (req, res) => {
 
   const { search } = req.query;
   let query = {};
-    // Admin sees all customers; other roles see only their own assigned customers
-    if (decoded.role !== 'admin') {
+    // กำหนด service scope ตาม role
+    const serviceScope =
+      decoded.role === 'admin_google' ? 'Google Ads' :
+      decoded.role === 'admin_facebook' ? 'Facebook Ads' : null;
+
+    if (decoded.role === 'admin') {
+      // Super admin: sees all (or filter by userId if query param)
+      if (req.query.userId) query.userId = req.query.userId;
+    } else if (serviceScope) {
+      // admin_google / admin_facebook: เห็นเฉพาะลูกค้าที่มีบริการในขอบเขตของตัวเอง
+      const scopedServices = await Service.find({ serviceType: serviceScope }, 'customerId');
+      const scopedCustomerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
+      query._id = { $in: scopedCustomerIds };
+    } else {
+      // user / account roles: เห็นเฉพาะลูกค้าของตัวเอง
       query.userId = loggedInUserId;
-    } else if (req.query.userId) {
-      // Admin can filter by specific userId (e.g. viewing user detail)
-      query.userId = req.query.userId;
     }
     if (search) {
       // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
@@ -71,8 +81,9 @@ router.post('/', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Only admin can create customers
-    if (decoded.role !== 'admin') {
+    // admin, admin_google, admin_facebook สามารถเพิ่มลูกค้าได้
+    const canCreate = ['admin', 'admin_google', 'admin_facebook'].includes(decoded.role);
+    if (!canCreate) {
       return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มลูกค้าได้' });
     }
     // Admin must assign to a specific user; fallback to admin's own id if not provided

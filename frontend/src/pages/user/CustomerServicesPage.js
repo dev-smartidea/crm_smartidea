@@ -40,7 +40,7 @@ export default function CustomerServicesPage() {
     domain: '',
     hosting: ''
   });
-  const [editingId, setEditingId] = useState(null);
+  const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(userRole);
   // state สำหรับจำนวนวัน
   const [daysDiff, setDaysDiff] = useState('');
   // คำนวณจำนวนวันเมื่อวันที่เปลี่ยน
@@ -54,6 +54,7 @@ export default function CustomerServicesPage() {
       setDaysDiff('');
     }
   }, [form.startDate, form.dueDate]);
+  const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ serviceType: '', status: 'อยู่ระหว่างบริการ', notes: '', startDate: '', dueDate: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState(null);
@@ -284,7 +285,7 @@ export default function CustomerServicesPage() {
               >
                 จัดการกิจกรรม
               </button>
-              {userRole === 'admin' && (
+              {isAdminRole && (
               <button 
                 className="btn-add-service" 
                 onClick={() => setShowCreate(true)}
@@ -412,7 +413,7 @@ export default function CustomerServicesPage() {
                               <button className="dropdown-item" onClick={() => { navigate(`/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
                                 <EyeFill style={{ opacity: 0.7 }} /> ประวัติการโอน
                               </button>
-                              {userRole === 'admin' && (
+                              {isAdminRole && (
                                 <button className="dropdown-item danger" onClick={() => { askDelete(svc._id); setOpenDropdown(null); }}>
                                   <TrashFill /> ลบ
                                 </button>
