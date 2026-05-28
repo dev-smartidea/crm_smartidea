@@ -11,12 +11,26 @@ router.use(authMiddleware);
 router.get('/activities', async (req, res) => {
   try {
     const userId = req.user.id;
+    const role = req.user.role;
+    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(role);
 
-    // Find all customers belonging to this user
-    const customers = await Customer.find({ userId });
-    const customerIds = customers.map(c => c._id);
+    let customerIds;
+    if (role === 'admin' || role === 'account') {
+      // Super admin / account: เห็นทุก customer
+      const all = await Customer.find({}, '_id');
+      customerIds = all.map(c => c._id);
+    } else if (isAdminRole) {
+      // admin_google / admin_facebook: เห็นเฉพาะ customer ที่มีบริการใน scope
+      const serviceScope = role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+      const Service = require('../models/Service');
+      const scopedServices = await Service.find({ serviceType: serviceScope }, 'customerId');
+      customerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
+    } else {
+      // user: เห็นเฉพาะลูกค้าของตัวเอง
+      const customers = await Customer.find({ userId }, '_id');
+      customerIds = customers.map(c => c._id);
+    }
 
-    // Find all activities for those customers
     const activities = await Activity.find({ customerId: { $in: customerIds } })
       .populate('customerId', 'name customerCode')
       .sort({ createdAt: -1 });
@@ -38,7 +52,7 @@ router.get('/customers/:customerId/activities', async (req, res) => {
     if (!customer) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
     }
-    if (customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+    if (customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึงข้อมูลลูกค้านี้' });
     }
 
@@ -63,7 +77,7 @@ router.post('/customers/:customerId/activities', async (req, res) => {
     if (!customer) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
     }
-    if (customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+    if (customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึงข้อมูลลูกค้านี้' });
     }
 
@@ -101,7 +115,7 @@ router.put('/activities/:id', async (req, res) => {
     }
     // Verify ownership
     const customer = await Customer.findById(activity.customerId);
-    if (customer && customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์แก้ไขกิจกรรมนี้' });
     }
 
@@ -130,7 +144,7 @@ router.put('/activities/:id/complete', async (req, res) => {
     }
     // Verify ownership
     const customer = await Customer.findById(activity.customerId);
-    if (customer && customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์อัปเดตกิจกรรมนี้' });
     }
     // Update status only if not already completed

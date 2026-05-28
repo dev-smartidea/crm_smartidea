@@ -85,6 +85,12 @@ router.get('/transactions', async (req, res) => {
     if (user.role === 'admin' || user.role === 'account') {
       // Admin และ Account เห็นทุกรายการ
       query = Transaction.find();
+    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
+      // Sub-admin: เห็นเฉพาะ transaction ที่เชื่อมโยงกับ service ใน scope
+      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+      const scopedServices = await Service.find({ serviceType: serviceScope }, '_id');
+      const scopedServiceIds = scopedServices.map(s => s._id);
+      query = Transaction.find({ serviceId: { $in: scopedServiceIds } });
     } else {
       // User เห็นเฉพาะของตัวเอง
       const services = await Service.find({ userId: user.id });
@@ -141,7 +147,8 @@ router.put('/transactions/:id/submit', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // ดึงรายการตามสิทธิ์
-    const tx = user.role === 'admin'
+    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(user.role);
+    const tx = isAdminRole
       ? await Transaction.findById(req.params.id)
       : await Transaction.findOne({ _id: req.params.id, userId: user.id });
 

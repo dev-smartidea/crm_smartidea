@@ -5,12 +5,13 @@ import axios from 'axios';
 import { FaUserShield, FaTrashAlt, FaSignInAlt, FaDownload, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools, FaClipboardList, FaCalendarAlt } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
 import { AuthContext } from '../../context/AuthContext';
+import ImpersonationBanner from '../../components/ImpersonationBanner';
 import './AdminDashboardPage.css';
 
 const AdminDashboardPage = () => {
   // ลบ handleShowDetail (ใช้ Link แทน)
   const navigate = useNavigate();
-  const { startImpersonation } = useContext(AuthContext);
+  const { startImpersonation, isImpersonating } = useContext(AuthContext);
   // decode role ของ admin ที่ login อยู่
   const currentRole = (() => {
     try {
@@ -104,7 +105,10 @@ const AdminDashboardPage = () => {
     setImpersonateLoading(null);
     if (result.success) {
       // force full reload เพื่อให้ App.js อ่าน token ใหม่จาก localStorage
-      const dest = result.role === 'account' ? '/dashboard/account' : '/dashboard';
+      const dest =
+        result.role === 'account' ? '/dashboard/account' :
+        ['admin', 'admin_google', 'admin_facebook'].includes(result.role) ? '/dashboard/admin' :
+        '/dashboard';
       window.location.href = dest;
     } else {
       setError(result.error);
@@ -293,7 +297,7 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="admin-page">
-
+      <ImpersonationBanner />
       {/* ── Confirm Role Change Modal ── */}
       {pendingRoleChange && (
         <div className="admin-modal-overlay">
@@ -520,9 +524,11 @@ const AdminDashboardPage = () => {
             <FaClipboardList /><span> Audit Log</span>
           </button>
           )}
+          {!isImpersonating && (
           <button className="topbar-btn topbar-btn-logout" onClick={handleLogout}>
             Logout
           </button>
+          )}
         </div>
       </header>
 

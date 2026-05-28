@@ -410,7 +410,7 @@ export default function CustomerServicesPage() {
                               <button className="dropdown-item" onClick={() => { setSelectedService(svc); setShowDetail(true); setOpenDropdown(null); }}>
                                 <EyeFill /> ดูรายละเอียด
                               </button>
-                              <button className="dropdown-item" onClick={() => { navigate(`/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
+                              <button className="dropdown-item" onClick={() => { navigate(isAdminRole ? `/dashboard/admin/services/${svc._id}/transactions` : `/dashboard/services/${svc._id}/transactions`); setOpenDropdown(null); }}>
                                 <EyeFill style={{ opacity: 0.7 }} /> ประวัติการโอน
                               </button>
                               {isAdminRole && (

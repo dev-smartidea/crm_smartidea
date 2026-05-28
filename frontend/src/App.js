@@ -131,6 +131,10 @@ function App() {
           element={token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <CustomerServicesPage /> : <Navigate to="/dashboard" />}
         />
         <Route
+          path="/dashboard/admin/services/:serviceId/transactions"
+          element={token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <TransactionHistoryPage /> : <Navigate to="/dashboard" />}
+        />
+        <Route
           path="/dashboard/admin/customer/:id"
           element={token && ['admin', 'admin_google', 'admin_facebook'].includes(getRoleFromToken()) ? <CustomerDetailPage /> : <Navigate to="/dashboard" />}
         />

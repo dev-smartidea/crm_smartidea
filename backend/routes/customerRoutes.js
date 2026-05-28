@@ -167,7 +167,8 @@ router.get('/:id', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const query = decoded.role === 'admin'
+    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(decoded.role);
+    const query = isAdminRole
       ? { _id: req.params.id }
       : { _id: req.params.id, userId: userId };
 
