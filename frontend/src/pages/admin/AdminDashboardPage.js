@@ -446,6 +446,8 @@ const AdminDashboardPage = () => {
                     onChange={e => setCreateUserForm(p => ({ ...p, role: e.target.value }))}>
                     <option value="user">user</option>
                     <option value="account">account</option>
+                    <option value="admin_google">admin_google</option>
+                    <option value="admin_facebook">admin_facebook</option>
                     <option value="admin">admin</option>
                   </select>
                 </div>
