@@ -77,8 +77,8 @@ app.use((req, res, next) => {
 });
 
 // รองรับ JSON body และ x-www-form-urlencoded (เผื่อบาง client ส่งฟิลด์ text มาพร้อม multipart)
-app.use(express.json({ limit: '10mb' })); // จำกัดขนาด JSON
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' })); // จำกัดขนาด JSON
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // ให้ express ให้บริการไฟล์ static สำหรับรูปโปรไฟล์
 app.use('/uploads/avatars', express.static(__dirname + '/uploads/avatars'));

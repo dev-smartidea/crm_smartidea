@@ -52,7 +52,16 @@ router.get('/images', async (req, res) => {
     const skip = (page - 1) * limit;
     
     // Filter
-    const filter = user.role === 'admin' ? {} : { userId: user.id };
+    let filter;
+    if (user.role === 'admin' || user.role === 'account') {
+      filter = {};
+    } else if (user.role === 'admin_google') {
+      filter = { service: 'Google Ads' };
+    } else if (user.role === 'admin_facebook') {
+      filter = { service: 'Facebook Ads' };
+    } else {
+      filter = { userId: user.id };
+    }
     if (customer) {
       filter.customerName = { $regex: customer, $options: 'i' };
     }
@@ -70,7 +79,7 @@ router.get('/images', async (req, res) => {
       const customerNames = [...new Set(items.map(i => i.customerName))];
       // Fetch customers by name for the current user
       const customerQuery = { name: { $in: customerNames } };
-      if (user.role !== 'admin') customerQuery.userId = user.id;
+      if (!['admin', 'account', 'admin_google', 'admin_facebook'].includes(user.role)) customerQuery.userId = user.id;
       const customers = await Customer.find(customerQuery).select('_id name website facebook userId');
       const customerByName = new Map(customers.map(c => [c.name, c]));
 

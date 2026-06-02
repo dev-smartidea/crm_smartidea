@@ -39,6 +39,9 @@ function requireAdmin(req, res, next) {
       }
       req.user = user;
       next();
+    }).catch(err => {
+      console.error('requireAdmin DB error:', err);
+      res.status(500).json({ error: 'Server error' });
     });
   } catch (err) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -53,11 +56,16 @@ router.get('/users', requireAdmin, async (req, res) => {
 
 // PATCH /users/:id/role - เปลี่ยน role (admin เท่านั้น)
 router.patch('/users/:id/role', requireAdmin, async (req, res) => {
-  const { role } = req.body;
-  if (!['user', 'account', 'admin', 'admin_google', 'admin_facebook'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
-  const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true, runValidators: true });
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ message: 'เปลี่ยน role สำเร็จ', user });
+  try {
+    const { role } = req.body;
+    if (!['user', 'account', 'admin', 'admin_google', 'admin_facebook'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'เปลี่ยน role สำเร็จ', user });
+  } catch (err) {
+    console.error('Change role error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
+  }
 });
 
 // PATCH /users/:id/reset-password — admin reset password ของ user
@@ -84,7 +92,7 @@ router.post('/admin/create-user', requireAdmin, async (req, res) => {
     if (!username || !name || !email || !password) {
       return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
     }
-    if (!['user', 'account', 'admin'].includes(role)) {
+    if (!['user', 'account', 'admin', 'admin_google', 'admin_facebook'].includes(role)) {
       return res.status(400).json({ error: 'Role ไม่ถูกต้อง' });
     }
     if (password.length < 6) {
@@ -107,29 +115,34 @@ router.post('/admin/create-user', requireAdmin, async (req, res) => {
 
 // DELETE /users/:id - ลบ user (admin เท่านั้น)
 router.delete('/users/:id', requireAdmin, async (req, res) => {
-  // ค้นหา user ก่อนลบเพื่อดึงข้อมูล avatar
-  const user = await User.findById(req.params.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  // เตรียมลบไฟล์ avatar ถ้ามี
-  let avatarPath = null;
-  if (user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '') {
-    const match = user.avatar.match(/\/uploads\/avatars\/(.+)$/);
-    if (match) {
-      const filename = match[1];
-      avatarPath = require('path').join(__dirname, '../uploads/avatars', filename);
+  try {
+    // ค้นหา user ก่อนลบเพื่อดึงข้อมูล avatar
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    // เตรียมลบไฟล์ avatar ถ้ามี
+    let avatarPath = null;
+    if (user.avatar && typeof user.avatar === 'string' && user.avatar.trim() !== '') {
+      const match = user.avatar.match(/\/uploads\/avatars\/(.+)$/);
+      if (match) {
+        const filename = match[1];
+        avatarPath = require('path').join(__dirname, '../uploads/avatars', filename);
+      }
     }
+    // ลบ user จาก database
+    await User.findByIdAndDelete(req.params.id);
+    createAuditLog({ userId: req.user._id, username: req.user.username, action: 'delete_user', target: user.username, ip: req.ip });
+    // ลบไฟล์ avatar ถ้ามี
+    if (avatarPath) {
+      const fs = require('fs');
+      fs.unlink(avatarPath, err => {
+        if (err) console.error('Failed to delete avatar:', avatarPath, err);
+      });
+    }
+    res.json({ message: 'ลบผู้ใช้สำเร็จ' });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
   }
-  // ลบ user จาก database
-  await User.findByIdAndDelete(req.params.id);
-  createAuditLog({ userId: req.user._id, username: req.user.username, action: 'delete_user', target: user.username, ip: req.ip });
-  // ลบไฟล์ avatar ถ้ามี
-  if (avatarPath) {
-    const fs = require('fs');
-    fs.unlink(avatarPath, err => {
-      if (err) console.error('Failed to delete avatar:', avatarPath, err);
-    });
-  }
-  res.json({ message: 'ลบผู้ใช้สำเร็จ' });
 });
 
 // ✅ Register
@@ -230,8 +243,14 @@ router.patch('/profile', async (req, res) => {
         oldCloudinaryId = userBefore.avatarCloudinaryId;
       }
       update.avatar = req.body.avatar;
-      // Save cloudinaryId if provided
-      if (req.body.avatarCloudinaryId) {
+      // ตรวจสอบว่า avatar URL มาจาก Cloudinary เท่านั้น (ป้องกันการใส่ URL ภายนอก)
+      if (update.avatar && typeof update.avatar === 'string' && update.avatar.trim() !== '') {
+        if (!update.avatar.startsWith('https://res.cloudinary.com/')) {
+          return res.status(400).json({ error: 'Invalid avatar URL' });
+        }
+      }
+      // รับ cloudinaryId เฉพาะเมื่อ avatar URL เป็น Cloudinary URL จริง
+      if (req.body.avatarCloudinaryId && update.avatar && update.avatar.startsWith('https://res.cloudinary.com/')) {
         update.avatarCloudinaryId = req.body.avatarCloudinaryId;
       }
     }

@@ -317,8 +317,11 @@ router.get('/services/:id', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     
     let service;
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'account') {
       service = await Service.findById(req.params.id).populate('customerId', 'name phone');
+    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
+      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+      service = await Service.findOne({ _id: req.params.id, serviceType: serviceScope }).populate('customerId', 'name phone');
     } else {
       service = await Service.findOne({ _id: req.params.id, userId: user.id }).populate('customerId', 'name phone');
     }
@@ -336,7 +339,16 @@ router.put('/services/:id', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const update = { ...req.body };
+    // Whitelist updatable fields — ป้องกัน mass assignment (userId/customerId ไม่อนุญาต)
+    const ALLOWED_SERVICE_UPDATE_FIELDS = [
+      'serviceType', 'name', 'status', 'notes', 'pageUrl',
+      'startDate', 'dueDate', 'price', 'cid', 'customerIdField',
+      'acquisitionRole', 'acquisitionPerson', 'ownership', 'domain', 'hosting'
+    ];
+    const update = {};
+    for (const key of ALLOWED_SERVICE_UPDATE_FIELDS) {
+      if (key in req.body) update[key] = req.body[key];
+    }
     if (update.startDate) update.startDate = new Date(update.startDate);
     if (update.dueDate) update.dueDate = new Date(update.dueDate);
 
@@ -354,8 +366,11 @@ router.put('/services/:id', async (req, res) => {
     }
 
     let service;
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'account') {
       service = await Service.findByIdAndUpdate(req.params.id, update, { new: true });
+    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
+      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+      service = await Service.findOneAndUpdate({ _id: req.params.id, serviceType: serviceScope }, update, { new: true });
     } else {
       service = await Service.findOneAndUpdate({ _id: req.params.id, userId: user.id }, update, { new: true });
     }
@@ -373,8 +388,11 @@ router.delete('/services/:id', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     let deleted;
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'account') {
       deleted = await Service.findByIdAndDelete(req.params.id);
+    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
+      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+      deleted = await Service.findOneAndDelete({ _id: req.params.id, serviceType: serviceScope });
     } else {
       deleted = await Service.findOneAndDelete({ _id: req.params.id, userId: user.id });
     }

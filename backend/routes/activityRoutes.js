@@ -170,7 +170,7 @@ router.delete('/activities/:id', async (req, res) => {
     }
     // Verify ownership
     const customer = await Customer.findById(activity.customerId);
-    if (customer && customer.userId.toString() !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'account') {
+    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์ลบกิจกรรมนี้' });
     }
 

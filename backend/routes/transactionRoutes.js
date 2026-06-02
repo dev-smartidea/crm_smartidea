@@ -84,7 +84,9 @@ router.get('/transactions', async (req, res) => {
     
     if (user.role === 'admin' || user.role === 'account') {
       // Admin และ Account เห็นทุกรายการ
-      query = Transaction.find();
+      const adminFilter = {};
+      if (req.query.userId) adminFilter.userId = req.query.userId;
+      query = Transaction.find(adminFilter);
     } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
       // Sub-admin: เห็นเฉพาะ transaction ที่เชื่อมโยงกับ service ใน scope
       const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
@@ -471,6 +473,16 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const update = { ...(req.body || {}) };
+    // ลบ field ที่ไม่อนุญาตให้แก้ไขผ่าน body (ป้องกัน mass assignment)
+    delete update.userId;
+    delete update.serviceId;
+    delete update.customerId;
+    delete update.submissionStatus;
+    delete update.submittedBy;
+    delete update.submittedAt;
+    delete update.cardCharged;
+    delete update.cardChargedAt;
+    delete update._id;
     if (update.transactionDate) update.transactionDate = new Date(update.transactionDate);
     // เก็บ transactionTime ถ้ามี
     if (update.transactionTime !== undefined) {

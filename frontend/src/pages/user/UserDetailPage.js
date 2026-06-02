@@ -64,16 +64,11 @@ const UserDetailPage = ({ user, onBack }) => {
     const fetchTx = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/transactions?limit=1`, {
+        // ใช้ userId query param ให้ backend filter ให้ — ไม่ดึงข้อมูลทั้งหมด 9999 รายการ
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/transactions?userId=${user._id}&limit=1`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        // filter client-side จาก transactions ที่โหลดมา — ใช้ pagination total ไม่ได้เพราะไม่มี userId filter
-        // ดึงทั้งหมดแล้วนับ
-        const all = await axios.get(`${process.env.REACT_APP_API_URL}/api/transactions?limit=9999`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const userTx = (all.data.transactions || []).filter(tx => tx.userId === user._id || tx.submittedBy?._id === user._id);
-        setTxCount(userTx.length);
+        setTxCount(res.data.pagination?.total ?? 0);
       } catch { setTxCount(0); }
     };
     fetchTx();
