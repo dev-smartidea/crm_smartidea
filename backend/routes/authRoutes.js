@@ -54,6 +54,17 @@ router.get('/users', requireAdmin, async (req, res) => {
   res.json(users);
 });
 
+// GET /users/:id - ดู user คนเดียว (admin เท่านั้น)
+router.get('/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id, '-password');
+    if (!user) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
+  }
+});
+
 // PATCH /users/:id/role - เปลี่ยน role (admin เท่านั้น)
 router.patch('/users/:id/role', requireAdmin, async (req, res) => {
   try {

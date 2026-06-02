@@ -187,11 +187,10 @@ function UserDetailPageWrapper({ token }) {
     const fetchUser = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/users`, {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const found = res.data.find(u => u._id === id);
-        setUser(found || null);
+        setUser(res.data || null);
       } catch {
         setError('ไม่สามารถโหลดข้อมูลผู้ใช้ได้');
       } finally {

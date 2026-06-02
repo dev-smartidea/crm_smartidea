@@ -18,9 +18,16 @@ export default function useNotificationSocket(onNotification, enabled = true) {
     });
     
     socket.on('notification', (data) => {
-      if (typeof callbackRef.current === 'function') {
-        callbackRef.current(data);
-      }
+      if (typeof callbackRef.current !== 'function') return;
+      // Client-side guard: only process notifications intended for the current user
+      try {
+        const token = localStorage.getItem('token');
+        if (token && data?.userId) {
+          const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+          if (payload.id !== data.userId) return;
+        }
+      } catch { /* invalid token — let callback handle */ }
+      callbackRef.current(data);
     });
 
     return () => {

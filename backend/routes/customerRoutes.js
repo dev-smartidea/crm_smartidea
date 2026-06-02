@@ -103,13 +103,17 @@ router.post('/', async (req, res) => {
       ? String(req.body.customerCode).trim()
       : genId.toString().slice(-5).toUpperCase();
 
-    const customer = new Customer({
-      _id: genId,
-      ...req.body,
-      customerCode: derivedCode,
-      userId: userId,
-    });
+    // Whitelist fields to prevent mass assignment
+    const ALLOWED_CUSTOMER_CREATE_FIELDS = [
+      'name', 'customerType', 'businessSize', 'address', 'phone', 'email',
+      'taxId', 'productService', 'contactPerson', 'lineId', 'facebook', 'website', 'notes'
+    ];
+    const customerData = { _id: genId, customerCode: derivedCode, userId };
+    for (const field of ALLOWED_CUSTOMER_CREATE_FIELDS) {
+      if (req.body[field] !== undefined) customerData[field] = req.body[field];
+    }
 
+    const customer = new Customer(customerData);
     await customer.save();
 
     // log โดย lookup username จาก User (JWT payload มีแค่ id/role)
@@ -142,12 +146,12 @@ router.post('/', async (req, res) => {
     if (err.code === 11000 && err.keyPattern && err.keyPattern.customerCode) {
       return res.status(409).json({ error: 'รหัสลูกค้าซ้ำ กรุณาใช้รหัสอื่น' });
     }
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: 'เพิ่มลูกค้าไม่สำเร็จ' });
   }
 });
 
 // GET /api/customers/preview - return a new ObjectId and derived 5-char customerCode
-router.get('/preview', async (req, res) => {
+router.get('/preview', authMiddleware, async (req, res) => {
   try {
     const genId = new mongoose.Types.ObjectId();
     const code = genId.toString().slice(-5).toUpperCase();
@@ -206,10 +210,12 @@ router.delete('/:id', authMiddleware, async (req, res) => {
         const transactions = await Transaction.find({ serviceId: { $in: serviceIds } }).session(session);
       
         // ลบไฟล์สลิปของ Transactions
+        const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
         for (const tx of transactions) {
           if (tx.slipImage) {
-            const slipPath = path.join(__dirname, '..', tx.slipImage);
-            if (fs.existsSync(slipPath)) {
+            const slipPath = path.resolve(__dirname, '..', tx.slipImage);
+            // Path traversal guard: ensure file is inside uploads directory
+            if (slipPath.startsWith(UPLOADS_DIR) && fs.existsSync(slipPath)) {
               fs.unlinkSync(slipPath);
             }
           }
@@ -228,8 +234,9 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       const images = await Image.find({ customerId }).session(session);
       for (const img of images) {
         if (img.url) {
-          const imgPath = path.join(__dirname, '..', img.url);
-          if (fs.existsSync(imgPath)) {
+          const imgPath = path.resolve(__dirname, '..', img.url);
+          // Path traversal guard: ensure file is inside uploads directory
+          if (imgPath.startsWith(UPLOADS_DIR) && fs.existsSync(imgPath)) {
             fs.unlinkSync(imgPath);
           }
         }
@@ -247,7 +254,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     res.json({ message: '✅ ลบลูกค้าและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ' });
   } catch (err) {
     console.error('Delete customer error:', err);
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: 'ลบลูกค้าไม่สำเร็จ' });
   } finally {
     session.endSession();
   }
@@ -295,7 +302,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
     res.json(updated);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(400).json({ error: 'อัปเดตข้อมูลลูกค้าไม่สำเร็จ' });
   }
 });
 

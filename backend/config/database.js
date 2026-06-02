@@ -11,6 +11,9 @@ const connectDB = async () => {
 
   try {
     isConnecting = true;
+    if (!process.env.MONGODB_URI) {
+      console.warn('⚠️  MONGODB_URI not set — connecting to localhost fallback. Set MONGODB_URI in production!');
+    }
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/crm_smartidea', {
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 75000,

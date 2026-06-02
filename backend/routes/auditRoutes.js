@@ -15,6 +15,9 @@ function requireAdmin(req, res, next) {
       }
       req.user = user;
       next();
+    }).catch(err => {
+      console.error('requireAdmin DB error:', err);
+      res.status(500).json({ error: 'Server error' });
     });
   } catch {
     res.status(401).json({ error: 'Unauthorized' });
