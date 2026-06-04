@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { CalendarCheck, ChevronLeft, ChevronRight, Funnel, X } from 'react-bootstrap-icons';
 import './DueCustomersPage.css';

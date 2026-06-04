@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getImageUrl } from '../../utils/imageHelper';
