@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
@@ -25,14 +25,14 @@ router.get('/', async (req, res) => {
   let query = {};
     // กำหนด service scope ตาม role
     const serviceScope =
-      decoded.role === 'admin_google' ? 'Google Ads' :
-      decoded.role === 'admin_facebook' ? 'Facebook Ads' : null;
+      decoded.role === 'google_manager' ? 'Google Ads' :
+      decoded.role === 'facebook_manager' ? 'Facebook Ads' : null;
 
     if (decoded.role === 'admin') {
       // Super admin: sees all (or filter by userId if query param)
       if (req.query.userId) query.userId = req.query.userId;
     } else if (serviceScope) {
-      // admin_google / admin_facebook: เห็นเฉพาะลูกค้าที่มีบริการในขอบเขตของตัวเอง
+      // google_manager / facebook_manager: เห็นเฉพาะลูกค้าที่มีบริการในขอบเขตของตัวเอง
       const scopedServices = await Service.find({ serviceType: serviceScope }, 'customerId');
       const scopedCustomerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
       query._id = { $in: scopedCustomerIds };
@@ -81,8 +81,8 @@ router.post('/', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // admin, admin_google, admin_facebook สามารถเพิ่มลูกค้าได้
-    const canCreate = ['admin', 'admin_google', 'admin_facebook'].includes(decoded.role);
+    // admin, google_manager, facebook_manager สามารถเพิ่มลูกค้าได้
+    const canCreate = ['admin', 'google_manager', 'facebook_manager'].includes(decoded.role);
     if (!canCreate) {
       return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มลูกค้าได้' });
     }
@@ -171,7 +171,7 @@ router.get('/:id', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(decoded.role);
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(decoded.role);
     const query = isAdminRole
       ? { _id: req.params.id }
       : { _id: req.params.id, userId: userId };

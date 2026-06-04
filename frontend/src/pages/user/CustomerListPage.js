@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
@@ -214,7 +214,7 @@ export default function CustomerListPage() {
                             <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}/services`); setOpenDropdown(null); }}>
                               <EyeFill /> บริการ
                             </button>
-                            {['admin', 'admin_google', 'admin_facebook'].includes(userRole) && (
+                            {['admin', 'google_manager', 'facebook_manager'].includes(userRole) && (
                               <button className="dropdown-item danger" onClick={() => { handleDeleteClick(cust._id); setOpenDropdown(null); }}>
                                 <TrashFill /> ลบ
                               </button>

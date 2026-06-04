@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { CalendarCheck, ChevronLeft, ChevronRight, Funnel, X } from 'react-bootstrap-icons';
 import './DueCustomersPage.css';
@@ -68,7 +68,7 @@ export default function DueCustomersPage() {
       return payload.role || null;
     } catch { return null; }
   })();
-  const isAdmin = ['admin', 'admin_google', 'admin_facebook', 'account'].includes(currentRole);
+  const isAdmin = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(currentRole);
 
   const fetchDue = useCallback(async () => {
     setLoading(true);

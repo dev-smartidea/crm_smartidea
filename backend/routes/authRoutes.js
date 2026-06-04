@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
@@ -69,7 +69,7 @@ router.get('/users/:id', requireAdmin, async (req, res) => {
 router.patch('/users/:id/role', requireAdmin, async (req, res) => {
   try {
     const { role } = req.body;
-    if (!['user', 'account', 'admin', 'admin_google', 'admin_facebook'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    if (!['user', 'account', 'admin', 'google_manager', 'facebook_manager'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
     const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true, runValidators: true });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ message: 'เปลี่ยน role สำเร็จ', user });
@@ -103,7 +103,7 @@ router.post('/admin/create-user', requireAdmin, async (req, res) => {
     if (!username || !name || !email || !password) {
       return res.status(400).json({ error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
     }
-    if (!['user', 'account', 'admin', 'admin_google', 'admin_facebook'].includes(role)) {
+    if (!['user', 'account', 'admin', 'google_manager', 'facebook_manager'].includes(role)) {
       return res.status(400).json({ error: 'Role ไม่ถูกต้อง' });
     }
     if (password.length < 6) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { PeopleFill, Plus, TrashFill, PencilSquare, ArrowLeftCircle, EyeFill, ThreeDotsVertical, XCircle, ExclamationTriangleFill } from 'react-bootstrap-icons';
@@ -40,7 +40,7 @@ export default function CustomerServicesPage() {
     domain: '',
     hosting: ''
   });
-  const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(userRole);
+  const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(userRole);
   // state สำหรับจำนวนวัน
   const [daysDiff, setDaysDiff] = useState('');
   // คำนวณจำนวนวันเมื่อวันที่เปลี่ยน

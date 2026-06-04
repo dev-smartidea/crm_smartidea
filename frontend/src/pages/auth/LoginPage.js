@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Person, Lock, Eye, EyeSlash } from 'react-bootstrap-icons';
 import './LoginPage.css';
@@ -41,7 +41,7 @@ function LoginPage({ onLoginSuccess }) {
         }
         
         // Navigate by role
-        if (role === 'admin' || role === 'admin_google' || role === 'admin_facebook') {
+        if (role === 'admin' || role === 'google_manager' || role === 'facebook_manager') {
           navigate('/dashboard/admin');
         } else if (role === 'account') {
           navigate('/dashboard/account');

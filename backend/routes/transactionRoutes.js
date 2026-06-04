@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -87,9 +87,9 @@ router.get('/transactions', async (req, res) => {
       const adminFilter = {};
       if (req.query.userId) adminFilter.userId = req.query.userId;
       query = Transaction.find(adminFilter);
-    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
+    } else if (user.role === 'google_manager' || user.role === 'facebook_manager') {
       // Sub-admin: เห็นเฉพาะ transaction ที่เชื่อมโยงกับ service ใน scope
-      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+      const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
       const scopedServices = await Service.find({ serviceType: serviceScope }, '_id');
       const scopedServiceIds = scopedServices.map(s => s._id);
       query = Transaction.find({ serviceId: { $in: scopedServiceIds } });
@@ -149,7 +149,7 @@ router.put('/transactions/:id/submit', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // ดึงรายการตามสิทธิ์
-    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(user.role);
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(user.role);
     const tx = isAdminRole
       ? await Transaction.findById(req.params.id)
       : await Transaction.findOne({ _id: req.params.id, userId: user.id });
@@ -293,10 +293,10 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
     const service = await Service.findById(req.params.serviceId);
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
-    // ตรวจสอบสิทธิ์: admin/account เห็นทุกอัน, admin_google/admin_facebook เห็นเฉพาะ service ใน scope, user เห็นของตัวเอง
+    // ตรวจสอบสิทธิ์: admin/account เห็นทุกอัน, google_manager/facebook_manager เห็นเฉพาะ service ใน scope, user เห็นของตัวเอง
     const isAdmin = user.role === 'admin' || user.role === 'account';
-    const isGoogleAdmin = user.role === 'admin_google' && service.serviceType === 'Google Ads';
-    const isFacebookAdmin = user.role === 'admin_facebook' && service.serviceType === 'Facebook Ads';
+    const isGoogleAdmin = user.role === 'google_manager' && service.serviceType === 'Google Ads';
+    const isFacebookAdmin = user.role === 'facebook_manager' && service.serviceType === 'Facebook Ads';
     const isOwner = service.userId.toString() === user.id;
     if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isOwner) {
       return res.status(403).json({ error: 'Forbidden' });

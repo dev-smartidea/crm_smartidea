@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Service = require('../models/Service');
@@ -56,8 +56,8 @@ router.get('/services/due-monthly', async (req, res) => {
 
     // query: dueDate อยู่ในเดือนนี้ (ยังไม่ต่ออายุ) OR มี transaction ค่าบริการในเดือนนี้ (ต่ออายุแล้ว)
     const serviceScope =
-      user.role === 'admin_google' ? 'Google Ads' :
-      user.role === 'admin_facebook' ? 'Facebook Ads' : null;
+      user.role === 'google_manager' ? 'Google Ads' :
+      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
     let userFilter = {};
     if (user.role !== 'admin' && user.role !== 'account' && !serviceScope) {
       userFilter.userId = user.id;
@@ -168,10 +168,10 @@ router.get('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(user.role);
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(user.role);
     const serviceScope =
-      user.role === 'admin_google' ? 'Google Ads' :
-      user.role === 'admin_facebook' ? 'Facebook Ads' : null;
+      user.role === 'google_manager' ? 'Google Ads' :
+      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
     let customer;
     if (isAdminRole) {
       customer = await Customer.findById(req.params.customerId);
@@ -195,17 +195,17 @@ router.post('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(user.role);
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(user.role);
     const serviceScope =
-      user.role === 'admin_google' ? 'Google Ads' :
-      user.role === 'admin_facebook' ? 'Facebook Ads' : null;
+      user.role === 'google_manager' ? 'Google Ads' :
+      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
     if (!isAdminRole) {
       return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มบริการได้' });
     }
     const customer = await Customer.findById(req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    // ตรวจสอป scope: admin_google เพิ่ม Google Ads ได้, admin_facebook เพิ่ม Facebook Ads ได้
+    // ตรวจสอป scope: google_manager เพิ่ม Google Ads ได้, facebook_manager เพิ่ม Facebook Ads ได้
     const effectiveServiceType = serviceType || name;
     if (serviceScope && effectiveServiceType && effectiveServiceType !== serviceScope) {
       return res.status(403).json({ error: `คุณได้รับอนุญาตเพิ่มเฉพาะบริการประเภท ${serviceScope} เท่านั้น` });
@@ -314,8 +314,8 @@ router.get('/services/:id', async (req, res) => {
     let service;
     if (user.role === 'admin' || user.role === 'account') {
       service = await Service.findById(req.params.id).populate('customerId', 'name phone');
-    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
-      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+    } else if (user.role === 'google_manager' || user.role === 'facebook_manager') {
+      const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
       service = await Service.findOne({ _id: req.params.id, serviceType: serviceScope }).populate('customerId', 'name phone');
     } else {
       service = await Service.findOne({ _id: req.params.id, userId: user.id }).populate('customerId', 'name phone');
@@ -363,8 +363,8 @@ router.put('/services/:id', async (req, res) => {
     let service;
     if (user.role === 'admin' || user.role === 'account') {
       service = await Service.findByIdAndUpdate(req.params.id, update, { new: true });
-    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
-      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+    } else if (user.role === 'google_manager' || user.role === 'facebook_manager') {
+      const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
       service = await Service.findOneAndUpdate({ _id: req.params.id, serviceType: serviceScope }, update, { new: true });
     } else {
       service = await Service.findOneAndUpdate({ _id: req.params.id, userId: user.id }, update, { new: true });
@@ -385,8 +385,8 @@ router.delete('/services/:id', async (req, res) => {
     let deleted;
     if (user.role === 'admin' || user.role === 'account') {
       deleted = await Service.findByIdAndDelete(req.params.id);
-    } else if (user.role === 'admin_google' || user.role === 'admin_facebook') {
-      const serviceScope = user.role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+    } else if (user.role === 'google_manager' || user.role === 'facebook_manager') {
+      const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
       deleted = await Service.findOneAndDelete({ _id: req.params.id, serviceType: serviceScope });
     } else {
       deleted = await Service.findOneAndDelete({ _id: req.params.id, userId: user.id });

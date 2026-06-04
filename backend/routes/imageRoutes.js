@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -55,9 +55,9 @@ router.get('/images', async (req, res) => {
     let filter;
     if (user.role === 'admin' || user.role === 'account') {
       filter = {};
-    } else if (user.role === 'admin_google') {
+    } else if (user.role === 'google_manager') {
       filter = { service: 'Google Ads' };
-    } else if (user.role === 'admin_facebook') {
+    } else if (user.role === 'facebook_manager') {
       filter = { service: 'Facebook Ads' };
     } else {
       filter = { userId: user.id };
@@ -79,7 +79,7 @@ router.get('/images', async (req, res) => {
       const customerNames = [...new Set(items.map(i => i.customerName))];
       // Fetch customers by name for the current user
       const customerQuery = { name: { $in: customerNames } };
-      if (!['admin', 'account', 'admin_google', 'admin_facebook'].includes(user.role)) customerQuery.userId = user.id;
+      if (!['admin', 'account', 'google_manager', 'facebook_manager'].includes(user.role)) customerQuery.userId = user.id;
       const customers = await Customer.find(customerQuery).select('_id name website facebook userId');
       const customerByName = new Map(customers.map(c => [c.name, c]));
 

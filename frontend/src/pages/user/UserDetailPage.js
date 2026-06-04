@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getImageUrl } from '../../utils/imageHelper';
@@ -9,16 +9,16 @@ const ROLE_LABELS = {
   user: 'User',
   account: 'Account',
   admin: 'Admin (Super)',
-  admin_google: 'Admin Google',
-  admin_facebook: 'Admin Facebook',
+  google_manager: 'Admin Google',
+  facebook_manager: 'Admin Facebook',
 };
 
 const ROLE_COLORS = {
   user: '#6c757d',
   account: '#f0ad4e',
   admin: '#dc3545',
-  admin_google: '#28a745',
-  admin_facebook: '#0d6efd',
+  google_manager: '#28a745',
+  facebook_manager: '#0d6efd',
 };
 
 const UserDetailPage = ({ user, onBack }) => {
@@ -171,8 +171,8 @@ const UserDetailPage = ({ user, onBack }) => {
               >
                 <option value="user">user</option>
                 <option value="account">account</option>
-                <option value="admin_google">admin_google</option>
-                <option value="admin_facebook">admin_facebook</option>
+                <option value="google_manager">google_manager</option>
+                <option value="facebook_manager">facebook_manager</option>
               </select>
             )}
           </div>

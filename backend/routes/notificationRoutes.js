@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
@@ -21,7 +21,7 @@ router.post('/notifications', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    if (!['admin', 'admin_google', 'admin_facebook', 'account'].includes(user.role)) {
+    if (!['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const { userId, type, title, message, link } = req.body;

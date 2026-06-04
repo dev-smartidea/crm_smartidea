@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useContext } from 'react';
+﻿import React, { useEffect, useState, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
@@ -107,7 +107,7 @@ const AdminDashboardPage = () => {
       // force full reload เพื่อให้ App.js อ่าน token ใหม่จาก localStorage
       const dest =
         result.role === 'account' ? '/dashboard/account' :
-        ['admin', 'admin_google', 'admin_facebook'].includes(result.role) ? '/dashboard/admin' :
+        ['admin', 'google_manager', 'facebook_manager'].includes(result.role) ? '/dashboard/admin' :
         '/dashboard';
       window.location.href = dest;
     } else {
@@ -446,8 +446,8 @@ const AdminDashboardPage = () => {
                     onChange={e => setCreateUserForm(p => ({ ...p, role: e.target.value }))}>
                     <option value="user">user</option>
                     <option value="account">account</option>
-                    <option value="admin_google">admin_google</option>
-                    <option value="admin_facebook">admin_facebook</option>
+                    <option value="google_manager">google_manager</option>
+                    <option value="facebook_manager">facebook_manager</option>
                     <option value="admin">admin</option>
                   </select>
                 </div>
@@ -696,7 +696,7 @@ const AdminDashboardPage = () => {
                 <button className="table-search-clear" onClick={() => setUserSearch('')}>✕</button>
               )}
               <div className="role-filter-tabs">
-                {['ทั้งหมด', 'user', 'account', 'admin', 'admin_google', 'admin_facebook'].map(r => {
+                {['ทั้งหมด', 'user', 'account', 'admin', 'google_manager', 'facebook_manager'].map(r => {
                   const val = r === 'ทั้งหมด' ? 'all' : r;
                   const count = val === 'all' ? users.length : users.filter(u => u.role === val).length;
                   return (
@@ -749,8 +749,8 @@ const AdminDashboardPage = () => {
                             <option value="user">user</option>
                             <option value="account">account</option>
                             <option value="admin">admin</option>
-                            <option value="admin_google">admin_google</option>
-                            <option value="admin_facebook">admin_facebook</option>
+                            <option value="google_manager">google_manager</option>
+                            <option value="facebook_manager">facebook_manager</option>
                           </select>
                         </td>
                         <td className="date-cell">

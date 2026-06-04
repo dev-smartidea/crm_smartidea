@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const Activity = require('../models/Activity');
 const Customer = require('../models/Customer');
@@ -12,7 +12,7 @@ router.get('/activities', async (req, res) => {
   try {
     const userId = req.user.id;
     const role = req.user.role;
-    const isAdminRole = ['admin', 'admin_google', 'admin_facebook'].includes(role);
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(role);
 
     let customerIds;
     if (role === 'admin' || role === 'account') {
@@ -20,8 +20,8 @@ router.get('/activities', async (req, res) => {
       const all = await Customer.find({}, '_id');
       customerIds = all.map(c => c._id);
     } else if (isAdminRole) {
-      // admin_google / admin_facebook: เห็นเฉพาะ customer ที่มีบริการใน scope
-      const serviceScope = role === 'admin_google' ? 'Google Ads' : 'Facebook Ads';
+      // google_manager / facebook_manager: เห็นเฉพาะ customer ที่มีบริการใน scope
+      const serviceScope = role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
       const Service = require('../models/Service');
       const scopedServices = await Service.find({ serviceType: serviceScope }, 'customerId');
       customerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
@@ -52,7 +52,7 @@ router.get('/customers/:customerId/activities', async (req, res) => {
     if (!customer) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
     }
-    if (customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
+    if (customer.userId.toString() !== req.user.id && !['admin', 'google_manager', 'facebook_manager', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึงข้อมูลลูกค้านี้' });
     }
 
@@ -77,7 +77,7 @@ router.post('/customers/:customerId/activities', async (req, res) => {
     if (!customer) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลลูกค้า' });
     }
-    if (customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
+    if (customer.userId.toString() !== req.user.id && !['admin', 'google_manager', 'facebook_manager', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์เข้าถึงข้อมูลลูกค้านี้' });
     }
 
@@ -115,7 +115,7 @@ router.put('/activities/:id', async (req, res) => {
     }
     // Verify ownership
     const customer = await Customer.findById(activity.customerId);
-    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
+    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'google_manager', 'facebook_manager', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์แก้ไขกิจกรรมนี้' });
     }
 
@@ -144,7 +144,7 @@ router.put('/activities/:id/complete', async (req, res) => {
     }
     // Verify ownership
     const customer = await Customer.findById(activity.customerId);
-    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
+    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'google_manager', 'facebook_manager', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์อัปเดตกิจกรรมนี้' });
     }
     // Update status only if not already completed
@@ -170,7 +170,7 @@ router.delete('/activities/:id', async (req, res) => {
     }
     // Verify ownership
     const customer = await Customer.findById(activity.customerId);
-    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'admin_google', 'admin_facebook', 'account'].includes(req.user.role)) {
+    if (customer && customer.userId.toString() !== req.user.id && !['admin', 'google_manager', 'facebook_manager', 'account'].includes(req.user.role)) {
       return res.status(403).json({ message: 'ไม่มีสิทธิ์ลบกิจกรรมนี้' });
     }
 
