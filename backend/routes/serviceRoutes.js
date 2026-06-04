@@ -202,12 +202,7 @@ router.post('/customers/:customerId/services', async (req, res) => {
     if (!isAdminRole) {
       return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มบริการได้' });
     }
-    let customer;
-    if (isAdminRole) {
-      customer = await Customer.findById(req.params.customerId);
-    } else {
-      customer = await Customer.findOne({ _id: req.params.customerId, userId: user.id });
-    }
+    const customer = await Customer.findById(req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
     // ตรวจสอป scope: admin_google เพิ่ม Google Ads ได้, admin_facebook เพิ่ม Facebook Ads ได้

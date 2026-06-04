@@ -23,7 +23,7 @@ export default function CustomerDetailPage() {
     productService: ''
   });
 
-  const customerTypeOptions = ['บุคคลธรรมดา', 'บริษัทจำกัด', 'หจก.'];
+  const customerTypeOptions = ['บุคคลธรรมดา', 'นิติบุคคล'];
   const businessSizeOptions = ['ธุรกิจขนาดเล็ก', 'ธุรกิจขนาดกลาง'];
 
   useEffect(() => {

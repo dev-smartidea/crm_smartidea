@@ -61,63 +61,31 @@ const serviceSchema = new mongoose.Schema({
   transferDate: { type: Date },
 }, {
   timestamps: true,
-  toJSON: {
-    virtuals: true,
-    transform: (doc, ret) => {
-      // คำนวณสถานะอัตโนมัติตามวันที่ครบกำหนด
-      try {
-        if (ret && ret.dueDate) {
-          const now = new Date();
-          const due = new Date(ret.dueDate);
-          if (!Number.isNaN(due.getTime())) {
-            const diffMs = now - due;
-            if (diffMs > 0) {
-              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-              if (diffDays > 30) {
-                ret.status = 'เกินกำหนดมากกว่า 30 วัน';
-              } else {
-                ret.status = 'ครบกำหนด';
-              }
-            } else {
-              // ยังไม่ครบกำหนด ให้เป็นสถานะระหว่างบริการถ้าไม่ได้ตั้งค่าอื่นไว้
-              if (!ret.status || ['ครบกำหนด','เกินกำหนดมากกว่า 30 วัน'].includes(ret.status)) {
-                ret.status = 'อยู่ระหว่างบริการ';
-              }
-            }
-          }
-        }
-      } catch (_) { /* noop */ }
-      return ret;
-    }
-  },
-  toObject: {
-    virtuals: true,
-    transform: (doc, ret) => {
-      try {
-        if (ret && ret.dueDate) {
-          const now = new Date();
-          const due = new Date(ret.dueDate);
-          if (!Number.isNaN(due.getTime())) {
-            const diffMs = now - due;
-            if (diffMs > 0) {
-              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-              if (diffDays > 30) {
-                ret.status = 'เกินกำหนดมากกว่า 30 วัน';
-              } else {
-                ret.status = 'ครบกำหนด';
-              }
-            } else {
-              if (!ret.status || ['ครบกำหนด','เกินกำหนดมากกว่า 30 วัน'].includes(ret.status)) {
-                ret.status = 'อยู่ระหว่างบริการ';
-              }
-            }
-          }
-        }
-      } catch (_) { /* noop */ }
-      return ret;
-    }
-  }
+  toJSON: { virtuals: true, transform: statusTransform },
+  toObject: { virtuals: true, transform: statusTransform }
 });
+
+function statusTransform(doc, ret) {
+  try {
+    if (ret && ret.dueDate) {
+      const now = new Date();
+      const due = new Date(ret.dueDate);
+      if (!Number.isNaN(due.getTime())) {
+        const diffMs = now - due;
+        if (diffMs > 0) {
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          ret.status = diffDays > 30 ? 'เกินกำหนดมากกว่า 30 วัน' : 'ครบกำหนด';
+        } else {
+          // ยังไม่ครบกำหนด ให้เป็นสถานะระหว่างบริการถ้าไม่ได้ตั้งค่าอื่นไว้
+          if (!ret.status || ['ครบกำหนด', 'เกินกำหนดมากกว่า 30 วัน'].includes(ret.status)) {
+            ret.status = 'อยู่ระหว่างบริการ';
+          }
+        }
+      }
+    }
+  } catch (_) { /* noop */ }
+  return ret;
+}
 
 // Virtual: ระยะเวลาเดือน (คำนวณจาก startDate - dueDate)
 serviceSchema.virtual('months').get(function () {

@@ -51,6 +51,27 @@ router.get('/ledger', async (req, res) => {
       filter.bank = bank;
     }
 
+    // Filter by serviceType — ทำที่ DB โดย lookup service IDs ก่อน เพื่อให้ pagination ถูกต้อง
+    if (serviceType) {
+      const matchingServices = await Service.find({ serviceType }).select('_id');
+      filter.serviceId = { $in: matchingServices.map(s => s._id) };
+    }
+
+    // Filter by search — ทำที่ DB เพื่อให้ total count และ pagination ถูกต้อง
+    if (search) {
+      const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const [matchingCustomers, matchingServices] = await Promise.all([
+        Customer.find({ name: searchRegex }).select('_id'),
+        Service.find({ $or: [{ pageUrl: searchRegex }, { customerIdField: searchRegex }] }).select('_id')
+      ]);
+      const matchingCustomerIds = matchingCustomers.map(c => c._id);
+      const matchingServiceIdsSearch = matchingServices.map(s => s._id);
+      filter.$or = [
+        { customerId: { $in: matchingCustomerIds } },
+        { serviceId: { $in: matchingServiceIdsSearch } }
+      ];
+    }
+
     // ดึง transactions พร้อม populate
     const [transactions, total] = await Promise.all([
       Transaction.find(filter)
@@ -81,26 +102,8 @@ router.get('/ledger', async (req, res) => {
       Transaction.countDocuments(filter)
     ]);
 
-    // Filter by serviceType (ต้องทำหลัง populate)
-    let filteredTransactions = transactions;
-    if (serviceType) {
-      filteredTransactions = transactions.filter(t => 
-        t.serviceId?.serviceType === serviceType
-      );
-    }
-
-    // Filter by search (ชื่อลูกค้า, pageUrl)
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredTransactions = filteredTransactions.filter(t => 
-        t.customerId?.name?.toLowerCase().includes(searchLower) ||
-        t.serviceId?.pageUrl?.toLowerCase().includes(searchLower) ||
-        t.serviceId?.customerIdField?.toLowerCase().includes(searchLower)
-      );
-    }
-
     // ดึง transactions ทั้งหมดเพื่อหาว่าแต่ละ service มี transaction แรกเมื่อไหร่
-    const serviceIds = [...new Set(filteredTransactions.map(t => t.serviceId?._id?.toString()).filter(Boolean))];
+    const serviceIds = [...new Set(transactions.map(t => t.serviceId?._id?.toString()).filter(Boolean))];
     const firstTransactionMap = {};
 
     if (serviceIds.length > 0) {
@@ -116,7 +119,7 @@ router.get('/ledger', async (req, res) => {
     }
 
     // แปลงข้อมูลให้อยู่ในรูปแบบที่ต้องการ (ตาม Excel)
-    const ledgerItems = filteredTransactions.map((t, index) => {
+    const ledgerItems = transactions.map((t, index) => {
       const service = t.serviceId || {};
       const customer = t.customerId || {};
       const serviceIdStr = service._id?.toString();

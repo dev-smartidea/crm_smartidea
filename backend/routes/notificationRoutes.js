@@ -3,9 +3,27 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
 const { getIO } = require('../socket');
-// POST /api/notifications - สร้างการแจ้งเตือนใหม่ (สำหรับทดสอบ push real-time)
+
+// Helper: auth + return user object (id, role)
+function getUserFromReq(req) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return { id: decoded.id, role: decoded.role || 'user' };
+  } catch {
+    return null;
+  }
+}
+
+// POST /api/notifications - สร้างการแจ้งเตือนใหม่ (admin/account เท่านั้น)
 router.post('/notifications', async (req, res) => {
   try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!['admin', 'admin_google', 'admin_facebook', 'account'].includes(user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const { userId, type, title, message, link } = req.body;
     if (!userId || !type || !title || !message) {
       return res.status(400).json({ error: 'Missing required fields' }); 
@@ -22,18 +40,6 @@ router.post('/notifications', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
-// Helper: auth + return user object (id, role)
-function getUserFromReq(req) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return null;
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return { id: decoded.id, role: decoded.role || 'user' };
-  } catch {
-    return null;
-  }
-}
 
 // GET /api/notifications - ดึงการแจ้งเตือนทั้งหมดจาก database
 router.get('/notifications', async (req, res) => {

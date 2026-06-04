@@ -106,9 +106,9 @@ router.get('/transactions', async (req, res) => {
     }
 
     // ถ้ากรองรายการที่เติมเงินแล้ว (cardCharged หรือ fbToppedUp)
-    // ใช้ userId ตรงๆ เพื่อให้ครอบคลุมทุกรายการของ user ไม่ว่า service จะ assign ให้ใครก็ตาม
+    // ต่อ query เดิมด้วย where เพื่อรักษา role-based filter ที่สร้างไว้แล้ว
     if (funded === 'true') {
-      query = Transaction.find({ userId: user.id, $or: [{ cardCharged: true }, { fbToppedUp: true }] });
+      query = query.where({ $or: [{ cardCharged: true }, { fbToppedUp: true }] });
     }
 
     // นับจำนวนทั้งหมดก่อน pagination
@@ -293,8 +293,12 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
     const service = await Service.findById(req.params.serviceId);
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
-    // ตรวจสอบสิทธิ์: admin เห็นทุกอัน, user เห็นเฉพาะของตัวเอง
-    if (user.role !== 'admin' && service.userId.toString() !== user.id) {
+    // ตรวจสอบสิทธิ์: admin/account เห็นทุกอัน, admin_google/admin_facebook เห็นเฉพาะ service ใน scope, user เห็นของตัวเอง
+    const isAdmin = user.role === 'admin' || user.role === 'account';
+    const isGoogleAdmin = user.role === 'admin_google' && service.serviceType === 'Google Ads';
+    const isFacebookAdmin = user.role === 'admin_facebook' && service.serviceType === 'Facebook Ads';
+    const isOwner = service.userId.toString() === user.id;
+    if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isOwner) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 

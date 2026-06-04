@@ -102,7 +102,7 @@ router.get('/dashboard/summary', async (req, res) => {
         { $unwind: { path: '$svc', preserveNullAndEmptyArrays: true } },
         {
           $group: {
-            _id: { $ifNull: ['$svc.name', 'อื่นๆ'] },
+            _id: { $ifNull: ['$svc.serviceType', 'อื่นๆ'] },
             total: { $sum: '$amount' }
           }
         },
@@ -140,9 +140,9 @@ router.get('/dashboard/summary', async (req, res) => {
       'เกินกำหนดมากกว่า 30 วัน': svcPlain.filter(s => s.status === 'เกินกำหนดมากกว่า 30 วัน').length
     };
     const serviceTypeCount = {
-      'Google Ads': services.filter(s => s.name === 'Google Ads').length,
-      'Facebook Ads': services.filter(s => s.name === 'Facebook Ads').length,
-      'other': services.filter(s => s.name !== 'Google Ads' && s.name !== 'Facebook Ads').length
+      'Google Ads': services.filter(s => s.serviceType === 'Google Ads').length,
+      'Facebook Ads': services.filter(s => s.serviceType === 'Facebook Ads').length,
+      'other': services.filter(s => s.serviceType !== 'Google Ads' && s.serviceType !== 'Facebook Ads').length
     };
 
     // Revenue summary
