@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical, XCircle } from 'react-bootstrap-icons';
+import { PeopleFill, Search, EyeFill, TrashFill, ExclamationTriangleFill, PersonCircle, ThreeDotsVertical, XCircle, ChevronDown, ChevronRight } from 'react-bootstrap-icons';
 import { getImageUrl } from '../../utils/imageHelper';
 import './CustomerListPage.css';
 
@@ -24,6 +24,9 @@ export default function CustomerListPage() {
   const [customerToDelete, setCustomerToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [expandedCustomer, setExpandedCustomer] = useState(null);
+  const [customerServices, setCustomerServices] = useState({});
+  const [loadingServices, setLoadingServices] = useState(new Set());
   const api = process.env.REACT_APP_API_URL;
 
   const fetchCustomers = async (searchValue = '') => {
@@ -82,6 +85,38 @@ export default function CustomerListPage() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const fetchServices = async (customerId) => {
+    if (customerServices[customerId] !== undefined) return;
+    setLoadingServices(prev => { const s = new Set(prev); s.add(customerId); return s; });
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${api}/api/customers/${customerId}/services`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCustomerServices(prev => ({ ...prev, [customerId]: res.data || [] }));
+    } catch {
+      setCustomerServices(prev => ({ ...prev, [customerId]: [] }));
+    } finally {
+      setLoadingServices(prev => { const s = new Set(prev); s.delete(customerId); return s; });
+    }
+  };
+
+  const toggleCustomer = (customerId) => {
+    if (expandedCustomer === customerId) {
+      setExpandedCustomer(null);
+    } else {
+      setExpandedCustomer(customerId);
+      fetchServices(customerId);
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    if (status === 'อยู่ระหว่างบริการ') return { background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' };
+    if (status === 'ครบกำหนด') return { background: '#fff7ed', color: '#92400e', border: '1px solid #fcd34d' };
+    if (status?.includes('เกินกำหนด')) return { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' };
+    return { background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' };
   };
 
   const DeleteConfirmModal = () => (
@@ -167,63 +202,149 @@ export default function CustomerListPage() {
                 </tr>
               ) : customers.length > 0 ? (
                 customers.map((cust) => (
-                  <tr key={cust._id} className="customer-row">
-                    <td>
-                      <div className="customer-info">
-                        {cust.avatarUrl ? (
-                          <img src={getImageUrl(cust.avatarUrl, api)} alt={cust.name} className="customer-avatar" />
+                  <React.Fragment key={cust._id}>
+                    <tr
+                      className="customer-row"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleCustomer(cust._id)}
+                    >
+                      <td>
+                        <div className="customer-info">
+                          {expandedCustomer === cust._id
+                            ? <ChevronDown size={13} style={{ marginRight: 5, color: '#1976d2', flexShrink: 0 }} />
+                            : <ChevronRight size={13} style={{ marginRight: 5, color: '#adb5bd', flexShrink: 0 }} />
+                          }
+                          {cust.avatarUrl ? (
+                            <img src={getImageUrl(cust.avatarUrl, api)} alt={cust.name} className="customer-avatar" />
+                          ) : (
+                            <div className="customer-avatar placeholder">
+                              <PersonCircle size={32} />
+                            </div>
+                          )}
+                          <span className="customer-name">{cust.name}</span>
+                        </div>
+                      </td>
+                      <td>{cust._id?.slice(-5).toUpperCase() || '-'}</td>
+                      <td>
+                        {cust.productService ? (
+                          <span className="badge badge-product" title={cust.productService}>
+                            {cust.productService.length > 40 ? `${cust.productService.slice(0, 40)}…` : cust.productService}
+                          </span>
                         ) : (
-                          <div className="customer-avatar placeholder">
-                            <PersonCircle size={32} />
-                          </div>
+                          <span className="badge badge-product">-</span>
                         )}
-                        <span className="customer-name">{cust.name}</span>
-                      </div>
-                    </td>
-                    <td>{cust._id?.slice(-5).toUpperCase() || '-'}</td>
-                    <td>
-                      {cust.productService ? (
-                        <span className="badge badge-product" title={cust.productService}>
-                          {cust.productService.length > 40 ? `${cust.productService.slice(0, 40)}…` : cust.productService}
-                        </span>
-                      ) : (
-                        <span className="badge badge-product">-</span>
-                      )}
-                    </td>
-                    <td>{cust.contactPerson || '-'}</td>
-                    <td>{cust.phone}</td>
-                    <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
-                    <td>
-                      <div className="dropdown-container">
-                        <button 
-                          className="btn-dropdown-toggle" 
-                          onClick={(e) => {
-                            // ป้องกัน event จากการวิ่งไปถึง document และไปปิด dropdown ทิ้งก่อนที่ toggle จะทำงาน
-                            e.stopPropagation();
-                            // ใช้ functional update เพื่อหลีกเลี่ยงค่า state เก่าจาก closure
-                            setOpenDropdown((prev) => (prev === cust._id ? null : cust._id));
-                          }}
-                        >
-                          <ThreeDotsVertical />
-                        </button>
-                        {openDropdown === cust._id && (
-                          <div className="dropdown-menu-custom">
-                            <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}`); setOpenDropdown(null); }}>
-                              <EyeFill /> ดูรายละเอียด
-                            </button>
-                            <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}/services`); setOpenDropdown(null); }}>
-                              <EyeFill /> บริการ
-                            </button>
-                            {['admin', 'google_manager', 'facebook_manager'].includes(userRole) && (
-                              <button className="dropdown-item danger" onClick={() => { handleDeleteClick(cust._id); setOpenDropdown(null); }}>
-                                <TrashFill /> ลบ
+                      </td>
+                      <td>{cust.contactPerson || '-'}</td>
+                      <td>{cust.phone}</td>
+                      <td>{new Date(cust.createdAt).toLocaleDateString('th-TH')}</td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <div className="dropdown-container">
+                          <button
+                            className="btn-dropdown-toggle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdown((prev) => (prev === cust._id ? null : cust._id));
+                            }}
+                          >
+                            <ThreeDotsVertical />
+                          </button>
+                          {openDropdown === cust._id && (
+                            <div className="dropdown-menu-custom">
+                              <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}`); setOpenDropdown(null); }}>
+                                <EyeFill /> ดูรายละเอียด
                               </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                              <button className="dropdown-item" onClick={() => { navigate(`/dashboard/customer/${cust._id}/services`); setOpenDropdown(null); }}>
+                                <EyeFill /> บริการ
+                              </button>
+                              {['admin', 'google_manager', 'facebook_manager'].includes(userRole) && (
+                                <button className="dropdown-item danger" onClick={() => { handleDeleteClick(cust._id); setOpenDropdown(null); }}>
+                                  <TrashFill /> ลบ
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {expandedCustomer === cust._id && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: 0, background: '#f8faff', borderLeft: '3px solid #1976d2', borderBottom: '2px solid #dbeafe' }}>
+                          {loadingServices.has(cust._id) ? (
+                            <div style={{ padding: '14px 24px', color: '#6c757d', fontSize: 13 }}>กำลังโหลดบริการ...</div>
+                          ) : !customerServices[cust._id] || customerServices[cust._id].length === 0 ? (
+                            <div style={{ padding: '14px 24px', color: '#adb5bd', fontSize: 13 }}>ไม่พบบริการ</div>
+                          ) : (
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                              <thead>
+                                <tr style={{ background: '#eef4ff', borderBottom: '1px solid #dbeafe' }}>
+                                  <th style={{ padding: '7px 12px 7px 24px', fontWeight: 600, color: '#1e40af', textAlign: 'left' }}>ประเภทบริการ</th>
+                                  <th style={{ padding: '7px 12px', fontWeight: 600, color: '#1e40af', textAlign: 'left' }}>CID</th>
+                                  <th style={{ padding: '7px 12px', fontWeight: 600, color: '#1e40af', textAlign: 'left' }}>เริ่มโฆษณา</th>
+                                  <th style={{ padding: '7px 12px', fontWeight: 600, color: '#1e40af', textAlign: 'left' }}>ครบกำหนด</th>
+                                  <th style={{ padding: '7px 12px', fontWeight: 600, color: '#1e40af', textAlign: 'center' }}>ระยะเวลา</th>
+                                  <th style={{ padding: '7px 12px', fontWeight: 600, color: '#1e40af', textAlign: 'left' }}>สถานะ</th>
+                                  <th style={{ padding: '7px 12px', fontWeight: 600, color: '#1e40af', textAlign: 'right' }}>ค่าบริการ (฿)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {customerServices[cust._id].map((svc) => {
+                                  const svcColor = svc.serviceType === 'Google Ads' ? '#4285F4' : svc.serviceType === 'Facebook Ads' ? '#1877f2' : '#6c757d';
+                                  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+                                  const calcMonths = () => {
+                                    if (!svc.startDate || !svc.dueDate) return '-';
+                                    const ms = new Date(svc.dueDate) - new Date(svc.startDate);
+                                    if (ms <= 0) return '-';
+                                    const months = Math.ceil(ms / (1000 * 60 * 60 * 24 * 30));
+                                    return `${months} เดือน`;
+                                  };
+                                  return (
+                                    <tr
+                                      key={svc._id}
+                                      style={{ borderBottom: '1px solid #e8edf8', cursor: 'pointer' }}
+                                      onClick={() => navigate(`/dashboard/customer/${cust._id}/services`)}
+                                    >
+                                      <td style={{ padding: '8px 12px 8px 24px' }}>
+                                        <span style={{
+                                          background: svcColor, color: '#fff',
+                                          borderRadius: 5, padding: '2px 9px', fontSize: 11.5, fontWeight: 600,
+                                        }}>
+                                          {svc.serviceType || svc.name || '-'}
+                                        </span>
+                                      </td>
+                                      <td style={{ padding: '8px 12px', color: '#374151', fontFamily: 'monospace' }}>
+                                        {svc.cid || svc.customerIdField || '-'}
+                                      </td>
+                                      <td style={{ padding: '8px 12px', color: '#6c757d' }}>
+                                        {fmtDate(svc.startDate)}
+                                      </td>
+                                      <td style={{ padding: '8px 12px', color: '#6c757d' }}>
+                                        {fmtDate(svc.dueDate)}
+                                      </td>
+                                      <td style={{ padding: '8px 12px', textAlign: 'center', color: '#374151' }}>
+                                        {calcMonths()}
+                                      </td>
+                                      <td style={{ padding: '8px 12px' }}>
+                                        <span style={{
+                                          ...getStatusStyle(svc.status),
+                                          borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 500,
+                                        }}>
+                                          {svc.status || '-'}
+                                        </span>
+                                      </td>
+                                      <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: '#1e40af' }}>
+                                        {svc.price ? svc.price.toLocaleString('th-TH') : '-'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))
               ) : (
                 <tr>
