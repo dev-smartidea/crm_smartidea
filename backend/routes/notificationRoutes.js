@@ -32,7 +32,7 @@ router.post('/notifications', async (req, res) => {
     await notification.save();
     // push real-time
     try {
-      getIO().emit('notification', { userId, type, title, message, link, _id: notification._id, createdAt: notification.createdAt });
+      getIO().to('user:' + userId).emit('notification', { userId, type, title, message, link, _id: notification._id, createdAt: notification.createdAt });
     } catch (e) { /* ignore if io not ready */ }
     res.status(201).json(notification);
   } catch (err) {

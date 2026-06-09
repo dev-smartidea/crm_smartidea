@@ -77,7 +77,7 @@ router.get('/admin/stats', authMiddleware, requireAdmin, async (req, res) => {
       User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
       Customer.countDocuments(),
       Transaction.countDocuments(),
-      Transaction.countDocuments({ status: 'pending' }),
+      Transaction.countDocuments({ submissionStatus: 'submitted' }),
       Transaction.countDocuments({ createdAt: { $gte: monthStart } }),
     ]);
     const roleMap = { user: 0, account: 0, admin: 0 };

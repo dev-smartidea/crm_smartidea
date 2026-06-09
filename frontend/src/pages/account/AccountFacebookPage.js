@@ -35,7 +35,7 @@ export default function AccountFacebookPage() {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/ledger?serviceType=Facebook+Ads&limit=5000`,
+        `${process.env.REACT_APP_API_URL}/api/ledger?serviceType=Facebook+Ads&limit=500`,
         { headers: { Authorization: `Bearer ${token}` }, signal }
       );
       setItems(res.data.items || []);

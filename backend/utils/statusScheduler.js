@@ -22,9 +22,9 @@ async function recomputeServiceStatuses() {
     { $set: { status: 'ครบกำหนด' } }
   );
 
-  // อยู่ระหว่างบริการ (ยังไม่ถึงกำหนด หรือไม่มี dueDate)
+  // อยู่ระหว่างบริการ (ยังไม่ถึงกำหนด, ไม่มี dueDate, หรือ dueDate เป็น null)
   await Service.updateMany(
-    { $or: [ { dueDate: { $gte: now } }, { dueDate: { $exists: false } } ] },
+    { $or: [ { dueDate: { $gte: now } }, { dueDate: { $exists: false } }, { dueDate: null } ] },
     { $set: { status: 'อยู่ระหว่างบริการ' } }
   );
 }

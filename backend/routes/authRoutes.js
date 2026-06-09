@@ -50,8 +50,13 @@ function requireAdmin(req, res, next) {
 
 // GET /users - ดู user ทั้งหมด (admin เท่านั้น)
 router.get('/users', requireAdmin, async (req, res) => {
-  const users = await User.find({}, '-password');
-  res.json(users);
+  try {
+    const users = await User.find({}, '-password');
+    res.json(users);
+  } catch (err) {
+    console.error('Get users error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
+  }
 });
 
 // GET /users/:id - ดู user คนเดียว (admin เท่านั้น)
@@ -142,8 +147,15 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
     // ลบ user จาก database
     await User.findByIdAndDelete(req.params.id);
     createAuditLog({ userId: req.user._id, username: req.user.username, action: 'delete_user', target: user.username, ip: req.ip });
-    // ลบไฟล์ avatar ถ้ามี
-    if (avatarPath) {
+    // ลบ Cloudinary avatar ถ้ามี
+    if (user.avatarCloudinaryId) {
+      try {
+        await deleteFromCloudinary(user.avatarCloudinaryId);
+      } catch (cloudErr) {
+        console.error('Failed to delete avatar from Cloudinary:', cloudErr.message);
+      }
+    } else if (avatarPath) {
+      // legacy local file
       const fs = require('fs');
       fs.unlink(avatarPath, err => {
         if (err) console.error('Failed to delete avatar:', avatarPath, err);
@@ -263,6 +275,9 @@ router.patch('/profile', async (req, res) => {
       // รับ cloudinaryId เฉพาะเมื่อ avatar URL เป็น Cloudinary URL จริง
       if (req.body.avatarCloudinaryId && update.avatar && update.avatar.startsWith('https://res.cloudinary.com/')) {
         update.avatarCloudinaryId = req.body.avatarCloudinaryId;
+      } else if (!update.avatar || update.avatar.trim() === '') {
+        // ถ้าลบ avatar ให้ clear cloudinaryId ด้วย
+        update.avatarCloudinaryId = null;
       }
     }
     const user = await User.findByIdAndUpdate(decoded.id, update, { new: true, runValidators: true, fields: { password: 0 } });

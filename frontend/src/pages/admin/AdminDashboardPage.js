@@ -346,7 +346,7 @@ const AdminDashboardPage = () => {
                 style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: '0.9rem' }}
               >
                 <option value="">-- เลือกผู้ดูแล --</option>
-                {users.filter(u => u.role === 'user').map(u => (
+                {users.filter(u => ['user', 'google_manager', 'facebook_manager'].includes(u.role)).map(u => (
                   <option key={u._id} value={u._id}>{u.name} (@{u.username})</option>
                 ))}
               </select>

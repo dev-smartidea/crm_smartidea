@@ -114,11 +114,16 @@ router.post('/cards/charge', async (req, res) => {
   }
 
   // ป้องกันตัดเงินซ้ำ: เช็คก่อนเริ่ม session (รีด-ออนลี่ pre-check)
-  if (reference && !skipMarkCharged) {
-    const existingTx = await Transaction.findById(reference).lean();
-    if (existingTx && existingTx.cardCharged) {
-      return res.status(400).json({ error: 'รายการนี้ตัดเงินไปแล้ว' });
+  try {
+    if (reference && !skipMarkCharged) {
+      const existingTx = await Transaction.findById(reference).lean();
+      if (existingTx && existingTx.cardCharged) {
+        return res.status(400).json({ error: 'รายการนี้ตัดเงินไปแล้ว' });
+      }
     }
+  } catch (preCheckErr) {
+    console.error('Charge pre-check error:', preCheckErr);
+    return res.status(400).json({ error: 'reference ไม่ถูกต้อง' });
   }
 
   // Normalize serviceId
@@ -127,7 +132,13 @@ router.post('/cards/charge', async (req, res) => {
     svcIdToStore = (typeof serviceId === 'object' && serviceId._id) ? serviceId._id : serviceId;
   }
 
-  const session = await mongoose.startSession();
+  let session;
+  try {
+    session = await mongoose.startSession();
+  } catch (sessionErr) {
+    console.error('Failed to start session:', sessionErr);
+    return res.status(500).json({ error: 'Database connection error' });
+  }
   let card, ledger;
   try {
     await session.withTransaction(async () => {
