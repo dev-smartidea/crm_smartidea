@@ -17,16 +17,6 @@ export default function TransactionHistoryPage() {
     // Pagination state
     const pageSize = 6;
     const [currentPage, setCurrentPage] = useState(1);
-    const [filteredTransactions, setFilteredTransactions] = useState([]);
-    // Whenever transactions changes, update filteredTransactions
-    useEffect(() => {
-      if (!transactions || transactions.length === 0) {
-        setFilteredTransactions(transactions);
-      } else {
-        setFilteredTransactions(transactions);
-      }
-      setCurrentPage(1); // reset page when filter changes
-    }, [transactions]);
   // Removed duplicate declarations of serviceId, service, transactions
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -944,8 +934,8 @@ export default function TransactionHistoryPage() {
             <tbody>
               {loading ? (
                 <tr><td colSpan="6" className="text-center p-5">กำลังโหลด...</td></tr>
-              ) : filteredTransactions.length > 0 ? (
-                filteredTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+              ) : transactions.length > 0 ? (
+                transactions.slice((currentPage - 1) * pageSize, currentPage * pageSize)
                   .map(tx => (
                     <tr key={tx._id}>
                     <td>
@@ -1051,7 +1041,7 @@ export default function TransactionHistoryPage() {
         </div>
         {/* Pagination Controls */}
         {(() => {
-          const filteredTotal = filteredTransactions.length;
+          const filteredTotal = transactions.length;
           const filteredTotalPages = Math.ceil(filteredTotal / pageSize);
           return filteredTotal > pageSize && (
             <div className="pagination">

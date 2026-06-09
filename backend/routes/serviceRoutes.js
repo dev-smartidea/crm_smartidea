@@ -205,12 +205,6 @@ router.post('/customers/:customerId/services', async (req, res) => {
     const customer = await Customer.findById(req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    // ตรวจสอป scope: google_manager เพิ่ม Google Ads ได้, facebook_manager เพิ่ม Facebook Ads ได้
-    const effectiveServiceType = serviceType || name;
-    if (serviceScope && effectiveServiceType && effectiveServiceType !== serviceScope) {
-      return res.status(403).json({ error: `คุณได้รับอนุญาตเพิ่มเฉพาะบริการประเภท ${serviceScope} เท่านั้น` });
-    }
-
     // รับทั้งฟิลด์ใหม่และฟิลด์เดิม เพื่อความเข้ากันได้ย้อนหลัง
     const {
       // เดิม
@@ -231,6 +225,12 @@ router.post('/customers/:customerId/services', async (req, res) => {
       domain,
       hosting
     } = req.body;
+
+    // ตรวจสอบ scope หลัง destructure เพื่อให้ serviceType มีค่าแล้ว
+    const effectiveServiceType = serviceType || name;
+    if (serviceScope && effectiveServiceType && effectiveServiceType !== serviceScope) {
+      return res.status(403).json({ error: `คุณได้รับอนุญาตเพิ่มเฉพาะบริการประเภท ${serviceScope} เท่านั้น` });
+    }
 
     const effectiveName = serviceType || name; // ใช้ค่าใหม่เป็นหลัก
     if (!effectiveName) return res.status(400).json({ error: 'Service type/name is required' });
@@ -392,6 +392,19 @@ router.delete('/services/:id', async (req, res) => {
       deleted = await Service.findOneAndDelete({ _id: req.params.id, userId: user.id });
     }
     if (!deleted) return res.status(404).json({ error: 'Service not found' });
+
+    // cascade delete: ลบ Transaction และ Activity ที่ผูกกับ service นี้
+    try {
+      const Transaction = require('../models/Transaction');
+      const Activity = require('../models/Activity');
+      await Promise.all([
+        Transaction.deleteMany({ serviceId: deleted._id }),
+        Activity.deleteMany({ serviceCode: deleted.cid || deleted.customerIdField })
+      ]);
+    } catch (cascadeErr) {
+      console.error('Cascade delete error (non-critical):', cascadeErr.message);
+    }
+
     res.json({ message: 'ลบบริการสำเร็จ' });
   } catch (err) {
     console.error('Delete service error:', err);

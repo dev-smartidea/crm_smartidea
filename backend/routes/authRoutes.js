@@ -349,7 +349,7 @@ router.post('/impersonate/:userId', requireAdmin, async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
-    console.log(`[IMPERSONATE] Admin ${req.user._id} (${req.user.username}) → User ${targetUser._id} (${targetUser.username}) at ${new Date().toISOString()}`);
+    createAuditLog({ userId: req.user._id, username: req.user.username, action: 'impersonate', target: targetUser.username, detail: `role: ${targetUser.role}`, ip: req.ip });
     res.json({
       token: impersonationToken,
       user: { id: targetUser._id, username: targetUser.username, name: targetUser.name, email: targetUser.email, role: targetUser.role, avatar: targetUser.avatar },

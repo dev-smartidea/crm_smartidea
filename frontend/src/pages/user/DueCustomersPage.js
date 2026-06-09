@@ -35,6 +35,9 @@ function getBankClass(bank) {
   if (bank.includes('KBANK')) return 'bank-KBANK';
   if (bank.includes('SCB'))   return 'bank-SCB';
   if (bank.includes('BBL'))   return 'bank-BBL';
+  if (bank.includes('KTB'))   return 'bank-KTB';
+  if (bank.includes('TTB'))   return 'bank-TTB';
+  if (bank.includes('BAY'))   return 'bank-BAY';
   return 'bank-default';
 }
 

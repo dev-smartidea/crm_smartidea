@@ -36,8 +36,11 @@ router.get('/', async (req, res) => {
       const scopedServices = await Service.find({ serviceType: serviceScope }, 'customerId');
       const scopedCustomerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
       query._id = { $in: scopedCustomerIds };
+    } else if (decoded.role === 'account') {
+      // account: เห็นลูกค้าทั้งหมด เพื่อให้ approve/reject transaction ได้ถูกต้อง
+      // (ไม่ filter userId)
     } else {
-      // user / account roles: เห็นเฉพาะลูกค้าของตัวเอง
+      // user: เห็นเฉพาะลูกค้าของตัวเอง
       query.userId = loggedInUserId;
     }
     if (search) {

@@ -75,7 +75,7 @@ router.get('/transactions', async (req, res) => {
 
     // รับ pagination parameters
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 500);
     const skip = (page - 1) * limit;
     const submissionStatus = req.query.submissionStatus;
     const funded = req.query.funded;
@@ -443,7 +443,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       if (slipImage) {
         // หา customer name
         const customer = await Customer.findById(service.customerId).select('name');
-        const svcNameRaw = service.name || '';
+        const svcNameRaw = service.serviceType || service.name || '';
         // map ให้ตรง enum ของคลังรูปภาพ
         const svcName = /facebook/i.test(svcNameRaw) ? 'Facebook Ads' : 'Google Ads';
         const amountFormatted = parseFloat(amount).toLocaleString('th-TH', { minimumFractionDigits: 2 });
@@ -562,7 +562,7 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
         }
         if (svcDoc) {
           const customer = await Customer.findById(svcDoc.customerId).select('name');
-          const svcName = /facebook/i.test(svcDoc.name || '') ? 'Facebook Ads' : 'Google Ads';
+          const svcName = /facebook/i.test(svcDoc.serviceType || svcDoc.name || '') ? 'Facebook Ads' : 'Google Ads';
           const txAmount = update.amount || (current ? current.amount : 0);
           const amountFormatted = parseFloat(txAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 });
           await Image.create({
@@ -655,7 +655,7 @@ router.delete('/transactions/:id', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     let deleted;
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'account') {
       deleted = await Transaction.findByIdAndDelete(req.params.id);
     } else {
       deleted = await Transaction.findOneAndDelete({ _id: req.params.id, userId: user.id });
