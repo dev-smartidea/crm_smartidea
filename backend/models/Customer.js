@@ -31,10 +31,10 @@ const customerSchema = new mongoose.Schema({
   // เดิมใช้ service (string เดี่ยว) ตอนนี้ย้ายไป collection Service แยก (deprecated)
   service: { type: String },
 
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+  userIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }]
 }, { timestamps: true });
 
 // ดัชนีช่วยค้นหาเพิ่มเติม
-customerSchema.index({ userId: 1, name: 1 });
+customerSchema.index({ userIds: 1, name: 1 });
 
 module.exports = mongoose.model('Customer', customerSchema);

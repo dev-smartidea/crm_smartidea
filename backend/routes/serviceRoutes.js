@@ -60,7 +60,10 @@ router.get('/services/due-monthly', async (req, res) => {
       user.role === 'facebook_manager' ? 'Facebook Ads' : null;
     let userFilter = {};
     if (user.role !== 'admin' && user.role !== 'account' && !serviceScope) {
-      userFilter.userId = user.id;
+      // Find customers where this user is one of the managers
+      const customers = await Customer.find({ userIds: user.id }, '_id');
+      const customerIds = customers.map(c => c._id);
+      userFilter.customerId = { $in: customerIds };
     }
     if (serviceScope) {
       userFilter.serviceType = serviceScope;
@@ -150,8 +153,8 @@ router.get('/services', async (req, res) => {
       // Admin and account roles can see all services
       services = await Service.find().populate('customerId', 'name phone');
     } else {
-      // Regular user sees only their services
-      const customers = await Customer.find({ userId: user.id });
+      // Regular user sees only their services (where they are in customer.userIds)
+      const customers = await Customer.find({ userIds: user.id });
       const customerIds = customers.map(c => c._id);
       services = await Service.find({ customerId: { $in: customerIds } }).populate('customerId', 'name phone');
     }
@@ -168,19 +171,26 @@ router.get('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(user.role);
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role);
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
       user.role === 'facebook_manager' ? 'Facebook Ads' : null;
-    let customer;
-    if (isAdminRole) {
-      customer = await Customer.findById(req.params.customerId);
-    } else {
-      customer = await Customer.findOne({ _id: req.params.customerId, userId: user.id });
-    }
+    
+    const customer = await Customer.findById(req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+    if (!isAdminRole && !customer.userIds.includes(user.id)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
     let svcQuery = { customerId: customer._id };
-    if (!isAdminRole) svcQuery.userId = user.id;
+    // If not admin and not account, only show services assigned to this user OR if user is a customer manager
+    // Actually, if they are a customer manager, they should probably see all services of that customer
+    // but maybe filtered by their own assigned services if we want to be strict.
+    // Let's allow customer managers to see all services of their customers for now.
+    if (!isAdminRole) {
+       // svcQuery.userId = user.id; // Optional: restrict to services assigned to THEM
+    }
     if (serviceScope) svcQuery.serviceType = serviceScope;
     const services = await Service.find(svcQuery).sort({ createdAt: -1 });
     res.json(services);
@@ -223,7 +233,8 @@ router.post('/customers/:customerId/services', async (req, res) => {
       startDate,
       dueDate,
       domain,
-      hosting
+      hosting,
+      userId // Allow explicitly setting service owner
     } = req.body;
 
     // ตรวจสอบ scope หลัง destructure เพื่อให้ serviceType มีค่าแล้ว
@@ -237,7 +248,7 @@ router.post('/customers/:customerId/services', async (req, res) => {
 
     const service = new Service({
       customerId: customer._id,
-      userId: customer.userId, // always assign to the owner of the customer
+      userId: userId || customer.userIds[0] || user.id, // assign to provided userId, first customer manager, or current user
       // ฟิลด์ใหม่
       serviceType: serviceType || undefined,
       cid: cid || customerIdField || undefined,
@@ -269,8 +280,9 @@ router.post('/customers/:customerId/services', async (req, res) => {
         // ถ้าเกินกำหนดแล้ว
         if (due < now) {
           const daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+          // แจ้งเตือนผู้ดูแลบริการ
           await Notification.create({
-            userId: customer.userId,
+            userId: service.userId,
             type: 'service_overdue',
             title: '⚠️ บริการเกินกำหนด',
             message: `บริการ "${effectiveName}" ของลูกค้า "${customer.name}" เกินกำหนดแล้ว ${daysOverdue} วัน`,
@@ -283,7 +295,7 @@ router.post('/customers/:customerId/services', async (req, res) => {
         // ถ้าใกล้ครบกำหนด (ภายใน 7 วัน)
         else if (daysUntilDue <= 7 && daysUntilDue >= 0) {
           await Notification.create({
-            userId: customer.userId,
+            userId: service.userId,
             type: 'service_due_soon',
             title: '⏰ บริการใกล้ครบกำหนด',
             message: `บริการ "${effectiveName}" ของลูกค้า "${customer.name}" จะครบกำหนดในอีก ${daysUntilDue} วัน`,
@@ -311,17 +323,22 @@ router.get('/services/:id', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     
-    let service;
-    if (user.role === 'admin' || user.role === 'account') {
-      service = await Service.findById(req.params.id).populate('customerId', 'name phone');
-    } else if (user.role === 'google_manager' || user.role === 'facebook_manager') {
-      const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
-      service = await Service.findOne({ _id: req.params.id, serviceType: serviceScope }).populate('customerId', 'name phone');
-    } else {
-      service = await Service.findOne({ _id: req.params.id, userId: user.id }).populate('customerId', 'name phone');
+    const service = await Service.findById(req.params.id).populate('customerId');
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+
+    const isAdmin = ['admin', 'account'].includes(user.role);
+    const serviceScope =
+      user.role === 'google_manager' ? 'Google Ads' :
+      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+
+    const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
+    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const isServiceOwner = service.userId.toString() === user.id;
+
+    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
     
-    if (!service) return res.status(404).json({ error: 'Service not found' });
     res.json(service);
   } catch (err) {
     console.error('Get service error:', err);
@@ -334,11 +351,28 @@ router.put('/services/:id', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    // Whitelist updatable fields — ป้องกัน mass assignment (userId/customerId ไม่อนุญาต)
+
+    const service = await Service.findById(req.params.id).populate('customerId');
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+
+    const isAdmin = ['admin', 'account'].includes(user.role);
+    const serviceScope =
+      user.role === 'google_manager' ? 'Google Ads' :
+      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+
+    const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
+    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const isServiceOwner = service.userId.toString() === user.id;
+
+    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Whitelist updatable fields
     const ALLOWED_SERVICE_UPDATE_FIELDS = [
       'serviceType', 'name', 'status', 'notes', 'pageUrl',
       'startDate', 'dueDate', 'price', 'cid', 'customerIdField',
-      'acquisitionRole', 'acquisitionPerson', 'ownership', 'domain', 'hosting'
+      'acquisitionRole', 'acquisitionPerson', 'ownership', 'domain', 'hosting', 'userId'
     ];
     const update = {};
     for (const key of ALLOWED_SERVICE_UPDATE_FIELDS) {
@@ -349,10 +383,9 @@ router.put('/services/:id', async (req, res) => {
 
     // ถ้ามีการเปลี่ยน dueDate ให้บันทึก durationMonths เดิมก่อน overwrite
     if (update.dueDate || update.startDate) {
-      const existing = await Service.findById(req.params.id);
-      if (existing && existing.startDate && existing.dueDate) {
-        const oldStart = new Date(existing.startDate);
-        const oldEnd = new Date(existing.dueDate);
+      if (service.startDate && service.dueDate) {
+        const oldStart = new Date(service.startDate);
+        const oldEnd = new Date(service.dueDate);
         const oldMonths = (oldEnd.getFullYear() - oldStart.getFullYear()) * 12 + (oldEnd.getMonth() - oldStart.getMonth());
         if (oldMonths > 0) {
           update.previousDurationMonths = oldMonths;
@@ -360,17 +393,8 @@ router.put('/services/:id', async (req, res) => {
       }
     }
 
-    let service;
-    if (user.role === 'admin' || user.role === 'account') {
-      service = await Service.findByIdAndUpdate(req.params.id, update, { new: true });
-    } else if (user.role === 'google_manager' || user.role === 'facebook_manager') {
-      const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
-      service = await Service.findOneAndUpdate({ _id: req.params.id, serviceType: serviceScope }, update, { new: true });
-    } else {
-      service = await Service.findOneAndUpdate({ _id: req.params.id, userId: user.id }, update, { new: true });
-    }
-    if (!service) return res.status(404).json({ error: 'Service not found' });
-    res.json(service);
+    const updated = await Service.findByIdAndUpdate(req.params.id, update, { new: true });
+    res.json(updated);
   } catch (err) {
     console.error('Update service error:', err);
     res.status(400).json({ error: 'Update failed' });
@@ -382,24 +406,32 @@ router.delete('/services/:id', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    let deleted;
-    if (user.role === 'admin' || user.role === 'account') {
-      deleted = await Service.findByIdAndDelete(req.params.id);
-    } else if (user.role === 'google_manager' || user.role === 'facebook_manager') {
-      const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
-      deleted = await Service.findOneAndDelete({ _id: req.params.id, serviceType: serviceScope });
-    } else {
-      deleted = await Service.findOneAndDelete({ _id: req.params.id, userId: user.id });
+
+    const service = await Service.findById(req.params.id).populate('customerId');
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+
+    const isAdmin = ['admin', 'account'].includes(user.role);
+    const serviceScope =
+      user.role === 'google_manager' ? 'Google Ads' :
+      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+
+    const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
+    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const isServiceOwner = service.userId.toString() === user.id;
+
+    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
-    if (!deleted) return res.status(404).json({ error: 'Service not found' });
+
+    await Service.findByIdAndDelete(req.params.id);
 
     // cascade delete: ลบ Transaction และ Activity ที่ผูกกับ service นี้
     try {
       const Transaction = require('../models/Transaction');
       const Activity = require('../models/Activity');
       await Promise.all([
-        Transaction.deleteMany({ serviceId: deleted._id }),
-        Activity.deleteMany({ serviceCode: deleted.cid || deleted.customerIdField })
+        Transaction.deleteMany({ serviceId: service._id }),
+        Activity.deleteMany({ serviceCode: service.cid || service.customerIdField })
       ]);
     } catch (cascadeErr) {
       console.error('Cascade delete error (non-critical):', cascadeErr.message);
@@ -436,7 +468,7 @@ router.post('/services/:id/transfer', async (req, res) => {
     // สร้าง service ใหม่สำหรับลูกค้าใหม่ (copy รายละเอียด FB เดิม)
     const newService = await Service.create({
       customerId: newCustomer._id,
-      userId: newCustomer.userId,
+      userId: newCustomer.userIds[0] || user.id,
       serviceType: oldService.serviceType,
       name: oldService.name,
       cid: oldService.cid,

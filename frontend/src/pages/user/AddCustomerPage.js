@@ -60,7 +60,7 @@ export default function AddCustomerPage() {
 
   // Admin: users list + assign
   const [users, setUsers] = useState([]);
-  const [assignUserId, setAssignUserId] = useState('');
+  const [assignUserIds, setAssignUserIds] = useState([]);
 
   // 2. Effects
   // ดึงข้อมูลลูกค้าทั้งหมดเพื่อใช้ตรวจสอบชื่อซ้ำและ Autocomplete
@@ -153,6 +153,14 @@ export default function AddCustomerPage() {
     }
   };
 
+  const handleUserCheckboxChange = (userId) => {
+    setAssignUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId) 
+        : [...prev, userId]
+    );
+  };
+
   const handleSelectName = (nameValue) => {
     setFormData(prev => ({ ...prev, name: nameValue }));
     setNameQuery(nameValue);
@@ -185,6 +193,7 @@ export default function AddCustomerPage() {
     setSubmitSuccess(false);
     setSubmitError('');
     setTouched({});
+    setAssignUserIds([]);
     // reset dropdown visibility
     setNameQuery('');
     setShowNameDropdown(false);
@@ -228,16 +237,16 @@ export default function AddCustomerPage() {
     setIsSubmitting(true);
     setSubmitError('');
 
-    // Admin must pick an assignee
-    if (!assignUserId) {
-      setSubmitError('กรุณาเลือกผู้ดูแลลูกค้า (Assign User)');
+    // Admin must pick at least one assignee
+    if (assignUserIds.length === 0) {
+      setSubmitError('กรุณาเลือกผู้ดูแลลูกค้าอย่างน้อย 1 คน');
       setIsSubmitting(false);
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      const payload = { ...formData, _id: previewId, assignUserId };
+      const payload = { ...formData, _id: previewId, userIds: assignUserIds };
       
       await axios.post(`${process.env.REACT_APP_API_URL}/api/customers`, payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -322,18 +331,40 @@ export default function AddCustomerPage() {
             </div>
             <div className="card-body">
               <div className="form-group">
-                <label style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 6, display: 'block' }}>เลือก User ที่จะดูแลลูกค้ารายนี้</label>
-                <select
-                  value={assignUserId}
-                  onChange={e => setAssignUserId(e.target.value)}
-                  required
-                  style={{ display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.95rem', background: '#fff' }}
-                >
-                  <option value="">-- เลือกผู้ดูแล --</option>
+                <label style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 10, display: 'block' }}>เลือก User ที่จะดูแลลูกค้ารายนี้ (เลือกได้หลายคน)</label>
+                <div className="user-selection-grid" style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                  gap: '12px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  padding: '12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  background: '#fff'
+                }}>
                   {users.filter(u => u.role === 'user').map(u => (
-                    <option key={u._id} value={u._id}>{u.name} (@{u.username}) — {u.role}</option>
+                    <label key={u._id} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      padding: '8px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                      background: assignUserIds.includes(u._id) ? '#eff6ff' : 'transparent',
+                      border: assignUserIds.includes(u._id) ? '1px solid #3b82f6' : '1px solid transparent'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={assignUserIds.includes(u._id)}
+                        onChange={() => handleUserCheckboxChange(u._id)}
+                        style={{ width: '16px', height: '16px' }}
+                      />
+                      <span style={{ fontSize: '0.9rem' }}>{u.name} (@{u.username})</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
             </div>
           </div>

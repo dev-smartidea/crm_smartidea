@@ -203,7 +203,7 @@ const AdminDashboardPage = () => {
   // Reassign customer
   const [showReassign, setShowReassign] = useState(false);
   const [reassignCust, setReassignCust] = useState(null);
-  const [reassignToUserId, setReassignToUserId] = useState('');
+  const [reassignUserIds, setReassignUserIds] = useState([]);
   const [reassignLoading, setReassignLoading] = useState(false);
   const handleDeleteCustClick = (cust) => {
     setCustToDelete(cust);
@@ -227,25 +227,35 @@ const AdminDashboardPage = () => {
   };
 
   const handleConfirmReassign = async () => {
-    if (!reassignCust || !reassignToUserId) return;
+    if (!reassignCust || reassignUserIds.length === 0) return;
     setReassignLoading(true);
     try {
-      await axios.put(`${api}/api/customers/${reassignCust._id}`, { userId: reassignToUserId }, {
+      await axios.put(`${api}/api/customers/${reassignCust._id}`, { userIds: reassignUserIds }, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
+      const updatedUserObjects = users.filter(u => reassignUserIds.includes(u._id));
+
       setCustomers(prev => prev.map(c => {
         if (c._id !== reassignCust._id) return c;
-        const newUser = users.find(u => u._id === reassignToUserId);
-        return { ...c, userId: newUser ? { _id: newUser._id, name: newUser.name, username: newUser.username } : c.userId };
+        return { ...c, userIds: updatedUserObjects };
       }));
       setShowReassign(false);
       setReassignCust(null);
-      setReassignToUserId('');
+      setReassignUserIds([]);
     } catch (err) {
       alert(err.response?.data?.error || 'ย้ายลูกค้าไม่สำเร็จ');
     } finally {
       setReassignLoading(false);
     }
+  };
+
+  const handleReassignCheckboxChange = (userId) => {
+    setReassignUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId) 
+        : [...prev, userId]
+    );
   };
 
   if (loading) return <div className="admin-loading">กำลังโหลด...</div>;
@@ -330,33 +340,39 @@ const AdminDashboardPage = () => {
           <div className="admin-modal admin-modal-sm">
             <div className="admin-modal-header">
               <div className="admin-modal-header-icon blue"><FaUserPlus /></div>
-              <h3 className="admin-modal-title">ย้ายลูกค้าไปให้ผู้ดูแลคนใหม่</h3>
+              <h3 className="admin-modal-title">มอบหมายผู้ดูแลลูกค้า</h3>
             </div>
             <div className="admin-modal-body">
               <p style={{ margin: '0 0 12px', color: '#374151', fontWeight: 600 }}>{reassignCust?.name}</p>
-              <p style={{ margin: '0 0 8px', color: '#6b7280', fontSize: '0.875rem' }}>
-                ผู้ดูแลปัจจุบัน: <strong>{reassignCust?.userId?.name || '-'}</strong>
-              </p>
-              <label style={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151', display: 'block', marginBottom: 6 }}>
-                เลือกผู้ดูแลคนใหม่
+              <label style={{ fontSize: '0.875rem', fontWeight: 500, color: '#374151', display: 'block', marginBottom: 10 }}>
+                เลือกผู้ดูแล (เลือกได้หลายคน)
               </label>
-              <select
-                value={reassignToUserId}
-                onChange={e => setReassignToUserId(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: '0.9rem' }}
-              >
-                <option value="">-- เลือกผู้ดูแล --</option>
+              <div style={{ 
+                maxHeight: '200px', 
+                overflowY: 'auto', 
+                border: '1px solid #d1d5db', 
+                borderRadius: 8, 
+                padding: '10px',
+                background: '#f9fafb'
+              }}>
                 {users.filter(u => ['user', 'google_manager', 'facebook_manager'].includes(u.role)).map(u => (
-                  <option key={u._id} value={u._id}>{u.name} (@{u.username})</option>
+                  <label key={u._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', cursor: 'pointer', fontSize: '0.9rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={reassignUserIds.includes(u._id)}
+                      onChange={() => handleReassignCheckboxChange(u._id)}
+                    />
+                    {u.name} (@{u.username})
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
             <div className="admin-modal-footer">
-              <button className="modal-btn modal-btn-cancel" onClick={() => { setShowReassign(false); setReassignCust(null); setReassignToUserId(''); }} disabled={reassignLoading}>
+              <button className="modal-btn modal-btn-cancel" onClick={() => { setShowReassign(false); setReassignCust(null); setReassignUserIds([]); }} disabled={reassignLoading}>
                 <XCircle /> ยกเลิก
               </button>
-              <button className="modal-btn modal-btn-primary" onClick={handleConfirmReassign} disabled={reassignLoading || !reassignToUserId}>
-                <FaUserPlus /> {reassignLoading ? 'กำลังบันทึก...' : 'ยืนยันย้าย'}
+              <button className="modal-btn modal-btn-primary" onClick={handleConfirmReassign} disabled={reassignLoading || reassignUserIds.length === 0}>
+                <FaUserPlus /> {reassignLoading ? 'กำลังบันทึก...' : 'บันทึกการมอบหมาย'}
               </button>
             </div>
           </div>
@@ -623,15 +639,18 @@ const AdminDashboardPage = () => {
                           </span>
                         </td>
                         <td>
-                          {cust.userId?.name
-                            ? <div className="user-cell">
-                                <div className="user-avatar user-avatar-user" style={{ width: 28, height: 28, fontSize: '0.75rem' }}>
-                                  {cust.userId.name[0]?.toUpperCase()}
-                                </div>
-                                <div>
-                                  <div className="user-info-name">{cust.userId.name}</div>
-                                  <div className="user-info-username">@{cust.userId.username}</div>
-                                </div>
+                          {cust.userIds && cust.userIds.length > 0
+                            ? <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {cust.userIds.map((u, idx) => (
+                                  <div key={u._id || idx} className="user-cell" style={{ borderBottom: idx < cust.userIds.length - 1 ? '1px solid #f3f4f6' : 'none', paddingBottom: idx < cust.userIds.length - 1 ? '4px' : '0' }}>
+                                    <div className="user-avatar user-avatar-user" style={{ width: 24, height: 24, fontSize: '0.7rem' }}>
+                                      {u.name?.[0]?.toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <div className="user-info-name" style={{ fontSize: '0.8rem' }}>{u.name}</div>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             : <span style={{ color: '#aaa' }}>-</span>}
                         </td>
@@ -644,7 +663,11 @@ const AdminDashboardPage = () => {
                               <FaTools /> บริการ
                             </button>
                             <button className="action-btn action-btn-amber"
-                              onClick={() => { setReassignCust(cust); setReassignToUserId(cust.userId?._id || ''); setShowReassign(true); }}>
+                              onClick={() => { 
+                                setReassignCust(cust); 
+                                setReassignUserIds(cust.userIds?.map(u => u._id) || []); 
+                                setShowReassign(true); 
+                              }}>
                               <FaUserPlus /> ย้าย
                             </button>
                             <button className="action-btn action-btn-red"

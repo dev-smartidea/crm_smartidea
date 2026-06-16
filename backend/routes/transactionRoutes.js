@@ -94,8 +94,10 @@ router.get('/transactions', async (req, res) => {
       const scopedServiceIds = scopedServices.map(s => s._id);
       query = Transaction.find({ serviceId: { $in: scopedServiceIds } });
     } else {
-      // User เห็นเฉพาะของตัวเอง
-      const services = await Service.find({ userId: user.id });
+      // User เห็นเฉพาะของตัวเอง (ลูกค้าที่ตัวเองเป็นผู้ดูแล)
+      const customers = await Customer.find({ userIds: user.id });
+      const customerIds = customers.map(c => c._id);
+      const services = await Service.find({ customerId: { $in: customerIds } });
       const serviceIds = services.map(s => s._id);
       query = Transaction.find({ serviceId: { $in: serviceIds } });
     }
@@ -149,12 +151,15 @@ router.put('/transactions/:id/submit', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // ดึงรายการตามสิทธิ์
-    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(user.role);
-    const tx = isAdminRole
-      ? await Transaction.findById(req.params.id)
-      : await Transaction.findOne({ _id: req.params.id, userId: user.id });
-
+    const tx = await Transaction.findById(req.params.id).populate('customerId');
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role);
+    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+
+    if (!isAdminRole && !isOwner) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     // อัปเดตสถานะการส่ง
     tx.submissionStatus = 'submitted';
@@ -290,15 +295,18 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const service = await Service.findById(req.params.serviceId);
+    const service = await Service.findById(req.params.serviceId).populate('customerId');
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
-    // ตรวจสอบสิทธิ์: admin/account เห็นทุกอัน, google_manager/facebook_manager เห็นเฉพาะ service ใน scope, user เห็นของตัวเอง
+    // ตรวจสอบสิทธิ์: admin/account เห็นทุกอัน, google_manager/facebook_manager เห็นเฉพาะ service ใน scope, 
+    // user เห็นของตัวเอง (เป็นเจ้าของ service หรือเป็นผู้ดูแลลูกค้า)
     const isAdmin = user.role === 'admin' || user.role === 'account';
     const isGoogleAdmin = user.role === 'google_manager' && service.serviceType === 'Google Ads';
     const isFacebookAdmin = user.role === 'facebook_manager' && service.serviceType === 'Facebook Ads';
-    const isOwner = service.userId.toString() === user.id;
-    if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isOwner) {
+    const isServiceOwner = service.userId.toString() === user.id;
+    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    
+    if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isServiceOwner && !isCustomerManager) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -337,11 +345,15 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const service = await Service.findById(req.params.serviceId);
+    const service = await Service.findById(req.params.serviceId).populate('customerId');
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
     // ตรวจสอบสิทธิ์
-    if (user.role !== 'admin' && service.userId.toString() !== user.id) {
+    const isServiceOwner = service.userId.toString() === user.id;
+    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const isAdmin = ['admin', 'google_manager', 'facebook_manager'].includes(user.role);
+
+    if (!isAdmin && !isServiceOwner && !isCustomerManager) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -476,6 +488,16 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
+    const tx = await Transaction.findById(req.params.id).populate('customerId');
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    const isAdmin = ['admin', 'account'].includes(user.role);
+    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
   const update = { ...(req.body || {}) };
     // ลบ field ที่ไม่อนุญาตให้แก้ไขผ่าน body (ป้องกัน mass assignment)
     delete update.userId;
@@ -521,18 +543,17 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     const uploadedFile = (req.file || (Array.isArray(req.files) ? req.files[0] : null));
     if (uploadedFile) {
       // ลบสลิปเก่าจาก Cloudinary (ถ้ามี)
-      const oldTransaction = await Transaction.findById(req.params.id);
-      if (oldTransaction && oldTransaction.cloudinaryId) {
+      if (tx.cloudinaryId) {
         try {
-          await deleteFromCloudinary(oldTransaction.cloudinaryId);
+          await deleteFromCloudinary(tx.cloudinaryId);
         } catch (e) {
           console.warn('Delete old Cloudinary slip failed:', e.message);
         }
       }
-      if (oldTransaction && oldTransaction.slipImage) {
+      if (tx.slipImage) {
         // ลบรูปเก่าจากคลังรูปภาพ
         try {
-          await Image.deleteMany({ imageUrl: oldTransaction.slipImage });
+          await Image.deleteMany({ imageUrl: tx.slipImage });
         } catch (e) {
           console.warn('Delete old gallery image failed:', e.message);
         }
@@ -553,17 +574,11 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
 
       // เพิ่มรูปใหม่เข้าคลังรูปภาพ
       try {
-        const current = await Transaction.findById(req.params.id).populate('serviceId');
-        let svcDoc = null;
-        if (!current) {
-          svcDoc = await Service.findById(oldTransaction ? oldTransaction.serviceId : null);
-        } else {
-          svcDoc = await Service.findById(current.serviceId);
-        }
+        const svcDoc = await Service.findById(tx.serviceId);
         if (svcDoc) {
           const customer = await Customer.findById(svcDoc.customerId).select('name');
           const svcName = /facebook/i.test(svcDoc.serviceType || svcDoc.name || '') ? 'Facebook Ads' : 'Google Ads';
-          const txAmount = update.amount || (current ? current.amount : 0);
+          const txAmount = update.amount || tx.amount;
           const amountFormatted = parseFloat(txAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 });
           await Image.create({
             customerName: customer?.name || 'Unknown',
@@ -579,26 +594,12 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
       }
     }
 
-    let transaction;
-    if (user.role === 'admin' || user.role === 'account') {
-      transaction = await Transaction.findByIdAndUpdate(req.params.id, update, { new: true })
+    const transaction = await Transaction.findByIdAndUpdate(req.params.id, update, { new: true })
         .populate({
           path: 'serviceId',
           select: 'name customerId',
           populate: { path: 'customerId', select: 'name' }
         });
-    } else {
-      transaction = await Transaction.findOneAndUpdate(
-        { _id: req.params.id, userId: user.id },
-        update,
-        { new: true }
-      )
-        .populate({
-          path: 'serviceId',
-          select: 'name customerId',
-          populate: { path: 'customerId', select: 'name' }
-        });
-    }
 
     if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
     
@@ -623,11 +624,15 @@ router.delete('/transactions/:id/slip', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // ดึงรายการตามสิทธิ์ (admin และ account สามารถลบได้ทุกรายการ, user ลบได้เฉพาะรายการตัวเอง)
-    const tx = (user.role === 'admin' || user.role === 'account')
-      ? await Transaction.findById(req.params.id)
-      : await Transaction.findOne({ _id: req.params.id, userId: user.id });
-
+    const tx = await Transaction.findById(req.params.id).populate('customerId');
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    const isAdmin = ['admin', 'account'].includes(user.role);
+    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     if (tx.slipImage) {
       // ลบจาก Cloudinary (ถ้ามี)
@@ -654,14 +659,17 @@ router.delete('/transactions/:id', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    let deleted;
-    if (user.role === 'admin' || user.role === 'account') {
-      deleted = await Transaction.findByIdAndDelete(req.params.id);
-    } else {
-      deleted = await Transaction.findOneAndDelete({ _id: req.params.id, userId: user.id });
+    const tx = await Transaction.findById(req.params.id).populate('customerId');
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    const isAdmin = ['admin', 'account'].includes(user.role);
+    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    if (!deleted) return res.status(404).json({ error: 'Transaction not found' });
+    const deleted = await Transaction.findByIdAndDelete(req.params.id);
 
     // ลบสลิปจาก Cloudinary (ถ้ามี)
     if (deleted.slipImage) {

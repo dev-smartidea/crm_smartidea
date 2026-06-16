@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 
     if (decoded.role === 'admin') {
       // Super admin: sees all (or filter by userId if query param)
-      if (req.query.userId) query.userId = req.query.userId;
+      if (req.query.userId) query.userIds = req.query.userId;
     } else if (serviceScope) {
       // google_manager / facebook_manager: เห็นเฉพาะลูกค้าที่มีบริการในขอบเขตของตัวเอง
       const scopedServices = await Service.find({ serviceType: serviceScope }, 'customerId');
@@ -40,8 +40,8 @@ router.get('/', async (req, res) => {
       // account: เห็นลูกค้าทั้งหมด เพื่อให้ approve/reject transaction ได้ถูกต้อง
       // (ไม่ filter userId)
     } else {
-      // user: เห็นเฉพาะลูกค้าของตัวเอง
-      query.userId = loggedInUserId;
+      // user: เห็นเฉพาะลูกค้าของตัวเอง (เช็คว่าอยู่ใน userIds array หรือไม่)
+      query.userIds = loggedInUserId;
     }
     if (search) {
       // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
@@ -56,7 +56,7 @@ router.get('/', async (req, res) => {
         { productService: regex },
       ];
     }
-    const customers = await Customer.find(query).populate('userId', 'name username email');
+    const customers = await Customer.find(query).populate('userIds', 'name username email');
     // นับจำนวนบริการต่อลูกค้าหนึ่งรอบ
     const customerIds = customers.map(c => c._id);
     const serviceCounts = await Service.aggregate([
@@ -89,8 +89,18 @@ router.post('/', async (req, res) => {
     if (!canCreate) {
       return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มลูกค้าได้' });
     }
-    // Admin must assign to a specific user; fallback to admin's own id if not provided
-    const userId = req.body.assignUserId || decoded.id;
+    // Admin must assign to a specific user(s); fallback to admin's own id if not provided
+    // Support both single userId (for compatibility) and userIds array
+    let userIds = [];
+    if (req.body.userIds && Array.isArray(req.body.userIds)) {
+      userIds = req.body.userIds;
+    } else if (req.body.assignUserId) {
+      userIds = [req.body.assignUserId];
+    } else if (req.body.userId) {
+      userIds = [req.body.userId];
+    } else {
+      userIds = [decoded.id];
+    }
 
     // Allow client to provide a pre-generated _id (from preview). If provided and valid, use it.
     let idToUse = null;
@@ -111,7 +121,7 @@ router.post('/', async (req, res) => {
       'name', 'customerType', 'businessSize', 'address', 'phone', 'email',
       'taxId', 'productService', 'contactPerson', 'lineId', 'facebook', 'website', 'notes'
     ];
-    const customerData = { _id: genId, customerCode: derivedCode, userId };
+    const customerData = { _id: genId, customerCode: derivedCode, userIds };
     for (const field of ALLOWED_CUSTOMER_CREATE_FIELDS) {
       if (req.body[field] !== undefined) customerData[field] = req.body[field];
     }
@@ -125,17 +135,19 @@ router.post('/', async (req, res) => {
       createAuditLog({ userId: decoded.id, username: u ? u.username : decoded.id, action: 'create_customer', target: customer.name, detail: `code: ${customer.customerCode}`, ip: req.ip });
     }).catch(() => {});
 
-    // สร้างการแจ้งเตือนลูกค้าใหม่
+    // สร้างการแจ้งเตือนลูกค้าใหม่ให้ผู้ดูแลทุกคน
     try {
-      await Notification.create({
-        userId: userId,
-        type: 'new_customer',
-        title: '👤 ลูกค้าใหม่',
-        message: `มีลูกค้าใหม่ "${customer.name}" เพิ่มเข้ามาในระบบ`,
-        link: `/dashboard/customer/${customer._id}/services`,
-        relatedCustomerId: customer._id,
-        isRead: false
-      });
+      for (const uid of userIds) {
+        await Notification.create({
+          userId: uid,
+          type: 'new_customer',
+          title: '👤 ลูกค้าใหม่',
+          message: `มีลูกค้าใหม่ "${customer.name}" เพิ่มเข้ามาในระบบ`,
+          link: `/dashboard/customer/${customer._id}/services`,
+          relatedCustomerId: customer._id,
+          isRead: false
+        });
+      }
     } catch (e) {
       console.error('Create notification failed:', e.message);
     }
@@ -174,12 +186,12 @@ router.get('/:id', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(decoded.role);
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(decoded.role);
     const query = isAdminRole
       ? { _id: req.params.id }
-      : { _id: req.params.id, userId: userId };
+      : { _id: req.params.id, userIds: userId };
 
-    const customer = await Customer.findOne(query);
+    const customer = await Customer.findOne(query).populate('userIds', 'name username email');
     if (!customer) {
       return res.status(404).json({ error: 'Customer not found' });
     }
@@ -198,7 +210,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    if (req.user.role !== 'admin' && String(customer.userId) !== String(userId)) {
+    if (req.user.role !== 'admin' && !customer.userIds.includes(userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     await session.withTransaction(async () => {
@@ -268,7 +280,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    if (req.user.role !== 'admin' && String(customer.userId) !== String(userId)) {
+    if (req.user.role !== 'admin' && !customer.userIds.includes(userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -283,28 +295,32 @@ router.put('/:id', authMiddleware, async (req, res) => {
       if (req.body[field] !== undefined) updateData[field] = req.body[field];
     }
     // Admin สามารถโยกลูกค้าไปให้ user คนอื่นได้
-    if (req.user.role === 'admin' && req.body.userId !== undefined) {
-      updateData.userId = req.body.userId;
+    if (req.user.role === 'admin') {
+      if (req.body.userIds && Array.isArray(req.body.userIds)) {
+        updateData.userIds = req.body.userIds;
+      } else if (req.body.userId) {
+        updateData.userIds = [req.body.userId];
+      }
     }
 
     const updated = await Customer.findByIdAndUpdate(
       req.params.id,
       updateData,
       { new: true, runValidators: true }
-    );
-    // โยก Service และ Transaction ไปให้ user คนใหม่ด้วย
-    if (req.user.role === 'admin' && req.body.userId !== undefined) {
+    ).populate('userIds', 'name username email');
+
+    // ถ้ามีการเปลี่ยนผู้ดูแล (โดยเฉพาะคนแรก) อาจต้องพิจารณาโยก Service/Transaction ตาม (เลือกคนแรกเป็นหลัก)
+    if (req.user.role === 'admin' && updateData.userIds && updateData.userIds.length > 0) {
+      const primaryUserId = updateData.userIds[0];
       await Promise.all([
-        Service.updateMany({ customerId: req.params.id }, { userId: req.body.userId }),
-        Transaction.updateMany({ customerId: req.params.id }, { userId: req.body.userId }),
+        Service.updateMany({ customerId: req.params.id }, { userId: primaryUserId }),
+        Transaction.updateMany({ customerId: req.params.id }, { userId: primaryUserId }),
       ]);
-    }
-    // log reassign
-    if (req.user.role === 'admin' && req.body.userId !== undefined) {
-      createAuditLog({ userId: req.user.id, username: req.user.username, action: 'reassign_customer', target: customer.name, detail: `โยกไป user: ${req.body.userId}`, ip: req.ip });
+      createAuditLog({ userId: req.user.id, username: req.user.username, action: 'reassign_customer', target: customer.name, detail: `โยกไป user(s): ${updateData.userIds.join(', ')}`, ip: req.ip });
     }
     res.json(updated);
   } catch (err) {
+    console.error('Update customer error:', err);
     res.status(400).json({ error: 'อัปเดตข้อมูลลูกค้าไม่สำเร็จ' });
   }
 });

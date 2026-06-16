@@ -20,8 +20,19 @@ export default function CustomerDetailPage() {
     email: '',
     taxId: '',
     address: '',
-    productService: ''
+    productService: '',
+    userIds: []
   });
+  const [users, setUsers] = useState([]);
+
+  // Decode role
+  let userRole = null;
+  try {
+    const _b64 = (localStorage.getItem('token') || '').split('.')[1] || '';
+    const _norm = _b64.replace(/-/g, '+').replace(/_/g, '/');
+    const _pl = JSON.parse(decodeURIComponent(atob(_norm).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+    userRole = _pl.role || null;
+  } catch {}
 
   const customerTypeOptions = ['บุคคลธรรมดา', 'นิติบุคคล'];
   const businessSizeOptions = ['ธุรกิจขนาดเล็ก', 'ธุรกิจขนาดกลาง'];
@@ -45,6 +56,33 @@ export default function CustomerDetailPage() {
 
     fetchCustomer();
   }, [id]);
+
+  useEffect(() => {
+    if (isEditing && userRole === 'admin') {
+      const fetchUsers = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/users`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setUsers(res.data || []);
+        } catch (err) {
+          console.error('Fetch users error:', err);
+        }
+      };
+      fetchUsers();
+    }
+  }, [isEditing, userRole]);
+
+  const handleUserCheckboxChange = (userId) => {
+    setEditForm(prev => {
+      const current = prev.userIds || [];
+      const newUserIds = current.includes(userId) 
+        ? current.filter(id => id !== userId) 
+        : [...current, userId];
+      return { ...prev, userIds: newUserIds };
+    });
+  };
 
   const DetailItem = ({ icon, label, value, className = '', placeholder = '-' }) => (
     <div className="detail-item">
@@ -112,7 +150,8 @@ export default function CustomerDetailPage() {
                       email: customer.email || '',
                       taxId: customer.taxId || '',
                       address: customer.address || '',
-                      productService: customer.productService || ''
+                      productService: customer.productService || '',
+                      userIds: customer.userIds?.map(u => u._id) || []
                     });
                     setIsEditing(true);
                   }}
@@ -124,6 +163,12 @@ export default function CustomerDetailPage() {
             <div className="detail-grid">
               <DetailItem icon={<TagFill />} label="รหัสลูกค้า" value={customer.customerCode} />
               <DetailItem icon={<PersonVcardFill />} label="ชื่อลูกค้า" value={customer.name} />
+              <DetailItem 
+                icon={<BriefcaseFill />} 
+                label="ผู้ดูแลลูกค้า" 
+                value={customer.userIds?.map(u => u.name).join(', ')} 
+                className="detail-full-width"
+              />
               <DetailItem icon={<Building />} label="ประเภทลูกค้า" value={customer.customerType} />
               <DetailItem icon={<BriefcaseFill />} label="ขนาดธุรกิจ" value={customer.businessSize} />
               <DetailItem icon={<TelephoneFill />} label="เบอร์โทรศัพท์" value={customer.phone} />
@@ -215,6 +260,34 @@ export default function CustomerDetailPage() {
                       สินค้า / บริการของลูกค้า
                       <textarea rows={3} value={editForm.productService} onChange={e => setEditForm({ ...editForm, productService: e.target.value })} required />
                     </label>
+
+                    {userRole === 'admin' && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>มอบหมายผู้ดูแลลูกค้า (เลือกได้หลายคน)</label>
+                        <div style={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: '1fr 1fr', 
+                          gap: '8px', 
+                          maxHeight: '120px', 
+                          overflowY: 'auto',
+                          padding: '10px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px'
+                        }}>
+                          {users.filter(u => u.role === 'user').map(u => (
+                            <label key={u._id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={editForm.userIds?.includes(u._id)} 
+                                onChange={() => handleUserCheckboxChange(u._id)}
+                              />
+                              {u.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="cd-actions">
                       <button type="button" className="btn-modal-cancel" onClick={() => setIsEditing(false)}>ยกเลิก</button>
                       <button type="submit" className="btn-modal-save">บันทึก</button>

@@ -79,8 +79,10 @@ router.get('/images', async (req, res) => {
       const customerNames = [...new Set(items.map(i => i.customerName))];
       // Fetch customers by name for the current user
       const customerQuery = { name: { $in: customerNames } };
-      if (!['admin', 'account', 'google_manager', 'facebook_manager'].includes(user.role)) customerQuery.userId = user.id;
-      const customers = await Customer.find(customerQuery).select('_id name website facebook userId');
+      if (!['admin', 'account', 'google_manager', 'facebook_manager'].includes(user.role)) {
+        customerQuery.userIds = user.id;
+      }
+      const customers = await Customer.find(customerQuery).select('_id name website facebook userIds');
       const customerByName = new Map(customers.map(c => [c.name, c]));
 
       // Prepare service lookup keys
@@ -100,7 +102,8 @@ router.get('/images', async (req, res) => {
           customerId: { $in: svcCustomerIds },
           name: { $in: Array.from(svcNames) }
         };
-        if (user.role !== 'admin') svcQuery.userId = user.id;
+        // Services can be seen if user is a manager of the customer
+        // We already filtered customers by userIds
         const services = await Service.find(svcQuery).select('customerId name pageUrl');
         serviceMap = new Map(services.map(s => [`${s.customerId.toString()}:${s.name}`, s.pageUrl || '' ]));
       }
