@@ -489,6 +489,8 @@ export default function CustomerServicesPage() {
                         <option value="นุช">นุช</option>
                         <option value="โบ">โบ</option>
                         <option value="นุก">นุก</option>
+                        <option value="ก้อย">ก้อย</option>
+                        <option value="เอ๋">เอ๋</option>
                       </>
                     )}
                   </select>
@@ -696,6 +698,8 @@ export default function CustomerServicesPage() {
                           <option value="นุช">นุช</option>
                           <option value="โบ">โบ</option>
                           <option value="นุก">นุก</option>
+                          <option value="ก้อย">ก้อย</option>
+                          <option value="เอ๋">เอ๋</option>
                         </>
                       )}
                     </select>
