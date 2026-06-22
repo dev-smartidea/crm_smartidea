@@ -16,7 +16,7 @@ const serviceSchema = new mongoose.Schema({
 
   // ช่องทางการได้มา
   acquisitionRole: { type: String, enum: ['sale', 'admin'] },
-  acquisitionPerson: { type: String, enum: ['จิมมี่', 'นุช', 'โบ', 'นุก', 'บิว', 'น้ำ', 'ครีม', 'มิกซ์', 'ปาน', 'อุ้ม'] },
+  acquisitionPerson: { type: String, enum: ['จิมมี่', 'นุช', 'โบ', 'นุก', 'บิว', 'น้ำ', 'ครีม', 'มิกซ์', 'ปาน', 'อุ้ม', 'ก้อย', 'เอ๋'] },
 
   // สิทธิการเป็นเจ้าของ
   ownership: { type: String, enum: ['ลูกค้า', 'website ภายใต้บริษัท'] },
