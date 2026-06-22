@@ -97,7 +97,7 @@ DISABLE_RATE_LIMIT=1
 ลูกค้า — `customerCode` (unique), `name`, `customerType`, `address`, `phone`, `email`, `taxId`, `businessSize`, `contactPerson`, `userId` (เจ้าของ)
 
 ### Service
-บริการ — `customerId`, `serviceType` (Google Ads/Facebook Ads), `pageUrl`, `startDate`, `dueDate`, `price`, `status` (คำนวณอัตโนมัติจาก dueDate)
+บริการ — `customerId`, `serviceType` (Google Ads / Facebook Ads / เว็บไซต์), `pageUrl`, `startDate`, `dueDate`, `price`, `status` (คำนวณอัตโนมัติจาก dueDate), `acquisitionRole` (sale/admin), `acquisitionPerson` (ผู้ขาย), `caretaker` (ผู้ดูแล), `domain`, `hosting`
 
 ### Activity
 กิจกรรม — `customerId`, `serviceCode`, `activityType`, `projectName`, `projectStatus`, `dueDate`
@@ -128,6 +128,7 @@ DISABLE_RATE_LIMIT=1
 | GET | `/profile` | ดูโปรไฟล์ | JWT |
 | PATCH | `/profile` | แก้ไขโปรไฟล์ + อัปโหลด avatar | JWT |
 | GET | `/users` | ดูผู้ใช้ทั้งหมด | Admin |
+| GET | `/users/list` | ดูรายชื่อ users ทั้งหมด (ใช้ใน frontend สำหรับ dropdown ผู้ดูแล ผู้ขาย) | JWT |
 | PATCH | `/users/:id/role` | เปลี่ยน role | Admin |
 | DELETE | `/users/:id` | ลบผู้ใช้ | Admin |
 
@@ -146,11 +147,13 @@ DISABLE_RATE_LIMIT=1
 | Method | Path | คำอธิบาย | Auth |
 |--------|------|----------|------|
 | GET | `/services` | ดูบริการทั้งหมด | JWT |
+| GET | `/services/due-monthly` | ดูบริการที่ครบกำหนดในเดือนที่ระบุ (พร้อมข้อมูลการชำระล่าสุด) | JWT |
 | GET | `/customers/:id/services` | ดูบริการของลูกค้า | JWT |
-| POST | `/customers/:id/services` | เพิ่มบริการ | JWT |
+| POST | `/customers/:id/services` | เพิ่มบริการ (เฉพาะ Admin/Manager) | JWT |
 | GET | `/services/:id` | ดูบริการรายเดียว | JWT |
-| PUT | `/services/:id` | แก้ไขบริการ | JWT |
-| DELETE | `/services/:id` | ลบบริการ | JWT |
+| PUT | `/services/:id` | แก้ไขบริการ (ฟิลด์: serviceType, status, notes, pageUrl, startDate, dueDate, price, cid, acquisitionRole, acquisitionPerson, caretaker, ownership, domain, hosting) | JWT |
+| DELETE | `/services/:id` | ลบบริการ + cascade ลบ Transaction, Activity | JWT |
+| POST | `/services/:id/transfer` | โอนบัญชี FB Ads ให้ลูกค้าใหม่ (Account/Admin) | JWT |
 
 ### Transactions (`/api`)
 
@@ -227,6 +230,10 @@ DISABLE_RATE_LIMIT=1
   - เกินกำหนด ≤ 30 วัน → `"ครบกำหนด"`
   - ยังไม่ถึงกำหนด → `"อยู่ระหว่างบริการ"`
 
+### Service Status Transform (toJSON)
+- คำนวณสถานะอัตโนมัติทุกครั้งที่อ่านข้อมูลผ่าน Mongoose `toJSON()` และ `toObject()`
+- logic เดียวกับ Status Scheduler แต่ทำงานแบบ real-time ทันทีที่ดึงข้อมูล
+
 ### Socket.IO Notifications
 - เชื่อมต่อด้วย JWT token
 - แต่ละ user เข้า room `user:{userId}`
@@ -242,6 +249,22 @@ DISABLE_RATE_LIMIT=1
 - **Uncaught Exception** — log error แล้วปิดเซิร์ฟเวอร์ทันที
 - **SIGTERM / SIGINT** — graceful shutdown (timeout 15 วินาที)
 - **MongoDB disconnect** — auto-reconnect ทุก 5 วินาที
+
+## Scripts
+
+### แก้ไขข้อมูลผู้ขาย/ผู้ดูแลในฐานข้อมูล (`scripts/fixServiceAcquisition.js`)
+รันเมื่อ: `node backend/scripts/fixServiceAcquisition.js`
+
+ตรวจสอบและแก้ไขข้อมูล `acquisitionRole` / `acquisitionPerson` ใน Service collection ให้ตรงกับรายชื่อที่ถูกต้อง:
+
+| ช่องทาง | รายชื่อผู้ขาย |
+|---|---|
+| **sale** | จิมมี่, นุช, โบ, นุก, ก้อย, เอ๋ |
+| **admin** | บิว, น้ำ, ครีม, มิกซ์, ปาน, อุ้ม |
+
+การทำงาน:
+1. หาบริการที่ `acquisitionPerson` ไม่อยู่ในรายชื่อที่ถูกต้อง → แก้เป็นค่า default ตาม role
+2. หาบริการที่ `acquisitionRole` กับ `acquisitionPerson` ไม่ตรงกัน → แก้ role ให้ตรงตามชื่อ
 
 ## Data Integrity — Card Charge (MongoDB Session Transaction)
 

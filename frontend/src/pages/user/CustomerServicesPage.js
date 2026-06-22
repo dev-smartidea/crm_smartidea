@@ -214,6 +214,7 @@ export default function CustomerServicesPage() {
       cid: selectedService.cid || selectedService.customerIdField || '',
       acquisitionRole: role,
       acquisitionPerson: selectedService.acquisitionPerson || defaultPerson,
+      caretaker: selectedService.caretaker || '',
       ownership: selectedService.ownership || 'ลูกค้า',
       price: typeof selectedService.price === 'number' ? selectedService.price : '',
       status: selectedService.status,
@@ -614,7 +615,8 @@ export default function CustomerServicesPage() {
               <>
                 <div style={{ marginBottom: 12 }}><strong>ประเภทบริการ:</strong> {selectedService.serviceType || selectedService.name}</div>
                 <div style={{ marginBottom: 12 }}><strong>ช่องทางการได้มา:</strong> {selectedService.acquisitionRole === 'admin' ? 'ขายโดย admin' : 'ขายโดย sale'}</div>
-                <div style={{ marginBottom: 12 }}><strong>ผู้ขาย/ผู้ดูแล:</strong> {selectedService.acquisitionPerson || '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>ผู้ขาย:</strong> {selectedService.acquisitionPerson || '-'}</div>
+                <div style={{ marginBottom: 12 }}><strong>ผู้ดูแล:</strong> {selectedService.caretaker || '-'}</div>
                 <div style={{ marginBottom: 12 }}><strong>สิทธิการเป็นเจ้าของ:</strong> {selectedService.ownership || '-'}</div>
                 <div style={{ marginBottom: 12 }}><strong>Website / Facebook Page:</strong> {selectedService.pageUrl || '-'}</div>
                 <div style={{ marginBottom: 12 }}><strong>CID:</strong> {selectedService.cid || selectedService.customerIdField || '-'}</div>
@@ -714,6 +716,19 @@ export default function CustomerServicesPage() {
                     </select>
                   </label>
                 </div>
+                <label>
+                  ผู้ดูแล
+                  <select value={detailForm.caretaker || ''} onChange={e => setDetailForm({ ...detailForm, caretaker: e.target.value })}>
+                    <option value="">เลือกผู้ดูแล</option>
+                    {usersList.filter(u => u.role === 'user').map(u => (
+                      <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
+                    ))}
+                    {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
+                    {detailForm.caretaker && !usersList.find(u => u.name === detailForm.caretaker) && (
+                      <option value={detailForm.caretaker}>{detailForm.caretaker} (ข้อมูลเดิม)</option>
+                    )}
+                  </select>
+                </label>
                 <div className="svc-row-2">
                   <label>
                     สิทธิการเป็นเจ้าของ

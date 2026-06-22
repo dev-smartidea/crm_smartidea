@@ -1,6 +1,6 @@
 # Data Models — CRM SmartIdea
 
-> อัปเดตล่าสุด: พฤษภาคม 2026
+> อัปเดตล่าสุด: มิถุนายน 2026
 
 ---
 
@@ -72,12 +72,15 @@ Card
 |---|---|---|---|
 | `customerId` | ObjectId→Customer | ✅ | ลูกค้าเจ้าของบริการ |
 | `userId` | ObjectId→User | ✅ | พนักงานที่รับผิดชอบ |
-| `cid` | String | - | รหัสอ้างอิง (กำหนดเอง) |
-| `serviceType` | String | - | `Google Ads` / `Facebook Ads` |
-| `acquisitionRole` | String | - | `sale` / `admin` |
-| `acquisitionPerson` | String | - | ชื่อผู้ปิดงาน |
+| `cid` / `customerIdField` | String | - | รหัสอ้างอิงที่ผู้ใช้กำหนดเอง (cid เป็นฟิลด์ใหม่, customerIdField เพื่อความเข้ากันได้ย้อนหลัง) |
+| `serviceType` | String | - | `Google Ads` / `Facebook Ads` / `เว็บไซต์` |
+| `acquisitionRole` | String | - | `sale` / `admin` (ช่องทางการได้มา) |
+| `acquisitionPerson` | String | - | ชื่อผู้ขาย |
+| `caretaker` | String | - | **ผู้ดูแล** (เลือกจาก users role `user` ในระบบ) |
 | `ownership` | String | - | `ลูกค้า` / `website ภายใต้บริษัท` |
 | `pageUrl` | String | - | URL หรือ Facebook Page |
+| `domain` | String | - | Domain (เฉพาะบริการเว็บไซต์) |
+| `hosting` | String | - | Hosting (เฉพาะบริการเว็บไซต์) |
 | `startDate` | Date | - | วันเริ่มบริการ |
 | `dueDate` | Date | - | วันครบกำหนด |
 | `price` | Number | - | ราคาค่าบริการ |
@@ -88,6 +91,21 @@ Card
 | `transferredTo` | ObjectId→Service | - | service ที่โอนไป |
 | `transferredFrom` | ObjectId→Service | - | service ที่โอนมาจาก |
 | `transferDate` | Date | - | วันที่โอน |
+
+### รายชื่อผู้ขายตามช่องทางการได้มา
+
+| ช่องทาง | รายชื่อผู้ขาย |
+|---|---|
+| **sale** (ขายโดย sale) | จิมมี่, นุช, โบ, นุก, ก้อย, เอ๋ |
+| **admin** (ขายโดย admin) | บิว, น้ำ, ครีม, มิกซ์, ปาน, อุ้ม |
+
+> ผู้ซื้อ (`acquisitionPerson`) จะเปลี่ยนไปตาม `acquisitionRole` ที่เลือก โดยค่าเริ่มต้นของ sale คือ "จิมมี่" และของ admin คือ "บิว"
+
+### ผู้ดูแล (`caretaker`)
+
+- ฟอร์มเพิ่มบริการใหม่และแก้ไขใน modal รายละเอียด เลือกผู้ดูแลได้จาก users ในระบบที่กรองเฉพาะ `role === 'user'`
+- แสดงเป็น `ชื่อ (username)`
+- กรณีชื่อเดิมที่ไม่อยู่ในระบบแล้ว จะแสดงเป็น `ชื่อ (ข้อมูลเดิม)`
 
 **Virtual (computed on toJSON):**
 - `status` — คำนวณจาก `dueDate` vs ปัจจุบัน:
