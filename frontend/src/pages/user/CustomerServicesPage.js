@@ -66,6 +66,7 @@ export default function CustomerServicesPage() {
   const [isEditingInDetail, setIsEditingInDetail] = useState(false); // สถานะการแก้ไขใน modal รายละเอียด
   const [detailForm, setDetailForm] = useState({}); // form สำหรับแก้ไขใน modal รายละเอียด
   const [detailDaysDiff, setDetailDaysDiff] = useState(''); // จำนวนวันใน modal รายละเอียด
+  const [usersList, setUsersList] = useState([]); // รายชื่อผู้ใช้ทั้งหมดจากระบบ
   const token = localStorage.getItem('token');
 
   const api = process.env.REACT_APP_API_URL;
@@ -79,6 +80,13 @@ export default function CustomerServicesPage() {
       // ดึงบริการทั้งหมดของ customer
       const servicesRes = await axios.get(`${api}/api/customers/${id}/services`, { headers: { Authorization: `Bearer ${token}` } });
       setServices(servicesRes.data || []);
+      // ดึงข้อมูล users
+      try {
+        const usersRes = await axios.get(`${api}/api/auth/users/list`, { headers: { Authorization: `Bearer ${token}` } });
+        setUsersList(usersRes.data || []);
+      } catch (e) {
+        console.error('Failed to load users list:', e);
+      }
       setLoading(false);
     } catch (err) {
       setError('โหลดข้อมูลไม่สำเร็จ');
@@ -474,24 +482,12 @@ export default function CustomerServicesPage() {
                 <label>
                   ผู้ขาย
                   <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
-                    {form.acquisitionRole === 'admin' ? (
-                      <>
-                        <option value="บิว">บิว</option>
-                        <option value="น้ำ">น้ำ</option>
-                        <option value="ครีม">ครีม</option>
-                        <option value="มิกซ์">มิกซ์</option>
-                        <option value="ปาน">ปาน</option>
-                        <option value="อุ้ม">อุ้ม</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="จิมมี่">จิมมี่</option>
-                        <option value="นุช">นุช</option>
-                        <option value="โบ">โบ</option>
-                        <option value="นุก">นุก</option>
-                        <option value="ก้อย">ก้อย</option>
-                        <option value="เอ๋">เอ๋</option>
-                      </>
+                    {usersList.map(u => (
+                      <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
+                    ))}
+                    {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
+                    {form.acquisitionPerson && !usersList.find(u => u.name === form.acquisitionPerson) && (
+                      <option value={form.acquisitionPerson}>{form.acquisitionPerson} (ข้อมูลเดิม)</option>
                     )}
                   </select>
                 </label>
@@ -500,12 +496,13 @@ export default function CustomerServicesPage() {
                 ผู้ดูแล
                 <select value={form.caretaker || ''} onChange={e => setForm({ ...form, caretaker: e.target.value })} required>
                   <option value="">เลือกผู้ดูแล</option>
-                  <option value="บิว">บิว</option>
-                  <option value="น้ำ">น้ำ</option>
-                  <option value="ครีม">ครีม</option>
-                  <option value="มิกซ์">มิกซ์</option>
-                  <option value="ปาน">ปาน</option>
-                  <option value="อุ้ม">อุ้ม</option>
+                  {usersList.filter(u => u.role === 'user').map(u => (
+                    <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
+                  ))}
+                  {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
+                  {form.caretaker && !usersList.find(u => u.name === form.caretaker) && (
+                    <option value={form.caretaker}>{form.caretaker} (ข้อมูลเดิม)</option>
+                  )}
                 </select>
               </label>
               <label>
@@ -683,24 +680,12 @@ export default function CustomerServicesPage() {
                   <label>
                     ผู้ขาย
                     <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
-                      {detailForm.acquisitionRole === 'admin' ? (
-                        <>
-                          <option value="บิว">บิว</option>
-                          <option value="น้ำ">น้ำ</option>
-                          <option value="ครีม">ครีม</option>
-                          <option value="มิกซ์">มิกซ์</option>
-                          <option value="ปาน">ปาน</option>
-                          <option value="อุ้ม">อุ้ม</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="จิมมี่">จิมมี่</option>
-                          <option value="นุช">นุช</option>
-                          <option value="โบ">โบ</option>
-                          <option value="นุก">นุก</option>
-                          <option value="ก้อย">ก้อย</option>
-                          <option value="เอ๋">เอ๋</option>
-                        </>
+                      {usersList.map(u => (
+                        <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
+                      ))}
+                      {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
+                      {detailForm.acquisitionPerson && !usersList.find(u => u.name === detailForm.acquisitionPerson) && (
+                        <option value={detailForm.acquisitionPerson}>{detailForm.acquisitionPerson} (ข้อมูลเดิม)</option>
                       )}
                     </select>
                   </label>

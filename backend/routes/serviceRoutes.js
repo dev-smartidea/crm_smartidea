@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Service = require('../models/Service');
@@ -234,7 +234,8 @@ router.post('/customers/:customerId/services', async (req, res) => {
       dueDate,
       domain,
       hosting,
-      userId // Allow explicitly setting service owner
+      userId, // Allow explicitly setting service owner
+      caretaker
     } = req.body;
 
     // ตรวจสอบ scope หลัง destructure เพื่อให้ serviceType มีค่าแล้ว
@@ -266,7 +267,8 @@ router.post('/customers/:customerId/services', async (req, res) => {
       // store human-entered Customer ID (separate from ObjectId customerId)
       customerIdField: customerIdField || cid || undefined,
       domain: domain || undefined,
-      hosting: hosting || undefined
+      hosting: hosting || undefined,
+      caretaker: caretaker || undefined
     });
     await service.save();
 
@@ -372,7 +374,7 @@ router.put('/services/:id', async (req, res) => {
     const ALLOWED_SERVICE_UPDATE_FIELDS = [
       'serviceType', 'name', 'status', 'notes', 'pageUrl',
       'startDate', 'dueDate', 'price', 'cid', 'customerIdField',
-      'acquisitionRole', 'acquisitionPerson', 'ownership', 'domain', 'hosting', 'userId'
+      'acquisitionRole', 'acquisitionPerson', 'ownership', 'domain', 'hosting', 'userId', 'caretaker'
     ];
     const update = {};
     for (const key of ALLOWED_SERVICE_UPDATE_FIELDS) {

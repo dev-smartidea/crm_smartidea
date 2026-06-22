@@ -52,12 +52,12 @@ router.get('/dashboard/summary', async (req, res) => {
       salesByServiceAgg,
       monthlyAgg
     ] = await Promise.all([
-      isPrivileged ? Customer.countDocuments() : Customer.countDocuments({ userId: user.id }),
+      isPrivileged ? Customer.countDocuments() : Customer.countDocuments({ userIds: user.id }),
       isPrivileged ? Service.countDocuments() : Service.countDocuments({ userId: user.id }),
       Service.find(serviceStatusFilter).select('name serviceType status'),
       isPrivileged
         ? Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode')
-        : Customer.find({ userId: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode'),
+        : Customer.find({ userIds: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode'),
       Transaction.find(transactionFilter)
         .populate('customerId', 'name')
         .populate('serviceId', 'customerIdField name')

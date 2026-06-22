@@ -73,9 +73,10 @@ router.get('/admin/stats', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const [usersByRole, totalCustomers, totalTransactions, pendingTransactions, thisMonthTx] = await Promise.all([
+    const [usersByRole, totalCustomers, totalServices, totalTransactions, pendingTransactions, thisMonthTx] = await Promise.all([
       User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
       Customer.countDocuments(),
+      Service.countDocuments(),
       Transaction.countDocuments(),
       Transaction.countDocuments({ submissionStatus: 'submitted' }),
       Transaction.countDocuments({ createdAt: { $gte: monthStart } }),
@@ -85,6 +86,7 @@ router.get('/admin/stats', authMiddleware, requireAdmin, async (req, res) => {
     res.json({
       users: { total: Object.values(roleMap).reduce((a, b) => a + b, 0), ...roleMap },
       totalCustomers,
+      totalServices,
       totalTransactions,
       pendingTransactions,
       thisMonthTransactions: thisMonthTx,

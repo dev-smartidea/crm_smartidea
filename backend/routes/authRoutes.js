@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
@@ -55,6 +55,22 @@ router.get('/users', requireAdmin, async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error('Get users error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
+  }
+});
+
+// GET /users/list - ดึงรายชื่อผู้ใช้ทั้งหมดสำหรับนำไปแสดงใน Dropdown (อนุญาตให้ผู้ใช้ที่ล็อกอินเข้าถึงได้)
+router.get('/users/list', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    jwt.verify(token, process.env.JWT_SECRET);
+    
+    // คืนค่าเฉพาะข้อมูลที่จำเป็นเพื่อความปลอดภัย
+    const users = await User.find({}, '_id name username role');
+    res.json(users);
+  } catch (err) {
+    console.error('Get users list error:', err);
     res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
   }
 });

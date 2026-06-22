@@ -289,10 +289,16 @@ const AdminDashboardPage = () => {
   };
 
   // Filtered + paged customers
-  const filteredCustomers = customers.filter(c =>
-    [c.name, c.customerCode, c.phone, c.userId?.name, c.userId?.username]
-      .some(v => v?.toLowerCase().includes(custSearch.toLowerCase()))
-  );
+  const filteredCustomers = customers.filter(c => {
+    const searchStr = custSearch.toLowerCase();
+    const matchBasic = [c.name, c.customerCode, c.phone, c.productService]
+      .some(v => v?.toLowerCase().includes(searchStr));
+    const matchManagers = c.userIds?.some(u =>
+      u.name?.toLowerCase().includes(searchStr) ||
+      u.username?.toLowerCase().includes(searchStr)
+    );
+    return matchBasic || matchManagers;
+  });
   const custTotalPages = Math.max(1, Math.ceil(filteredCustomers.length / CUST_PAGE_SIZE));
   const pagedCustomers = filteredCustomers.slice((custPage - 1) * CUST_PAGE_SIZE, custPage * CUST_PAGE_SIZE);
 
@@ -559,6 +565,7 @@ const AdminDashboardPage = () => {
             {[
               { colorClass: 'blue',   icon: <FaUsers />,    value: stats.users.total,          label: 'ผู้ใช้ทั้งหมด',      sub: `user: ${stats.users.user} · account: ${stats.users.account} · admin: ${stats.users.admin}` },
               { colorClass: 'green',  icon: <FaChartBar />, value: stats.totalCustomers,        label: 'ลูกค้าทั้งหมด',      sub: null },
+              { colorClass: 'red',    icon: <FaTools />,    value: stats.totalServices || 0,   label: 'บริการทั้งหมด',      sub: null },
               { colorClass: 'purple', icon: <FaChartBar />, value: stats.totalTransactions,     label: 'รายการโอนทั้งหมด',   sub: `เดือนนี้: ${stats.thisMonthTransactions}` },
             ].map((s, i) => (
               <div key={i} className={`admin-stat-card ${s.colorClass}`}>
@@ -592,7 +599,7 @@ const AdminDashboardPage = () => {
               <input
                 className="table-search-input"
                 type="text"
-                placeholder="ค้นหาชื่อ, รหัส, เบอร์โทร, ผู้ดูแล..."
+                placeholder="ค้นหาชื่อ, รหัส, เบอร์โทร, ผู้ดูแล, สินค้า/บริการ..."
                 value={custSearch}
                 onChange={e => setCustSearch(e.target.value)}
               />
