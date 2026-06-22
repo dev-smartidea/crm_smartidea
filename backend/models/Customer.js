@@ -17,8 +17,8 @@ const customerSchema = new mongoose.Schema({
     type: String,
     enum: ['ธุรกิจขนาดเล็ก', 'ธุรกิจขนาดกลาง'],
     required: true
-  },
-
+  },//
+//ฝฝฦอสกอ
   productService: { type: String, trim: true, required: true }, // สินค้า/บริการของลูกค้า (บังคับกรอก)
 
   // ผู้ติดต่อ (Contact Person)
