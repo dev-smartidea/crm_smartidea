@@ -482,12 +482,24 @@ export default function CustomerServicesPage() {
                 <label>
                   ผู้ขาย
                   <select value={form.acquisitionPerson} onChange={e => setForm({ ...form, acquisitionPerson: e.target.value })}>
-                    {usersList.map(u => (
-                      <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
-                    ))}
-                    {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
-                    {form.acquisitionPerson && !usersList.find(u => u.name === form.acquisitionPerson) && (
-                      <option value={form.acquisitionPerson}>{form.acquisitionPerson} (ข้อมูลเดิม)</option>
+                    {form.acquisitionRole === 'admin' ? (
+                      <>
+                        <option value="บิว">บิว</option>
+                        <option value="น้ำ">น้ำ</option>
+                        <option value="ครีม">ครีม</option>
+                        <option value="มิกซ์">มิกซ์</option>
+                        <option value="ปาน">ปาน</option>
+                        <option value="อุ้ม">อุ้ม</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="จิมมี่">จิมมี่</option>
+                        <option value="นุช">นุช</option>
+                        <option value="โบ">โบ</option>
+                        <option value="นุก">นุก</option>
+                        <option value="ก้อย">ก้อย</option>
+                        <option value="เอ๋">เอ๋</option>
+                      </>
                     )}
                   </select>
                 </label>
@@ -680,12 +692,24 @@ export default function CustomerServicesPage() {
                   <label>
                     ผู้ขาย
                     <select value={detailForm.acquisitionPerson} onChange={e => setDetailForm({ ...detailForm, acquisitionPerson: e.target.value })}>
-                      {usersList.map(u => (
-                        <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
-                      ))}
-                      {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
-                      {detailForm.acquisitionPerson && !usersList.find(u => u.name === detailForm.acquisitionPerson) && (
-                        <option value={detailForm.acquisitionPerson}>{detailForm.acquisitionPerson} (ข้อมูลเดิม)</option>
+                      {detailForm.acquisitionRole === 'admin' ? (
+                        <>
+                          <option value="บิว">บิว</option>
+                          <option value="น้ำ">น้ำ</option>
+                          <option value="ครีม">ครีม</option>
+                          <option value="มิกซ์">มิกซ์</option>
+                          <option value="ปาน">ปาน</option>
+                          <option value="อุ้ม">อุ้ม</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="จิมมี่">จิมมี่</option>
+                          <option value="นุช">นุช</option>
+                          <option value="โบ">โบ</option>
+                          <option value="นุก">นุก</option>
+                          <option value="ก้อย">ก้อย</option>
+                          <option value="เอ๋">เอ๋</option>
+                        </>
                       )}
                     </select>
                   </label>
