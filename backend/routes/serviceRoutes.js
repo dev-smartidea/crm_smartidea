@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Service = require('../models/Service');
 const Customer = require('../models/Customer');
+const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Activity = require('../models/Activity');
 
@@ -18,6 +19,24 @@ function getUserFromReq(req) {
   }
 }
 
+function hasId(ids, id) {
+  return Array.isArray(ids) && ids.some(value => value && value.toString() === id.toString());
+}
+
+async function getCurrentUser(user) {
+  if (!user?.id) return null;
+  return User.findById(user.id, 'name username role');
+}
+
+function buildServiceOwnerFilter(user, currentUser) {
+  const ownerFilters = [{ userId: user.id }];
+  const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
+  if (caretakerNames.length > 0) {
+    ownerFilters.push({ caretaker: { $in: caretakerNames } });
+  }
+  return ownerFilters;
+}
+
 // GET /api/services/due-monthly?month=4&year=2026
 // ดึงบริการที่ครบกำหนดในเดือนและปีที่ระบุ พร้อมข้อมูลการชำระล่าสุด
 router.get('/services/due-monthly', async (req, res) => {
@@ -25,23 +44,19 @@ router.get('/services/due-monthly', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const month = parseInt(req.query.month, 10); // 1-12
+    const month = parseInt(req.query.month, 10);
     const year = parseInt(req.query.year, 10);
     if (!month || !year || month < 1 || month > 12) {
       return res.status(400).json({ error: 'month (1-12) and year are required' });
     }
 
-    // ช่วงวันที่ของเดือนที่เลือก
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
     const Transaction = require('../models/Transaction');
 
-    // codes ที่ถือว่าเป็นค่าบริการ (ไม่ใช่ค่าคลิก)
     const SERVICE_FEE_CODES = ['13', '14', '15', '17', '18', '19', '20'];
 
-    // หา serviceId ที่มี transaction ค่าบริการ (approved) ในเดือนนั้น
-    // (= service ที่ครบกำหนดเดือนนี้และลูกค้าได้ต่ออายุแล้ว → dueDate ย้ายไปเดือนหน้าแต่ยังต้องแสดงที่เดือนนี้)
     const paidTxAgg = await Transaction.aggregate([
       {
         $match: {
@@ -54,34 +69,32 @@ router.get('/services/due-monthly', async (req, res) => {
     ]);
     const paidServiceIds = paidTxAgg.map(t => t._id);
 
-    // query: dueDate อยู่ในเดือนนี้ (ยังไม่ต่ออายุ) OR มี transaction ค่าบริการในเดือนนี้ (ต่ออายุแล้ว)
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
       user.role === 'facebook_manager' ? 'Facebook Ads' : null;
     let userFilter = {};
     if (user.role !== 'admin' && user.role !== 'account' && !serviceScope) {
-      // Find customers where this user is one of the managers
-      const customers = await Customer.find({ userIds: user.id }, '_id');
-      const customerIds = customers.map(c => c._id);
-      userFilter.customerId = { $in: customerIds };
+      const currentUser = await getCurrentUser(user);
+      userFilter.$or = buildServiceOwnerFilter(user, currentUser);
     }
     if (serviceScope) {
       userFilter.serviceType = serviceScope;
     }
-    const serviceQuery = {
-      ...userFilter,
+    const dueOrPaidFilter = {
       $or: [
         { dueDate: { $gte: startOfMonth, $lte: endOfMonth } },
         { _id: { $in: paidServiceIds } }
       ]
     };
+    const serviceQuery = userFilter.$or
+      ? { $and: [userFilter, dueOrPaidFilter] }
+      : { ...userFilter, ...dueOrPaidFilter };
 
     const services = await Service.find(serviceQuery)
       .populate('customerId', 'name customerCode')
       .populate('userId', 'name role')
       .sort({ dueDate: 1 });
 
-    // ดึง transaction ค่าบริการ (approved) ล่าสุดของแต่ละ service เฉพาะในเดือนที่เลือกเท่านั้น
     const serviceIds = services.map(s => s._id);
     const lastTransactions = await Transaction.aggregate([
       {
@@ -109,7 +122,6 @@ router.get('/services/due-monthly', async (req, res) => {
     const result = services.map(s => {
       const sObj = s.toJSON();
       const lastTx = txMap[s._id.toString()] || null;
-      // คำนวณระยะเวลา (เดือน) จาก startDate ถึง dueDate (= ระยะเวลาบริการปัจจุบัน)
       let durationMonths = null;
       if (s.startDate && s.dueDate) {
         const start = new Date(s.startDate);
@@ -117,8 +129,6 @@ router.get('/services/due-monthly', async (req, res) => {
         const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
         durationMonths = months > 0 ? months : null;
       }
-      // ตรวจสอบว่า dueDate อยู่ในเดือนที่เลือกจริงหรือไม่
-      // ถ้าไม่ = service ถูกดึงมาจาก transaction ในเดือนนี้ (ต่ออายุแล้ว dueDate ย้ายไปเดือนหน้า)
       const due = s.dueDate ? new Date(s.dueDate) : null;
       const isDueThisMonth = due
         ? due >= startOfMonth && due <= endOfMonth
@@ -150,13 +160,12 @@ router.get('/services', async (req, res) => {
     
     let services;
     if (user.role === 'admin' || user.role === 'account') {
-      // Admin and account roles can see all services
       services = await Service.find().populate('customerId', 'name phone');
     } else {
-      // Regular user sees only their services (where they are in customer.userIds)
-      const customers = await Customer.find({ userIds: user.id });
-      const customerIds = customers.map(c => c._id);
-      services = await Service.find({ customerId: { $in: customerIds } }).populate('customerId', 'name phone');
+      const currentUser = await getCurrentUser(user);
+      services = await Service.find({ 
+        $or: buildServiceOwnerFilter(user, currentUser)
+      }).populate('customerId', 'name phone');
     }
     
     res.json(services);
@@ -179,17 +188,23 @@ router.get('/customers/:customerId/services', async (req, res) => {
     const customer = await Customer.findById(req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    if (!isAdminRole && !customer.userIds.includes(user.id)) {
+    const currentUser = await getCurrentUser(user);
+    const ownerFilters = buildServiceOwnerFilter(user, currentUser);
+    const ownsCustomer = hasId(customer.userIds, user.id);
+    const ownsServiceInCustomer = await Service.exists({
+      customerId: customer._id,
+      $or: ownerFilters
+    });
+
+    if (!isAdminRole && !ownsCustomer && !ownsServiceInCustomer) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
     let svcQuery = { customerId: customer._id };
-    // If not admin and not account, only show services assigned to this user OR if user is a customer manager
-    // Actually, if they are a customer manager, they should probably see all services of that customer
-    // but maybe filtered by their own assigned services if we want to be strict.
-    // Let's allow customer managers to see all services of their customers for now.
+    // For non-admin/account roles: filter by service.userId (services assigned to this user)
+    // Admin/account/manager roles see all services (or filtered by serviceScope)
     if (!isAdminRole) {
-       // svcQuery.userId = user.id; // Optional: restrict to services assigned to THEM
+      svcQuery.$or = ownerFilters;
     }
     if (serviceScope) svcQuery.serviceType = serviceScope;
     const services = await Service.find(svcQuery).sort({ createdAt: -1 });
@@ -215,12 +230,9 @@ router.post('/customers/:customerId/services', async (req, res) => {
     const customer = await Customer.findById(req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    // รับทั้งฟิลด์ใหม่และฟิลด์เดิม เพื่อความเข้ากันได้ย้อนหลัง
     const {
-      // เดิม
       name,
       customerIdField,
-      // ใหม่
       serviceType,
       cid,
       acquisitionRole,
@@ -234,37 +246,33 @@ router.post('/customers/:customerId/services', async (req, res) => {
       dueDate,
       domain,
       hosting,
-      userId, // Allow explicitly setting service owner
+      userId,
       caretaker
     } = req.body;
 
-    // ตรวจสอบ scope หลัง destructure เพื่อให้ serviceType มีค่าแล้ว
     const effectiveServiceType = serviceType || name;
     if (serviceScope && effectiveServiceType && effectiveServiceType !== serviceScope) {
       return res.status(403).json({ error: `คุณได้รับอนุญาตเพิ่มเฉพาะบริการประเภท ${serviceScope} เท่านั้น` });
     }
 
-    const effectiveName = serviceType || name; // ใช้ค่าใหม่เป็นหลัก
+    const effectiveName = serviceType || name;
     if (!effectiveName) return res.status(400).json({ error: 'Service type/name is required' });
 
     const service = new Service({
       customerId: customer._id,
-      userId: userId || customer.userIds[0] || user.id, // assign to provided userId, first customer manager, or current user
-      // ฟิลด์ใหม่
+      userId: userId || customer.userIds[0] || user.id,
       serviceType: serviceType || undefined,
       cid: cid || customerIdField || undefined,
       acquisitionRole: acquisitionRole || undefined,
       acquisitionPerson: acquisitionPerson || undefined,
       ownership: ownership || undefined,
       price: (price === '' || price === null || typeof price === 'undefined') ? undefined : Number(price),
-      // ฟิลด์เดิม (ยังคงส่งให้ model sync)
       name: effectiveName,
       status: typeof status === 'string' ? status.trim() : status,
       notes,
       pageUrl,
       startDate: startDate ? new Date(startDate) : undefined,
       dueDate: dueDate ? new Date(dueDate) : undefined,
-      // store human-entered Customer ID (separate from ObjectId customerId)
       customerIdField: customerIdField || cid || undefined,
       domain: domain || undefined,
       hosting: hosting || undefined,
@@ -272,17 +280,14 @@ router.post('/customers/:customerId/services', async (req, res) => {
     });
     await service.save();
 
-    // ตรวจสอบและสร้างการแจ้งเตือนถ้าบริการใกล้ครบกำหนดหรือเกินกำหนด
     try {
       if (dueDate) {
         const now = new Date();
         const due = new Date(dueDate);
         const daysUntilDue = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
         
-        // ถ้าเกินกำหนดแล้ว
         if (due < now) {
           const daysOverdue = Math.floor((now - due) / (1000 * 60 * 60 * 24));
-          // แจ้งเตือนผู้ดูแลบริการ
           await Notification.create({
             userId: service.userId,
             type: 'service_overdue',
@@ -294,7 +299,6 @@ router.post('/customers/:customerId/services', async (req, res) => {
             isRead: false
           });
         }
-        // ถ้าใกล้ครบกำหนด (ภายใน 7 วัน)
         else if (daysUntilDue <= 7 && daysUntilDue >= 0) {
           await Notification.create({
             userId: service.userId,
@@ -333,11 +337,14 @@ router.get('/services/:id', async (req, res) => {
       user.role === 'google_manager' ? 'Google Ads' :
       user.role === 'facebook_manager' ? 'Facebook Ads' : null;
 
+    const currentUser = await getCurrentUser(user);
+    const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
     const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
-    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
     const isServiceOwner = service.userId.toString() === user.id;
+    const isCaretaker = caretakerNames.includes(service.caretaker);
 
-    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner) {
+    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     
@@ -362,15 +369,17 @@ router.put('/services/:id', async (req, res) => {
       user.role === 'google_manager' ? 'Google Ads' :
       user.role === 'facebook_manager' ? 'Facebook Ads' : null;
 
+    const currentUser = await getCurrentUser(user);
+    const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
     const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
-    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
     const isServiceOwner = service.userId.toString() === user.id;
+    const isCaretaker = caretakerNames.includes(service.caretaker);
 
-    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner) {
+    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    // Whitelist updatable fields
     const ALLOWED_SERVICE_UPDATE_FIELDS = [
       'serviceType', 'name', 'status', 'notes', 'pageUrl',
       'startDate', 'dueDate', 'price', 'cid', 'customerIdField',
@@ -383,7 +392,6 @@ router.put('/services/:id', async (req, res) => {
     if (update.startDate) update.startDate = new Date(update.startDate);
     if (update.dueDate) update.dueDate = new Date(update.dueDate);
 
-    // ถ้ามีการเปลี่ยน dueDate ให้บันทึก durationMonths เดิมก่อน overwrite
     if (update.dueDate || update.startDate) {
       if (service.startDate && service.dueDate) {
         const oldStart = new Date(service.startDate);
@@ -417,17 +425,19 @@ router.delete('/services/:id', async (req, res) => {
       user.role === 'google_manager' ? 'Google Ads' :
       user.role === 'facebook_manager' ? 'Facebook Ads' : null;
 
+    const currentUser = await getCurrentUser(user);
+    const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
     const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
-    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
     const isServiceOwner = service.userId.toString() === user.id;
+    const isCaretaker = caretakerNames.includes(service.caretaker);
 
-    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner) {
+    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
     await Service.findByIdAndDelete(req.params.id);
 
-    // cascade delete: ลบ Transaction และ Activity ที่ผูกกับ service นี้
     try {
       const Transaction = require('../models/Transaction');
       const Activity = require('../models/Activity');
@@ -467,7 +477,6 @@ router.post('/services/:id/transfer', async (req, res) => {
     const newCustomer = await Customer.findById(newCustomerId);
     if (!newCustomer) return res.status(404).json({ error: 'Customer not found' });
 
-    // สร้าง service ใหม่สำหรับลูกค้าใหม่ (copy รายละเอียด FB เดิม)
     const newService = await Service.create({
       customerId: newCustomer._id,
       userId: newCustomer.userIds[0] || user.id,
@@ -487,7 +496,6 @@ router.post('/services/:id/transfer', async (req, res) => {
       transferDate: new Date(),
     });
 
-    // mark บริการเก่าว่าโอนแล้ว
     oldService.transferStatus = 'transferred';
     oldService.transferredTo = newService._id;
     oldService.transferDate = new Date();

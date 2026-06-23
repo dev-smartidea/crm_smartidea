@@ -7,11 +7,25 @@ const Transaction = require('../models/Transaction');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
 const Image = require('../models/Image');
+const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const { authMiddleware } = require('../middleware/auth');
 const { createAuditLog } = require('../utils/auditLogger');
+
+function hasId(ids, id) {
+  return Array.isArray(ids) && ids.some(value => value && value.toString() === id.toString());
+}
+
+function serviceOwnerFilter(userId, userDoc) {
+  const filters = [{ userId }];
+  const caretakerNames = [userDoc?.name, userDoc?.username].filter(Boolean);
+  if (caretakerNames.length > 0) {
+    filters.push({ caretaker: { $in: caretakerNames } });
+  }
+  return filters;
+}
 
 router.get('/', async (req, res) => {
   try {
@@ -40,21 +54,30 @@ router.get('/', async (req, res) => {
       // account: เห็นลูกค้าทั้งหมด เพื่อให้ approve/reject transaction ได้ถูกต้อง
       // (ไม่ filter userId)
     } else {
-      // user: เห็นเฉพาะลูกค้าของตัวเอง (เช็คว่าอยู่ใน userIds array หรือไม่)
-      query.userIds = loggedInUserId;
+      // user: เห็นลูกค้าที่ถูกมอบหมายโดยตรง หรือมีบริการที่ตัวเองเป็นผู้ดูแล
+      const currentUser = await User.findById(loggedInUserId, 'name username');
+      const ownedServices = await Service.find({ $or: serviceOwnerFilter(loggedInUserId, currentUser) }, 'customerId');
+      const serviceCustomerIds = ownedServices.map(s => s.customerId);
+      query.$or = [
+        { userIds: loggedInUserId },
+        { _id: { $in: serviceCustomerIds } }
+      ];
     }
     if (search) {
       // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
       // และป้องกัน regex injection ด้วยการ escape อักขระพิเศษ
       const escaped = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(escaped, 'i');
-      query.$or = [
+      const searchQuery = {
+        $or: [
         { name: regex },
         { customerCode: regex },
         { phone: regex },
         { email: regex },
         { productService: regex },
-      ];
+        ]
+      };
+      query = query.$or ? { $and: [query, searchQuery] } : { ...query, ...searchQuery };
     }
     const customers = await Customer.find(query).populate('userIds', 'name username email');
     // นับจำนวนบริการต่อลูกค้าหนึ่งรอบ
@@ -187,9 +210,17 @@ router.get('/:id', async (req, res) => {
     const userId = decoded.id;
 
     const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(decoded.role);
-    const query = isAdminRole
-      ? { _id: req.params.id }
-      : { _id: req.params.id, userIds: userId };
+    let query = { _id: req.params.id };
+    if (!isAdminRole) {
+      const currentUser = await User.findById(userId, 'name username');
+      const ownsService = await Service.exists({
+        customerId: req.params.id,
+        $or: serviceOwnerFilter(userId, currentUser)
+      });
+      query = ownsService
+        ? { _id: req.params.id }
+        : { _id: req.params.id, userIds: userId };
+    }
 
     const customer = await Customer.findOne(query).populate('userIds', 'name username email');
     if (!customer) {
@@ -210,7 +241,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    if (req.user.role !== 'admin' && !customer.userIds.includes(userId)) {
+    if (req.user.role !== 'admin' && !hasId(customer.userIds, userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     await session.withTransaction(async () => {
@@ -280,7 +311,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    if (req.user.role !== 'admin' && !customer.userIds.includes(userId)) {
+    if (req.user.role !== 'admin' && !hasId(customer.userIds, userId)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -309,13 +340,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
       { new: true, runValidators: true }
     ).populate('userIds', 'name username email');
 
-    // ถ้ามีการเปลี่ยนผู้ดูแล (โดยเฉพาะคนแรก) อาจต้องพิจารณาโยก Service/Transaction ตาม (เลือกคนแรกเป็นหลัก)
+    // Customer ownership and service ownership are separate:
+    // changing customer.userIds must not overwrite each service's caretaker/userId.
     if (req.user.role === 'admin' && updateData.userIds && updateData.userIds.length > 0) {
-      const primaryUserId = updateData.userIds[0];
-      await Promise.all([
-        Service.updateMany({ customerId: req.params.id }, { userId: primaryUserId }),
-        Transaction.updateMany({ customerId: req.params.id }, { userId: primaryUserId }),
-      ]);
       createAuditLog({ userId: req.user.id, username: req.user.username, action: 'reassign_customer', target: customer.name, detail: `โยกไป user(s): ${updateData.userIds.join(', ')}`, ip: req.ip });
     }
     res.json(updated);

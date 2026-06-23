@@ -134,6 +134,8 @@ export default function CustomerServicesPage() {
     }
     
     try {
+      // หา userId จาก usersList ที่ตรงกับ caretaker ที่เลือก
+      const selectedUser = usersList.find(u => u.name === form.caretaker);
       const payload = {
         ...form,
         status: typeof form.status === 'string' ? form.status.trim() : form.status,
@@ -143,6 +145,7 @@ export default function CustomerServicesPage() {
         cid: form.cid,
         price: form.price !== '' ? Number(form.price) : undefined,
         caretaker: form.caretaker || '',
+        userId: selectedUser ? selectedUser._id : undefined, // ส่ง userId ของผู้ดูแลไปด้วย
       };
       const res = await axios.post(`${api}/api/customers/${id}/services`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setServices([res.data, ...services]);
@@ -234,6 +237,11 @@ export default function CustomerServicesPage() {
         delete payload.price;
       } else {
         payload.price = Number(payload.price);
+      }
+      // หา userId จาก caretaker ที่ถูกเลือก
+      const selectedUser = usersList.find(u => u.name === detailForm.caretaker);
+      if (selectedUser) {
+        payload.userId = selectedUser._id;
       }
       const res = await axios.put(`${api}/api/services/${selectedService._id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
       setServices(services.map(s => s._id === selectedService._id ? res.data : s));
@@ -509,8 +517,8 @@ export default function CustomerServicesPage() {
                 ผู้ดูแล
                 <select value={form.caretaker || ''} onChange={e => setForm({ ...form, caretaker: e.target.value })} required>
                   <option value="">เลือกผู้ดูแล</option>
-                  {usersList.filter(u => u.role === 'user').map(u => (
-                    <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
+                  {usersList.map(u => (
+                    <option key={u._id} value={u.name}>{u.name} ({u.role}) - {u.username}</option>
                   ))}
                   {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
                   {form.caretaker && !usersList.find(u => u.name === form.caretaker) && (
@@ -720,8 +728,8 @@ export default function CustomerServicesPage() {
                   ผู้ดูแล
                   <select value={detailForm.caretaker || ''} onChange={e => setDetailForm({ ...detailForm, caretaker: e.target.value })}>
                     <option value="">เลือกผู้ดูแล</option>
-                    {usersList.filter(u => u.role === 'user').map(u => (
-                      <option key={u._id} value={u.name}>{u.name} ({u.username})</option>
+                    {usersList.map(u => (
+                      <option key={u._id} value={u.name}>{u.name} ({u.role}) - {u.username}</option>
                     ))}
                     {/* กรณีมีชื่อเดิมที่ไม่อยู่ในระบบแล้ว ให้แสดงด้วย */}
                     {detailForm.caretaker && !usersList.find(u => u.name === detailForm.caretaker) && (
