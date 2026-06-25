@@ -8,13 +8,13 @@
 
 ```
 User
- ├── Customer (userId)
- │    └── Service (customerId, userId)
- │         └── Transaction (serviceId, customerId, userId)
- ├── Activity (customerId)
- ├── Notification (userId)
- ├── Image (userId)
- └── AuditLog (userId)
+ └── Customer (userIds)
+      ├── Service (customerId, userId)
+      │    └── Transaction (serviceId, customerId, userId)
+      ├── Activity (customerId)
+      ├── Notification (userId)
+      ├── Image (userId)
+      └── AuditLog (userId)
 
 Card
  └── CardLedger (cardId, serviceId)
@@ -69,7 +69,8 @@ Collection: `customers`
 | `lineId` | String | — | |
 | `facebook` | String | — | |
 | `website` | String | — | |
-| `userId` | ObjectId → User | ✓ | เจ้าของ/ผู้รับผิดชอบ |
+| `userIds` | ObjectId[] → User | ✓ | เจ้าของ/ผู้รับผิดชอบ (หลายคน) |
+| `service` | String | — | legacy (deprecated) |
 | `createdAt` / `updatedAt` | Date | — | auto |
 
 ---
@@ -89,6 +90,7 @@ Collection: `services`
 | `customerIdField` | String | — | legacy alias ของ `cid` |
 | `acquisitionRole` | String | — | `sale` / `admin` |
 | `acquisitionPerson` | String | — | ชื่อผู้ขาย |
+| `caretaker` | String | — | ชื่อผู้ดูแลรายบัญชี |
 | `ownership` | String | — | `ลูกค้า` / `website ภายใต้บริษัท` |
 | `pageUrl` | String | — | URL หน้าเพจ/บัญชีโฆษณา |
 | `domain` | String | — | สำหรับบริการเว็บไซต์ |
@@ -131,7 +133,7 @@ Collection: `transactions`
 | `amount` | Number | ✓ | ยอดเงินรวม (บาท) |
 | `transactionDate` | Date | ✓ | วันที่โอน |
 | `transactionTime` | String | — | เวลาที่โอน เช่น `"10:30"` |
-| `bank` | String | ✓ | `KBANK` / `SCB` / `BBL` / `BAY-4396` / `BAY-7146` / `Cr.-8508` / `BBL-ส่วนตัว` |
+| `bank` | String | ✓ | `KBANK` / `SCB` / `BBL` / `KTB` / `TTB` / `BAY` / `BAY-4396` / `BAY-7146` / `Cr.-8508` / `BBL-ส่วนตัว` |
 | `cardNumber` | String | — | บัตรเลขที่ |
 | `cardTime` | String | — | เวลาที่ตัดบัตร |
 | `notes` | String | — | หมายเหตุ |
@@ -140,7 +142,7 @@ Collection: `transactions`
 | `invGG` / `invFB` | Number | — | Invoice Google/Facebook (override) |
 | `slipImage` | String | — | URL สลิป (Cloudinary หรือ local) |
 | `cloudinaryId` | String | — | public_id สำหรับลบ |
-| `breakdowns` | Array | — | รายการย่อย (ดูด้านล่าง) |
+| `breakdowns` | Array | — | รายการย่อย `{ code, amount, statusNote, isAutoVat }` |
 | `submissionStatus` | String | — | `none` / `submitted` / `approved` / `rejected` |
 | `submittedBy` | ObjectId → User | — | |
 | `submittedAt` | Date | — | |
@@ -168,6 +170,11 @@ Collection: `transactions`
 | `18` | ค่าบริการ Facebook |
 | `19` | VAT Hosting/Domain |
 | `20` | ค่า Hosting/Domain |
+
+| breakdown field | Type | หมายเหตุ |
+|---|---|---|
+| `statusNote` | String | `รอบันทึกบัญชี` / `ค่าคลิกที่ยังไม่ต้องเติม` |
+| `isAutoVat` | Boolean | เงิน parcial ที่ถูกสร้างอัตโนมัติจากการคำนวณ VAT |
 
 ---
 
@@ -242,6 +249,9 @@ Collection: `notifications`
 | `title` | String | ✓ | หัวข้อ |
 | `message` | String | ✓ | เนื้อหา |
 | `link` | String | — | URL ที่เกี่ยวข้อง |
+| `relatedServiceId` | ObjectId → Service | — | |
+| `relatedCustomerId` | ObjectId → Customer | — | |
+| `relatedTransactionId` | ObjectId → Transaction | — | |
 | `isRead` | Boolean | — | default: `false` |
 | `readAt` | Date | — | |
 | `createdAt` / `updatedAt` | Date | — | auto |
@@ -285,4 +295,3 @@ Collection: `auditlogs`
 
 **ค่า action ที่รองรับ:**
 `login`, `logout`, `create_user`, `delete_user`, `reset_password`, `change_role`, `create_customer`, `delete_customer`, `reassign_customer`, `create_service`, `update_service`, `delete_service`, `create_transaction`, `update_transaction`, `delete_transaction`, `approve_transaction`, `reject_transaction`, `impersonate`, `backup`
- เพิ่มชื่อ sale แล้ว แล้วก็แก้ไขผู้ดูแล
