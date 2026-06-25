@@ -11,7 +11,9 @@ import AllActivitiesPage from './pages/user/AllActivitiesPage';
 import TransactionHistoryPage from './pages/user/TransactionHistoryPage';
 import DashboardLayout from './components/DashboardLayout';
 import DashboardPage from './pages/shared/DashboardPage';
+import AdminDashboardLayout from './components/AdminDashboardLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminLedgerPage from './pages/admin/AdminLedgerPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AccountDashboardPage from './pages/shared/AccountDashboardPage';
 import AccountTransactionsPage from './pages/account/AccountTransactionsPage';
@@ -105,39 +107,22 @@ function App() {
         </Route>
 
 
+        {/* Admin routes (with sidebar layout) */}
         <Route
           path="/dashboard/admin"
           element={
-            token && ['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? <AdminDashboardPage /> : <Navigate to="/dashboard" />
+            token && ['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? <AdminDashboardLayout /> : <Navigate to="/dashboard" />
           }
-        />
-
-        <Route
-          path="/dashboard/admin/audit-log"
-          element={token && getRoleFromToken() === 'admin' ? <AuditLogPage /> : <Navigate to="/dashboard" />}
-        />
-        <Route
-          path="/dashboard/admin/due-customers"
-          element={token && ['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? <DueCustomersPage /> : <Navigate to="/dashboard" />}
-        />
-
-        {/* Admin standalone routes (no DashboardLayout sidebar) */}
-        <Route
-          path="/dashboard/admin/add-customer"
-          element={token && ['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? <AddCustomerPage /> : <Navigate to="/dashboard" />}
-        />
-        <Route
-          path="/dashboard/admin/customer/:id/services"
-          element={token && ['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? <CustomerServicesPage /> : <Navigate to="/dashboard" />}
-        />
-        <Route
-          path="/dashboard/admin/services/:serviceId/transactions"
-          element={token && ['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? <TransactionHistoryPage /> : <Navigate to="/dashboard" />}
-        />
-        <Route
-          path="/dashboard/admin/customer/:id"
-          element={token && ['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? <CustomerDetailPage /> : <Navigate to="/dashboard" />}
-        />
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="audit-log" element={token && getRoleFromToken() === 'admin' ? <AuditLogPage /> : <Navigate to="/dashboard" />} />
+          <Route path="due-customers" element={<DueCustomersPage />} />
+          <Route path="add-customer" element={<AddCustomerPage />} />
+          <Route path="customer/:id/services" element={<CustomerServicesPage />} />
+          <Route path="services/:serviceId/transactions" element={<TransactionHistoryPage />} />
+          <Route path="customer/:id" element={<CustomerDetailPage />} />
+          <Route path="ledger" element={<AdminLedgerPage />} />
+        </Route>
 
         <Route
           path="/dashboard/account"

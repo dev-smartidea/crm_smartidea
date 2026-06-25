@@ -1,17 +1,14 @@
 import React, { useEffect, useState, useCallback, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { FaUserShield, FaTrashAlt, FaSignInAlt, FaDownload, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools, FaClipboardList, FaCalendarAlt } from 'react-icons/fa';
+import { FaUserShield, FaTrashAlt, FaSignInAlt, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
 import { AuthContext } from '../../context/AuthContext';
-import ImpersonationBanner from '../../components/ImpersonationBanner';
 import './AdminDashboardPage.css';
 
 const AdminDashboardPage = () => {
-  // ลบ handleShowDetail (ใช้ Link แทน)
   const navigate = useNavigate();
-  const { startImpersonation, isImpersonating } = useContext(AuthContext);
+  const { startImpersonation } = useContext(AuthContext);
   // decode role ของ admin ที่ login อยู่
   const currentRole = (() => {
     try {
@@ -27,7 +24,6 @@ const AdminDashboardPage = () => {
   const [error, setError] = useState('');
   const [token] = useState(localStorage.getItem('token'));
   const [impersonateLoading, setImpersonateLoading] = useState(null);
-  const [backupLoading, setBackupLoading] = useState(false);
   const [stats, setStats] = useState(null);
   // Create user
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -52,7 +48,6 @@ const AdminDashboardPage = () => {
   const CUST_PAGE_SIZE = 10;
   const USER_PAGE_SIZE = 20;
   const api = process.env.REACT_APP_API_URL;
-
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -104,7 +99,6 @@ const AdminDashboardPage = () => {
     const result = await startImpersonation(userId);
     setImpersonateLoading(null);
     if (result.success) {
-      // force full reload เพื่อให้ App.js อ่าน token ใหม่จาก localStorage
       const dest =
         result.role === 'account' ? '/dashboard/account' :
         ['admin', 'google_manager', 'facebook_manager'].includes(result.role) ? '/dashboard/admin' :
@@ -260,34 +254,6 @@ const AdminDashboardPage = () => {
 
   if (loading) return <div className="admin-loading">กำลังโหลด...</div>;
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
-  };
-
-  const handleBackup = async () => {
-    try {
-      setBackupLoading(true);
-      const res = await axios.get(`${api}/api/admin/backup`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = url;
-      const today = new Date().toISOString().slice(0, 10);
-      link.setAttribute('download', `crm-backup-${today}.json`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      alert('Backup ล้มเหลว กรุณาลองใหม่');
-    } finally {
-      setBackupLoading(false);
-    }
-  };
-
   // Filtered + paged customers
   const filteredCustomers = customers.filter(c => {
     const searchStr = custSearch.toLowerCase();
@@ -312,8 +278,7 @@ const AdminDashboardPage = () => {
   const pagedUsers = filteredUsers.slice((userPage - 1) * USER_PAGE_SIZE, userPage * USER_PAGE_SIZE);
 
   return (
-    <div className="admin-page">
-      <ImpersonationBanner />
+    <>
       {/* ── Confirm Role Change Modal ── */}
       {pendingRoleChange && (
         <div className="admin-modal-overlay">
@@ -517,324 +482,280 @@ const AdminDashboardPage = () => {
         </div>
       )}
 
-      {/* ── Topbar ── */}
-      <header className="admin-topbar">
-        <div className="admin-topbar-brand">
-          <div className="admin-topbar-brand-icon"><FaUserShield /></div>
-          <div className="admin-topbar-brand-text">
-            <span className="admin-topbar-brand-title">Admin Dashboard</span>
-            <span className="admin-topbar-brand-subtitle">CRM SmartIdea Management</span>
-          </div>
-        </div>
-        <div className="admin-topbar-actions">
-          <button className="topbar-btn topbar-btn-green"
-            onClick={() => navigate('/dashboard/admin/add-customer')}>
-            <FaUserPlus /><span> เพิ่มลูกค้า</span>
-          </button>
-          {isSuperAdmin && (
-          <button className="topbar-btn topbar-btn-green"
-            onClick={() => { setShowCreateUser(true); setCreateUserError(''); }}>
-            <FaPlus /><span> สร้างผู้ใช้ใหม่</span>
-          </button>
-          )}
-          <button className="topbar-btn topbar-btn-white" onClick={handleBackup} disabled={backupLoading}>
-            <FaDownload /><span> {backupLoading ? 'กำลัง Export...' : 'Export Backup'}</span>
-          </button>
-          <button className="topbar-btn topbar-btn-white" onClick={() => navigate('/dashboard/admin/due-customers')}>
-            <FaCalendarAlt /><span> ลูกค้าครบกำหนด</span>
-          </button>
-          {isSuperAdmin && (
-          <button className="topbar-btn topbar-btn-white" onClick={() => navigate('/dashboard/admin/audit-log')}>
-            <FaClipboardList /><span> Audit Log</span>
-          </button>
-          )}
-          {!isImpersonating && (
-          <button className="topbar-btn topbar-btn-logout" onClick={handleLogout}>
-            Logout
-          </button>
-          )}
-        </div>
-      </header>
-
-      {/* ── Main Content ── */}
-      <main className="admin-content">
-
-        {/* Stats Grid */}
-        {stats && (
-          <div className="admin-stats-grid">
-            {[
-              { colorClass: 'blue',   icon: <FaUsers />,    value: stats.users.total,          label: 'ผู้ใช้ทั้งหมด',      sub: `user: ${stats.users.user} · account: ${stats.users.account} · admin: ${stats.users.admin}` },
-              { colorClass: 'green',  icon: <FaChartBar />, value: stats.totalCustomers,        label: 'ลูกค้าทั้งหมด',      sub: null },
-              { colorClass: 'red',    icon: <FaTools />,    value: stats.totalServices || 0,   label: 'บริการทั้งหมด',      sub: null },
-              { colorClass: 'purple', icon: <FaChartBar />, value: stats.totalTransactions,     label: 'รายการโอนทั้งหมด',   sub: `เดือนนี้: ${stats.thisMonthTransactions}` },
-            ].map((s, i) => (
-              <div key={i} className={`admin-stat-card ${s.colorClass}`}>
-                <div className="admin-stat-icon-box">{s.icon}</div>
-                <div className="admin-stat-body">
-                  <div className="admin-stat-value">{s.value.toLocaleString()}</div>
-                  <div className="admin-stat-label">{s.label}</div>
-                  {s.sub && <div className="admin-stat-sub">{s.sub}</div>}
-                </div>
+      {/* Stats Grid */}
+      {stats && (
+        <div className="admin-stats-grid">
+          {[
+            { colorClass: 'blue',   icon: <FaUsers />,    value: stats.users.total,          label: 'ผู้ใช้ทั้งหมด',      sub: `user: ${stats.users.user} · account: ${stats.users.account} · admin: ${stats.users.admin}` },
+            { colorClass: 'green',  icon: <FaChartBar />, value: stats.totalCustomers,        label: 'ลูกค้าทั้งหมด',      sub: null },
+            { colorClass: 'red',    icon: <FaTools />,    value: stats.totalServices || 0,   label: 'บริการทั้งหมด',      sub: null },
+            { colorClass: 'purple', icon: <FaChartBar />, value: stats.totalTransactions,     label: 'รายการโอนทั้งหมด',   sub: `เดือนนี้: ${stats.thisMonthTransactions}` },
+          ].map((s, i) => (
+            <div key={i} className={`admin-stat-card ${s.colorClass}`}>
+              <div className="admin-stat-icon-box">{s.icon}</div>
+              <div className="admin-stat-body">
+                <div className="admin-stat-value">{s.value.toLocaleString()}</div>
+                <div className="admin-stat-label">{s.label}</div>
+                {s.sub && <div className="admin-stat-sub">{s.sub}</div>}
               </div>
-            ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Customers Section */}
+      <div className="admin-section-card">
+        <div className="admin-section-header">
+          <h2 className="admin-section-title">
+            <FaListAlt /> รายการลูกค้าทั้งหมด
+            <span className="section-count">
+              {custSearch ? `${filteredCustomers.length}/${customers.length}` : customers.length}
+            </span>
+          </h2>
+          <button className="topbar-btn topbar-btn-green" style={{ padding: '6px 14px', fontSize: 13 }}
+            onClick={() => navigate('/dashboard/admin/add-customer')}>
+            <FaUserPlus /> เพิ่มลูกค้า
+          </button>
+        </div>
+        {customers.length > 0 && (
+          <div className="table-toolbar">
+            <input
+              className="table-search-input"
+              type="text"
+              placeholder="ค้นหาชื่อ, รหัส, เบอร์โทร, ผู้ดูแล, สินค้า/บริการ..."
+              value={custSearch}
+              onChange={e => setCustSearch(e.target.value)}
+            />
+            {custSearch && (
+              <button className="table-search-clear" onClick={() => setCustSearch('')}>✕</button>
+            )}
           </div>
         )}
-
-        {/* Customers Section */}
-        <div className="admin-section-card">
-          <div className="admin-section-header">
-            <h2 className="admin-section-title">
-              <FaListAlt /> รายการลูกค้าทั้งหมด
-              <span className="section-count">
-                {custSearch ? `${filteredCustomers.length}/${customers.length}` : customers.length}
-              </span>
-            </h2>
-            <button className="topbar-btn topbar-btn-green" style={{ padding: '6px 14px', fontSize: 13 }}
-              onClick={() => navigate('/dashboard/admin/add-customer')}>
-              <FaUserPlus /> เพิ่มลูกค้า
-            </button>
-          </div>
-          {customers.length > 0 && (
-            <div className="table-toolbar">
-              <input
-                className="table-search-input"
-                type="text"
-                placeholder="ค้นหาชื่อ, รหัส, เบอร์โทร, ผู้ดูแล, สินค้า/บริการ..."
-                value={custSearch}
-                onChange={e => setCustSearch(e.target.value)}
-              />
-              {custSearch && (
-                <button className="table-search-clear" onClick={() => setCustSearch('')}>✕</button>
-              )}
-            </div>
-          )}
-          <div className="admin-section-body">
-            {customersLoading ? (
-              <div className="admin-loading">กำลังโหลด...</div>
-            ) : customers.length === 0 ? (
-              <div className="table-empty">ยังไม่มีลูกค้า</div>
-            ) : filteredCustomers.length === 0 ? (
-              <div className="table-empty">ไม่พบลูกค้าที่ค้นหา</div>
-            ) : (
-              <>
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>รหัส / ชื่อลูกค้า</th>
-                      <th>ประเภท</th>
-                      <th>สินค้า / บริการของลูกค้า</th>
-                      <th style={{ textAlign: 'center' }}>บริการในระบบ</th>
-                      <th>ผู้ดูแล</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedCustomers.map((cust) => (
-                      <tr key={cust._id}>
-                        <td>
-                          <div className="user-info-name">{cust.name}</div>
-                          <div className="user-info-username">{cust.customerCode}</div>
-                          <div className="user-info-email">{cust.phone}</div>
-                        </td>
-                        <td><span className={`type-badge type-badge-${cust.customerType === 'บุคคลธรรมดา' ? 'individual' : 'corporate'}`}>{cust.customerType}</span></td>
-                        <td>
-                          <div className="user-info-name" style={{ maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.4 }}>{cust.productService || '-'}</div>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className={`service-count-badge${(cust.serviceCount || 0) > 0 ? ' has-service' : ''}`}>
-                            {cust.serviceCount || 0}
-                          </span>
-                        </td>
-                        <td>
-                          {cust.userIds && cust.userIds.length > 0
-                            ? <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                {cust.userIds.map((u, idx) => (
-                                  <div key={u._id || idx} className="user-cell" style={{ borderBottom: idx < cust.userIds.length - 1 ? '1px solid #f3f4f6' : 'none', paddingBottom: idx < cust.userIds.length - 1 ? '4px' : '0' }}>
-                                    <div className="user-avatar user-avatar-user" style={{ width: 24, height: 24, fontSize: '0.7rem' }}>
-                                      {u.name?.[0]?.toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <div className="user-info-name" style={{ fontSize: '0.8rem' }}>{u.name}</div>
-                                    </div>
+        <div className="admin-section-body">
+          {customersLoading ? (
+            <div className="admin-loading">กำลังโหลด...</div>
+          ) : customers.length === 0 ? (
+            <div className="table-empty">ยังไม่มีลูกค้า</div>
+          ) : filteredCustomers.length === 0 ? (
+            <div className="table-empty">ไม่พบลูกค้าที่ค้นหา</div>
+          ) : (
+            <>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>รหัส / ชื่อลูกค้า</th>
+                    <th>ประเภท</th>
+                    <th>สินค้า / บริการของลูกค้า</th>
+                    <th style={{ textAlign: 'center' }}>บริการในระบบ</th>
+                    <th>ผู้ดูแล</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedCustomers.map((cust) => (
+                    <tr key={cust._id}>
+                      <td>
+                        <div className="user-info-name">{cust.name}</div>
+                        <div className="user-info-username">{cust.customerCode}</div>
+                        <div className="user-info-email">{cust.phone}</div>
+                      </td>
+                      <td><span className={`type-badge type-badge-${cust.customerType === 'บุคคลธรรมดา' ? 'individual' : 'corporate'}`}>{cust.customerType}</span></td>
+                      <td>
+                        <div className="user-info-name" style={{ maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.4 }}>{cust.productService || '-'}</div>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`service-count-badge${(cust.serviceCount || 0) > 0 ? ' has-service' : ''}`}>
+                          {cust.serviceCount || 0}
+                        </span>
+                      </td>
+                      <td>
+                        {cust.userIds && cust.userIds.length > 0
+                          ? <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {cust.userIds.map((u, idx) => (
+                                <div key={u._id || idx} className="user-cell" style={{ borderBottom: idx < cust.userIds.length - 1 ? '1px solid #f3f4f6' : 'none', paddingBottom: idx < cust.userIds.length - 1 ? '4px' : '0' }}>
+                                  <div className="user-avatar user-avatar-user" style={{ width: 24, height: 24, fontSize: '0.7rem' }}>
+                                    {u.name?.[0]?.toUpperCase()}
                                   </div>
-                                ))}
-                              </div>
-                            : <span style={{ color: '#aaa' }}>-</span>}
-                        </td>
-                        <td>
-                          <div className="action-btn-group">
-                            <button className="action-btn action-btn-blue"
-                              onClick={() => navigate(`/dashboard/admin/customer/${cust._id}`)}>รายละเอียด</button>
-                            <button className="action-btn action-btn-green"
-                              onClick={() => navigate(`/dashboard/admin/customer/${cust._id}/services`)}>
-                              <FaTools /> บริการ
-                            </button>
-                            <button className="action-btn action-btn-amber"
-                              onClick={() => { 
-                                setReassignCust(cust); 
-                                setReassignUserIds(cust.userIds?.map(u => u._id) || []); 
-                                setShowReassign(true); 
-                              }}>
-                              <FaUserPlus /> ย้าย
-                            </button>
-                            <button className="action-btn action-btn-red"
-                              onClick={() => handleDeleteCustClick(cust)}>
-                              <FaTrashAlt /> ลบ
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {custTotalPages > 1 && (
-                  <div className="admin-pagination">
-                    <button className="page-btn" onClick={() => setCustPage(p => Math.max(1, p - 1))} disabled={custPage === 1}>‹</button>
-                    {Array.from({ length: custTotalPages }, (_, i) => i + 1).map(p => (
-                      <button key={p} className={`page-btn${custPage === p ? ' active' : ''}`} onClick={() => setCustPage(p)}>{p}</button>
-                    ))}
-                    <button className="page-btn" onClick={() => setCustPage(p => Math.min(custTotalPages, p + 1))} disabled={custPage === custTotalPages}>›</button>
-                    <span className="page-info">หน้า {custPage}/{custTotalPages}</span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Users Section - แสดงเฉพาะ Super Admin */}
-        {isSuperAdmin && (
-        <div className="admin-section-card">
-          <div className="admin-section-header">
-            <h2 className="admin-section-title">
-              <FaUsers /> รายชื่อผู้ใช้
-              <span className="section-count">
-                {(userSearch || userRoleFilter !== 'all') ? `${filteredUsers.length}/${users.length}` : users.length}
-              </span>
-            </h2>
-          </div>
-          {users.length > 0 && (
-            <div className="table-toolbar">
-              <input
-                className="table-search-input"
-                type="text"
-                placeholder="ค้นหาชื่อ, username, email..."
-                value={userSearch}
-                onChange={e => setUserSearch(e.target.value)}
-              />
-              {userSearch && (
-                <button className="table-search-clear" onClick={() => setUserSearch('')}>✕</button>
-              )}
-              <div className="role-filter-tabs">
-                {['ทั้งหมด', 'user', 'account', 'admin', 'google_manager', 'facebook_manager'].map(r => {
-                  const val = r === 'ทั้งหมด' ? 'all' : r;
-                  const count = val === 'all' ? users.length : users.filter(u => u.role === val).length;
-                  return (
-                    <button key={val}
-                      className={`role-filter-tab${userRoleFilter === val ? ' active' : ''}${val !== 'all' ? ` tab-${val}` : ''}`}
-                      onClick={() => setUserRoleFilter(val)}>
-                      {r}
-                      <span className="role-tab-count">{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <div className="admin-section-body">
-            {loading ? (
-              <div className="admin-loading">กำลังโหลด...</div>
-            ) : error ? (
-              <div className="admin-error">{error}</div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="table-empty">ไม่พบผู้ใช้ที่ค้นหา</div>
-            ) : (
-              <>
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>ชื่อ / Username</th>
-                      <th>Role</th>
-                      <th>สมัครเมื่อ</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedUsers.map((user) => (
-                      <tr key={user._id}>
-                        <td>
-                          <div className="user-cell">
-                            <div className={`user-avatar user-avatar-${user.role}`}>{user.name?.[0]?.toUpperCase() || '?'}</div>
-                            <div>
-                              <div className="user-info-name">{user.name}</div>
-                              <div className="user-info-username">@{user.username}</div>
-                              <div className="user-info-email">{user.email}</div>
+                                  <div>
+                                    <div className="user-info-name" style={{ fontSize: '0.8rem' }}>{u.name}</div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                        </td>
-                        <td>
-                          <select className={`admin-role-select role-select-${user.role}`} value={user.role}
-                            onChange={e => setPendingRoleChange({ userId: user._id, userName: user.name || user.username, newRole: e.target.value })}
-                            disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
-                            <option value="user">user</option>
-                            <option value="account">account</option>
-                            <option value="admin">admin</option>
-                            <option value="google_manager">google_manager</option>
-                            <option value="facebook_manager">facebook_manager</option>
-                          </select>
-                        </td>
-                        <td className="date-cell">
-                          {user.createdAt
-                            ? new Date(user.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
-                            : '-'}
-                        </td>
-                        <td>
-                          <div className="action-btn-group">
-                            <Link to={`/user/${user._id}`} className="action-btn action-btn-blue">
-                              รายละเอียด
-                            </Link>
-                            {user.role !== 'admin' && (
-                              <button className="action-btn action-btn-green"
-                                onClick={() => handleImpersonate(user._id)} disabled={!!impersonateLoading}
-                                style={{ opacity: impersonateLoading === user._id ? 0.6 : 1 }}>
-                                <FaSignInAlt /> {impersonateLoading === user._id ? '...' : 'View'}
-                              </button>
-                            )}
-                            {user.role !== 'admin' && (
-                              <button className="action-btn action-btn-amber"
-                                onClick={() => { setResetPwUser(user); setResetPwVal(''); setShowResetPw(true); }}>
-                                <FaKey /> Reset PW
-                              </button>
-                            )}
-                            <button className="action-btn action-btn-red"
-                              onClick={() => handleDeleteClick(user._id)}
-                              disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
-                              <FaTrashAlt /> ลบ
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {userTotalPages > 1 && (
-                  <div className="admin-pagination">
-                    <button className="page-btn" onClick={() => setUserPage(p => Math.max(1, p - 1))} disabled={userPage === 1}>‹</button>
-                    {Array.from({ length: userTotalPages }, (_, i) => i + 1).map(p => (
-                      <button key={p} className={`page-btn${userPage === p ? ' active' : ''}`} onClick={() => setUserPage(p)}>{p}</button>
-                    ))}
-                    <button className="page-btn" onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))} disabled={userPage === userTotalPages}>›</button>
-                    <span className="page-info">หน้า {userPage}/{userTotalPages}</span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                          : <span style={{ color: '#aaa' }}>-</span>}
+                      </td>
+                      <td>
+                        <div className="action-btn-group">
+                          <button className="action-btn action-btn-blue"
+                            onClick={() => navigate(`/dashboard/admin/customer/${cust._id}`)}>รายละเอียด</button>
+                          <button className="action-btn action-btn-green"
+                            onClick={() => navigate(`/dashboard/admin/customer/${cust._id}/services`)}>
+                            <FaTools /> บริการ
+                          </button>
+                          <button className="action-btn action-btn-amber"
+                            onClick={() => { 
+                              setReassignCust(cust); 
+                              setReassignUserIds(cust.userIds?.map(u => u._id) || []); 
+                              setShowReassign(true); 
+                            }}>
+                            <FaUserPlus /> ย้าย
+                          </button>
+                          <button className="action-btn action-btn-red"
+                            onClick={() => handleDeleteCustClick(cust)}>
+                            <FaTrashAlt /> ลบ
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {custTotalPages > 1 && (
+                <div className="admin-pagination">
+                  <button className="page-btn" onClick={() => setCustPage(p => Math.max(1, p - 1))} disabled={custPage === 1}>‹</button>
+                  {Array.from({ length: custTotalPages }, (_, i) => i + 1).map(p => (
+                    <button key={p} className={`page-btn${custPage === p ? ' active' : ''}`} onClick={() => setCustPage(p)}>{p}</button>
+                  ))}
+                  <button className="page-btn" onClick={() => setCustPage(p => Math.min(custTotalPages, p + 1))} disabled={custPage === custTotalPages}>›</button>
+                  <span className="page-info">หน้า {custPage}/{custTotalPages}</span>
+                </div>
+              )}
+            </>
+          )}
         </div>
-        )} {/* end isSuperAdmin users section */}
+      </div>
 
-      </main>
-    </div>
+      {/* Users Section - แสดงเฉพาะ Super Admin */}
+      {isSuperAdmin && (
+      <div className="admin-section-card">
+        <div className="admin-section-header">
+          <h2 className="admin-section-title">
+            <FaUsers /> รายชื่อผู้ใช้
+            <span className="section-count">
+              {(userSearch || userRoleFilter !== 'all') ? `${filteredUsers.length}/${users.length}` : users.length}
+            </span>
+          </h2>
+        </div>
+        {users.length > 0 && (
+          <div className="table-toolbar">
+            <input
+              className="table-search-input"
+              type="text"
+              placeholder="ค้นหาชื่อ, username, email..."
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+            />
+            {userSearch && (
+              <button className="table-search-clear" onClick={() => setUserSearch('')}>✕</button>
+            )}
+            <div className="role-filter-tabs">
+              {['ทั้งหมด', 'user', 'account', 'admin', 'google_manager', 'facebook_manager'].map(r => {
+                const val = r === 'ทั้งหมด' ? 'all' : r;
+                const count = val === 'all' ? users.length : users.filter(u => u.role === val).length;
+                return (
+                  <button key={val}
+                    className={`role-filter-tab${userRoleFilter === val ? ' active' : ''}${val !== 'all' ? ` tab-${val}` : ''}`}
+                    onClick={() => setUserRoleFilter(val)}>
+                    {r}
+                    <span className="role-tab-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div className="admin-section-body">
+          {loading ? (
+            <div className="admin-loading">กำลังโหลด...</div>
+          ) : error ? (
+            <div className="admin-error">{error}</div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="table-empty">ไม่พบผู้ใช้ที่ค้นหา</div>
+          ) : (
+            <>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>ชื่อ / Username</th>
+                    <th>Role</th>
+                    <th>สมัครเมื่อ</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedUsers.map((user) => (
+                    <tr key={user._id}>
+                      <td>
+                        <div className="user-cell">
+                          <div className={`user-avatar user-avatar-${user.role}`}>{user.name?.[0]?.toUpperCase() || '?'}</div>
+                          <div>
+                            <div className="user-info-name">{user.name}</div>
+                            <div className="user-info-username">@{user.username}</div>
+                            <div className="user-info-email">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <select className={`admin-role-select role-select-${user.role}`} value={user.role}
+                          onChange={e => setPendingRoleChange({ userId: user._id, userName: user.name || user.username, newRole: e.target.value })}
+                          disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
+                          <option value="user">user</option>
+                          <option value="account">account</option>
+                          <option value="admin">admin</option>
+                          <option value="google_manager">google_manager</option>
+                          <option value="facebook_manager">facebook_manager</option>
+                        </select>
+                      </td>
+                      <td className="date-cell">
+                        {user.createdAt
+                          ? new Date(user.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })
+                          : '-'}
+                      </td>
+                      <td>
+                        <div className="action-btn-group">
+                          <Link to={`/user/${user._id}`} className="action-btn action-btn-blue">
+                            รายละเอียด
+                          </Link>
+                          {user.role !== 'admin' && (
+                            <button className="action-btn action-btn-green"
+                              onClick={() => handleImpersonate(user._id)} disabled={!!impersonateLoading}
+                              style={{ opacity: impersonateLoading === user._id ? 0.6 : 1 }}>
+                              <FaSignInAlt /> {impersonateLoading === user._id ? '...' : 'View'}
+                            </button>
+                          )}
+                          {user.role !== 'admin' && (
+                            <button className="action-btn action-btn-amber"
+                              onClick={() => { setResetPwUser(user); setResetPwVal(''); setShowResetPw(true); }}>
+                              <FaKey /> Reset PW
+                            </button>
+                          )}
+                          <button className="action-btn action-btn-red"
+                            onClick={() => handleDeleteClick(user._id)}
+                            disabled={user.role === 'admin' && user.email === 'admin@mail.com'}>
+                            <FaTrashAlt /> ลบ
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {userTotalPages > 1 && (
+                <div className="admin-pagination">
+                  <button className="page-btn" onClick={() => setUserPage(p => Math.max(1, p - 1))} disabled={userPage === 1}>‹</button>
+                  {Array.from({ length: userTotalPages }, (_, i) => i + 1).map(p => (
+                    <button key={p} className={`page-btn${userPage === p ? ' active' : ''}`} onClick={() => setUserPage(p)}>{p}</button>
+                  ))}
+                  <button className="page-btn" onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))} disabled={userPage === userTotalPages}>›</button>
+                  <span className="page-info">หน้า {userPage}/{userTotalPages}</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      )} {/* end isSuperAdmin users section */}
+    </>
   );
 };
 
