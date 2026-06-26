@@ -285,7 +285,7 @@ export default function AccountCardsPage() {
           <button 
             className="cards-hero-btn" 
             style={{ background: '#10b981', borderColor: '#10b981' }}
-            onClick={() => navigate('/dashboard/account/cards/daily-summary')}
+            onClick={() => navigate('/dashboard/admin/cards/daily-summary')}
           >
             <Calendar3 /> สรุปรายวัน
           </button>

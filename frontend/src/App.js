@@ -126,6 +126,7 @@ function App() {
           <Route path="cards/daily-summary" element={<AdminCardDailySummaryPage />} />
         </Route>
 
+        {/* Account routes (with sidebar layout) */}
         <Route
           path="/dashboard/account"
           element={

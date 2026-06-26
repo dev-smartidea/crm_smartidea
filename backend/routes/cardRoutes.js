@@ -30,7 +30,7 @@ function getUserFromReq(req) {
 }
 
 function requireAccountOrAdmin(user) {
-  return user && (user.role === 'account' || user.role === 'admin');
+  return user && ['account', 'admin', 'google_manager', 'facebook_manager'].includes(user.role);
 }
 
 // Ensure default cards exist (idempotent)
