@@ -104,6 +104,11 @@ export default function AdminDashboardLayout() {
               <FaBook /> <span>ยอดเดินบัญชี</span>
             </button>
           </li>
+          <li>
+            <button className={`admin-sidebar-item ${window.location.pathname === '/dashboard/admin/cards/daily-summary' ? 'active' : ''}`} onClick={() => { closeSidebar(); navigate('/dashboard/admin/cards/daily-summary'); }}>
+              <FaCalendarAlt /> <span>สรุปตัดบัตรรายวัน</span>
+            </button>
+          </li>
         </ul>
         <div className="admin-sidebar-footer">
           {!isImpersonating && (

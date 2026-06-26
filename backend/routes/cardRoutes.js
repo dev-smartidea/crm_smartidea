@@ -485,6 +485,7 @@ router.get('/cards/daily-summary', async (req, res) => {
       createdAt: { $gte: dayStart, $lte: dayEnd }
     })
       .populate('cardId', 'displayName last4')
+      .populate('serviceId', 'cid customerIdField')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 });
 
@@ -498,6 +499,8 @@ router.get('/cards/daily-summary', async (req, res) => {
 
     const chargeItems = chargeLedgers.map(l => {
       const t = txMap[l.reference] || {};
+      // Try CID from: 1) CardLedger.serviceId, 2) Transaction.serviceId
+      const cid = l.serviceId?.cid || l.serviceId?.customerIdField || t.serviceId?.customerIdField || t.serviceId?.cid || '-';
       return {
         _id: l._id,
         type: 'charge',
@@ -509,12 +512,13 @@ router.get('/cards/daily-summary', async (req, res) => {
         cardTime: l.chargeTime || t.cardTime || '',
         channel: l.channel || t.serviceId?.serviceType || '-',
         accountName: t.serviceId?.pageUrl || t.customerId?.name || '-',
-        cid: t.serviceId?.customerIdField || t.serviceId?.cid || '-',
+        cid: cid,
         bank: t.bank || '-',
         transactionDate: t.transactionDate || l.createdAt,
         chargedAt: l.createdAt,
         chargedBy: l.createdBy?.name || '-',
         note: l.note || '',
+        balanceBefore: (l.balanceAfter !== undefined ? l.balanceAfter + l.amount : null),
         balanceAfter: l.balanceAfter,
         breakdowns: (l.breakdowns || []).map(bd => ({ code: bd.code, amount: bd.amount }))
       };

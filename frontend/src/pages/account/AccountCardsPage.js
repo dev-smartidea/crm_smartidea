@@ -23,6 +23,8 @@ export default function AccountCardsPage() {
   const [formChannel, setFormChannel] = useState('Google Ads');
   const [formReference, setFormReference] = useState('');
   const [formServiceId, setFormServiceId] = useState('');
+  const [formServiceSearch, setFormServiceSearch] = useState('');
+  const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [formNote, setFormNote] = useState('');
   const [formChargeTime, setFormChargeTime] = useState('');
   const [serviceOptions, setServiceOptions] = useState([]);
@@ -60,11 +62,22 @@ export default function AccountCardsPage() {
     facebook: cards.filter(c => c.channels?.includes('Facebook Ads')).length
   }), [cards]);
 
-  // Filter services by selected channel
+  // Filter services by selected channel + search text
   const filteredServices = useMemo(() => {
-    if (!formChannel) return serviceOptions;
-    return serviceOptions.filter(s => s.serviceType === formChannel);
-  }, [serviceOptions, formChannel]);
+    let list = serviceOptions;
+    if (formChannel) {
+      list = list.filter(s => s.serviceType === formChannel);
+    }
+    if (formServiceSearch) {
+      const q = formServiceSearch.toLowerCase();
+      list = list.filter(s => {
+        const name = (s.name || '').toLowerCase();
+        const cid = (s.customerIdField || s.cid || '').toLowerCase();
+        return name.includes(q) || cid.includes(q);
+      });
+    }
+    return list;
+  }, [serviceOptions, formChannel, formServiceSearch]);
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -107,6 +120,8 @@ export default function AccountCardsPage() {
     setFormChannel('Google Ads');
     setFormReference('');
     setFormServiceId('');
+    setFormServiceSearch('');
+    setShowServiceDropdown(false);
     setFormNote('');
     setFormChargeTime('');
     setError('');
@@ -615,20 +630,83 @@ export default function AccountCardsPage() {
                     </select>
                   </label>
 
-                  <label className="field">
-                    <span className="field-label">บริการที่ใช้</span>
-                    <select
+                  <label className="field" style={{ position: 'relative' }}>
+                    <span className="field-label" style={{ display: 'block', marginBottom: 6 }}>บริการที่ใช้</span>
+                    <input
+                      type="text"
                       className="field-input"
-                      value={formServiceId}
-                      onChange={e => setFormServiceId(e.target.value)}
-                    >
-                      <option value="">— ไม่ได้ระบุบริการ —</option>
-                      {filteredServices.map(s => (
-                        <option key={s._id} value={s._id}>
-                          {s.name || 'บริการ'}{s.customerIdField ? ` • ${s.customerIdField}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="พิมพ์ค้นหาบริการ..."
+                      value={formServiceSearch || ''}
+                      onChange={e => { setFormServiceSearch(e.target.value); setFormServiceId(''); }}
+                      onFocus={() => setShowServiceDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowServiceDropdown(false), 200)}
+                      autoComplete="off"
+                    />
+                    {showServiceDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        zIndex: 100,
+                        maxHeight: '220px',
+                        overflowY: 'auto',
+                        background: '#fff',
+                        border: '1px solid #d4d4d4',
+                        borderRadius: '0 0 6px 6px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+                      }}>
+                        {filteredServices.length === 0 ? (
+                          <div style={{ padding: '10px 12px', color: '#a3a3a3', fontSize: '13px' }}>ไม่พบบริการ</div>
+                        ) : (
+                          <button
+                            type="button"
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: 'none',
+                              background: !formServiceId ? '#eff6ff' : '#fff',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              textAlign: 'left',
+                              color: '#525252',
+                              borderBottom: '1px solid #f5f5f5'
+                            }}
+                            onClick={() => { setFormServiceId(''); setFormServiceSearch(''); setShowServiceDropdown(false); }}
+                          >
+                            — ไม่ได้ระบุบริการ —
+                          </button>
+                        )}
+                        {filteredServices.map(s => {
+                          const label = `${s.name || 'บริการ'}${s.customerIdField ? ` • ${s.customerIdField}` : ''}`;
+                          const isSelected = formServiceId === s._id;
+                          return (
+                            <button
+                              key={s._id}
+                              type="button"
+                              style={{
+                                display: 'block',
+                                width: '100%',
+                                padding: '8px 12px',
+                                border: 'none',
+                                background: isSelected ? '#eff6ff' : '#fff',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                textAlign: 'left',
+                                color: '#0f172a',
+                                borderBottom: '1px solid #f5f5f5'
+                              }}
+                              onMouseEnter={e => e.target.style.background = '#f5f5f5'}
+                              onMouseLeave={e => e.target.style.background = isSelected ? '#eff6ff' : '#fff'}
+                              onClick={() => { setFormServiceId(s._id); setFormServiceSearch(label); setShowServiceDropdown(false); }}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </label>
 
                   <label className="field">

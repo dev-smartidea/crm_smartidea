@@ -14,6 +14,7 @@ import DashboardPage from './pages/shared/DashboardPage';
 import AdminDashboardLayout from './components/AdminDashboardLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminLedgerPage from './pages/admin/AdminLedgerPage';
+import AdminCardDailySummaryPage from './pages/admin/AdminCardDailySummaryPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import AccountDashboardPage from './pages/shared/AccountDashboardPage';
 import AccountTransactionsPage from './pages/account/AccountTransactionsPage';
@@ -122,6 +123,7 @@ function App() {
           <Route path="services/:serviceId/transactions" element={<TransactionHistoryPage />} />
           <Route path="customer/:id" element={<CustomerDetailPage />} />
           <Route path="ledger" element={<AdminLedgerPage />} />
+          <Route path="cards/daily-summary" element={<AdminCardDailySummaryPage />} />
         </Route>
 
         <Route
