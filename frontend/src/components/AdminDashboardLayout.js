@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import { useNavigate, Outlet } from 'react-router-dom';
-import { FaUserShield, FaDownload, FaUserPlus, FaClipboardList, FaCalendarAlt, FaHome, FaSignOutAlt, FaBars, FaBook } from 'react-icons/fa';
+import { FaUserShield, FaDownload, FaUserPlus, FaClipboardList, FaCalendarAlt, FaHome, FaSignOutAlt, FaBars, FaBook, FaTools } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
 import ImpersonationBanner from './ImpersonationBanner';
 import '../pages/admin/AdminDashboardPage.css';
@@ -107,6 +107,11 @@ export default function AdminDashboardLayout() {
           <li>
             <button className={`admin-sidebar-item ${window.location.pathname === '/dashboard/admin/cards/daily-summary' ? 'active' : ''}`} onClick={() => { closeSidebar(); navigate('/dashboard/admin/cards/daily-summary'); }}>
               <FaCalendarAlt /> <span>สรุปตัดบัตรรายวัน</span>
+            </button>
+          </li>
+          <li>
+            <button className={`admin-sidebar-item ${window.location.pathname === '/dashboard/admin/services' ? 'active' : ''}`} onClick={() => { closeSidebar(); navigate('/dashboard/admin/services'); }}>
+              <FaTools /> <span>บริการทั้งหมด</span>
             </button>
           </li>
         </ul>

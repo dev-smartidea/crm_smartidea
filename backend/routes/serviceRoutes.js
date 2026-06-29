@@ -158,9 +158,15 @@ router.get('/services', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     
+    const serviceScope =
+      user.role === 'google_manager' ? 'Google Ads' :
+      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+
     let services;
     if (user.role === 'admin' || user.role === 'account') {
       services = await Service.find().populate('customerId', 'name phone');
+    } else if (serviceScope) {
+      services = await Service.find({ serviceType: serviceScope }).populate('customerId', 'name phone');
     } else {
       const currentUser = await getCurrentUser(user);
       services = await Service.find({ 
