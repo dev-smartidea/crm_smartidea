@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { CalendarCheck, ChevronLeft, ChevronRight, Funnel, X } from 'react-bootstrap-icons';
 import './DueCustomersPage.css';
@@ -112,15 +112,36 @@ export default function DueCustomersPage() {
   useEffect(() => { setPage(1); }, [month, year, ownerFilter, serviceTypeFilter, payStatusFilter]);
 
   // รายชื่อผู้ดูแลทั้งหมด (เพื่อสร้าง dropdown)
+  // กรองตามบทบาทผู้จัดการตั้งแต่แรกเพื่อนำไปใช้งานต่อ
+  const roleFilteredServices = useMemo(() => {
+    return services.filter(s => {
+      const type = s.serviceType || '';
+      const owner = s.ownerName || '';
+      
+      if (currentRole === 'google_manager') {
+        if (!type.toLowerCase().includes('google')) return false;
+        const isGoogleUser = ['ครีม', 'น้ำ', 'บิว'].some(u => owner.includes(u));
+        if (!isGoogleUser) return false;
+      }
+      if (currentRole === 'facebook_manager') {
+        if (!type.toLowerCase().includes('facebook')) return false;
+        const isFacebookUser = ['ปาน', 'มิกซ์', 'อุ้ม'].some(u => owner.includes(u));
+        if (!isFacebookUser) return false;
+      }
+      return true;
+    });
+  }, [services, currentRole]);
+
+  // รายชื่อผู้ดูแลทั้งหมด (เพื่อสร้าง dropdown)
   const ownerOptions = isAdmin
-    ? [...new Map(services.filter(s => s.ownerName).map(s => [s.ownerName, s.ownerName])).values()].sort()
+    ? [...new Map(roleFilteredServices.filter(s => s.ownerName).map(s => [s.ownerName, s.ownerName])).values()].sort()
     : [];
 
   // ประเภทบริการทั้งหมด
-  const serviceTypeOptions = [...new Set(services.map(s => s.serviceType).filter(Boolean))].sort();
+  const serviceTypeOptions = [...new Set(roleFilteredServices.map(s => s.serviceType).filter(Boolean))].sort();
 
   // กรองทั้ง 3 เงื่อนไข
-  const filteredServices = services
+  const filteredServices = roleFilteredServices
     .filter(s => !ownerFilter       || s.ownerName   === ownerFilter)
     .filter(s => !serviceTypeFilter || s.serviceType === serviceTypeFilter)
     .filter(s => {
@@ -137,6 +158,39 @@ export default function DueCustomersPage() {
 
   const totalPages    = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const pagedServices = filteredServices.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // คำนวณเปอร์เซ็นต์เก็บค่าบริการแยกตามผู้ดูแล
+  const caretakerStats = useMemo(() => {
+    if (!isAdmin) return [];
+    const statsMap = {};
+    roleFilteredServices.forEach(s => {
+      const owner = s.ownerName || 'ไม่มีผู้ดูแล';
+      if (!statsMap[owner]) {
+        statsMap[owner] = {
+          ownerName: owner,
+          totalCount: 0,
+          paidCount: 0,
+          totalAmount: 0,
+          paidAmount: 0
+        };
+      }
+      statsMap[owner].totalCount += 1;
+      const price = Number(s.price) || 0;
+      statsMap[owner].totalAmount += price;
+      if (s.lastTransaction) {
+        statsMap[owner].paidCount += 1;
+        statsMap[owner].paidAmount += Number(s.lastTransaction.amount) || price;
+      }
+    });
+
+    return Object.values(statsMap).map(stat => {
+      const amountRate = stat.totalAmount > 0 ? Math.round((stat.paidAmount / stat.totalAmount) * 100) : 0;
+      return {
+        ...stat,
+        amountRate
+      };
+    }).sort((a, b) => b.amountRate - a.amountRate);
+  }, [roleFilteredServices, isAdmin]);
 
   return (
     <div className="due-customers-page">
@@ -248,6 +302,33 @@ export default function DueCustomersPage() {
             <span className="stat-value">{collectRate}%</span>
           </div>
         </div>
+
+        {/* ── Caretaker Collection Rate Summary (Admin Only) ── */}
+        {isAdmin && caretakerStats.length > 0 && (
+          <div className="caretaker-stats-card">
+            <h3>📊 สรุปยอดเก็บค่าบริการรายบุคคล (ประจำเดือน)</h3>
+            <div className="caretaker-stats-grid">
+              {caretakerStats.map(stat => (
+                <div className="caretaker-stat-item" key={stat.ownerName}>
+                  <div className="caretaker-stat-header">
+                    <span className="caretaker-name">{stat.ownerName}</span>
+                    <span className="caretaker-rate">{stat.amountRate}%</span>
+                  </div>
+                  <div className="caretaker-progress-bar-bg">
+                    <div 
+                      className={`caretaker-progress-bar ${stat.amountRate >= 80 ? 'high' : stat.amountRate >= 50 ? 'medium' : 'low'}`} 
+                      style={{ width: `${stat.amountRate}%` }}
+                    />
+                  </div>
+                  <div className="caretaker-stat-details">
+                    <span>เก็บแล้ว: {stat.paidCount}/{stat.totalCount} รายการ</span>
+                    <span>ยอดเงิน: {formatPrice(stat.paidAmount)} / {formatPrice(stat.totalAmount)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Table ── */}
         <div className="due-table-wrapper">

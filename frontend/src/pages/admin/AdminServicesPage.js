@@ -158,13 +158,19 @@ export default function AdminServicesPage() {
 
   const filteredServices = useMemo(() => {
     return services.filter(s => {
-      // Filter based on userRole
+      // Filter based on userRole and caretaker
       const type = s.serviceType || s.name || '';
-      if (userRole === 'google_manager' && type !== 'Google Ads') {
-        return false;
+      const caretakerName = s.caretaker || '';
+      
+      if (userRole === 'google_manager') {
+        if (type !== 'Google Ads') return false;
+        const isGoogleUser = ['ครีม', 'น้ำ', 'บิว'].some(u => caretakerName.includes(u));
+        if (!isGoogleUser) return false;
       }
-      if (userRole === 'facebook_manager' && type !== 'Facebook Ads') {
-        return false;
+      if (userRole === 'facebook_manager') {
+        if (type !== 'Facebook Ads') return false;
+        const isFacebookUser = ['ปาน', 'มิกซ์', 'อุ้ม'].some(u => caretakerName.includes(u));
+        if (!isFacebookUser) return false;
       }
 
       if (!search) return true;
