@@ -12,7 +12,7 @@ const Notification = require('../models/Notification');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 // กำหนดรายการรหัส/สถานะที่อนุญาต
-const ALLOWED_BREAKDOWN_CODES = ['9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'];
+const ALLOWED_BREAKDOWN_CODES = ['7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'];
 const ALLOWED_STATUS_NOTES = ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'];
 
 // Helper: ตรวจสอบว่าไฟล์มีอยู่จริงหรือไม่

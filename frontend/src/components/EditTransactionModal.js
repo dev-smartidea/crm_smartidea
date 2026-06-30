@@ -30,6 +30,8 @@ export default function EditTransactionModal({
   const previousFocusRef = useRef(null);
 
   const BREAKDOWN_CODE_OPTIONS = [
+    { value: '7', label: '7 : หัก ณ ที่จ่าย 3% ค่าคลิก' },
+    { value: '8', label: '8 : หัก ณ ที่จ่าย 2% ค่าบริการ' },
     { value: '9', label: '9 : หัก ณ ที่จ่าย 2% ค่าคลิก' },
     { value: '10', label: '10 : หัก ณ ที่จ่าย 3% ค่าบริการ' },
     { value: '11', label: '11 : ค่าคลิก' },
@@ -258,52 +260,103 @@ export default function EditTransactionModal({
     });
   };
 
-  // Auto-calculate withholding tax when selecting code 9 or 10
-  const handleCodeChange = (idx, newCode) => {
+  // คำนวณหัก ณ ที่จ่ายอัตโนมัติ
+  const computeWithholdingTax = (idx, code) => {
     setForm(prev => {
       const rows = [...(prev.breakdowns || [])];
       const current = rows[idx];
+      if (!current) return prev;
 
-      // ถ้าเลือกรหัส 9 ให้ตรวจสอบว่ามีรายการรหัส 11 อยู่ในแถวอื่นหรือไม่
-      if (newCode === '9' && !rows.some((b, i) => i !== idx && b.code === '11')) {
-        toast.warning('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 2% ได้');
-        return prev;
-      }
-      // ถ้าเลือกรหัส 10 ให้ตรวจสอบว่ามีรายการรหัส 14, 18 หรือ 15 อยู่ในแถวอื่นหรือไม่
-      if (newCode === '10' && !rows.some((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'))) {
-        toast.warning('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 3% ได้');
-        return prev;
-      }
-
-      if (newCode === '9') {
+      // หัก ณ ที่จ่าย 3% ค่าคลิก (code 7) - ใช้ code 11 เป็นฐาน
+      if (code === '7') {
         const idx11 = rows.findIndex((b, i) => i !== idx && b.code === '11');
-        if (idx11 !== -1) {
-          const row11 = rows[idx11];
-          const amount11 = parseFloat(row11.amount) || 0;
-          if (amount11 > 0) {
-            const w = Math.round(amount11 * 0.02 * 100) / 100;
-            rows[idx] = { ...current, code: '9', amount: (-w).toFixed(2) };
-            return { ...prev, breakdowns: rows };
-          }
+        if (idx11 === -1) {
+          toast.warning('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อน');
+          return prev;
         }
+        const row11 = rows[idx11];
+        const amount11 = parseFloat(row11.amount) || 0;
+        if (amount11 <= 0) {
+          toast.warning('กรุณากรอกยอดเงินในรหัส 11 ก่อน');
+          return prev;
+        }
+        const w = Math.round(amount11 * 0.03 * 100) / 100;
+        rows[idx] = { ...current, code: '7', amount: (-w).toFixed(2) };
+        return { ...prev, breakdowns: rows };
       }
 
-      if (newCode === '10') {
-        const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '15' || b.code === '18'));
-        if (idxSrc !== -1) {
-          const rowSrc = rows[idxSrc];
-          const amountSrc = parseFloat(rowSrc.amount) || 0;
-          if (amountSrc > 0) {
-            const w = Math.round(amountSrc * 0.03 * 100) / 100;
-            rows[idx] = { ...current, code: '10', amount: (-w).toFixed(2) };
-            return { ...prev, breakdowns: rows };
-          }
+      // หัก ณ ที่จ่าย 2% ค่าบริการ (code 8) - ใช้ code 14, 18, 15 เป็นฐาน
+      if (code === '8') {
+        const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'));
+        if (idxSrc === -1) {
+          toast.warning('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อน');
+          return prev;
         }
+        const rowSrc = rows[idxSrc];
+        const amountSrc = parseFloat(rowSrc.amount) || 0;
+        if (amountSrc <= 0) {
+          toast.warning('กรุณากรอกยอดเงินในรหัส 14, 18 หรือ 15 ก่อน');
+          return prev;
+        }
+        const w = Math.round(amountSrc * 0.02 * 100) / 100;
+        rows[idx] = { ...current, code: '8', amount: (-w).toFixed(2) };
+        return { ...prev, breakdowns: rows };
       }
 
-      rows[idx] = { ...current, code: newCode };
+      // หัก ณ ที่จ่าย 2% ค่าคลิก (code 9) - ใช้ code 11 เป็นฐาน
+      if (code === '9') {
+        const idx11 = rows.findIndex((b, i) => i !== idx && b.code === '11');
+        if (idx11 === -1) {
+          toast.warning('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อน');
+          return prev;
+        }
+        const row11 = rows[idx11];
+        const amount11 = parseFloat(row11.amount) || 0;
+        if (amount11 <= 0) {
+          toast.warning('กรุณากรอกยอดเงินในรหัส 11 ก่อน');
+          return prev;
+        }
+        const w = Math.round(amount11 * 0.02 * 100) / 100;
+        rows[idx] = { ...current, code: '9', amount: (-w).toFixed(2) };
+        return { ...prev, breakdowns: rows };
+      }
+
+      // หัก ณ ที่จ่าย 3% ค่าบริการ (code 10) - ใช้ code 14, 18, 15 เป็นฐาน
+      if (code === '10') {
+        const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'));
+        if (idxSrc === -1) {
+          toast.warning('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อน');
+          return prev;
+        }
+        const rowSrc = rows[idxSrc];
+        const amountSrc = parseFloat(rowSrc.amount) || 0;
+        if (amountSrc <= 0) {
+          toast.warning('กรุณากรอกยอดเงินในรหัส 14, 18 หรือ 15 ก่อน');
+          return prev;
+        }
+        const w = Math.round(amountSrc * 0.03 * 100) / 100;
+        rows[idx] = { ...current, code: '10', amount: (-w).toFixed(2) };
+        return { ...prev, breakdowns: rows };
+      }
+
       return { ...prev, breakdowns: rows };
     });
+  };
+
+  // Auto-calculate withholding tax when selecting code 7, 8, 9 or 10
+  const handleCodeChange = (idx, newCode) => {
+    const withholdingTaxCodes = ['7', '8', '9', '10'];
+    if (withholdingTaxCodes.includes(newCode)) {
+      computeWithholdingTax(idx, newCode);
+    } else {
+      setForm(prev => {
+        const rows = [...(prev.breakdowns || [])];
+        if (rows[idx]) {
+          rows[idx] = { ...rows[idx], code: newCode };
+        }
+        return { ...prev, breakdowns: rows };
+      });
+    }
   };
 
   const handleSlipChange = (e) => {

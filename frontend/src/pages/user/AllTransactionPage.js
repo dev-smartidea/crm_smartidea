@@ -66,6 +66,8 @@ export default function AllTransactionPage() {
 
   // ====== Breakdown Rows UI Handlers ======
   const BREAKDOWN_CODE_OPTIONS = [
+    { value: '7', label: '7 : หัก ณ ที่จ่าย 3% ค่าคลิก' },
+    { value: '8', label: '8 : หัก ณ ที่จ่าย 2% ค่าบริการ' },
     { value: '9', label: '9 : หัก ณ ที่จ่าย 2% ค่าคลิก' },
     { value: '10', label: '10 : หัก ณ ที่จ่าย 3% ค่าบริการ' },
     { value: '11', label: '11 : ค่าคลิก' },
@@ -83,6 +85,56 @@ export default function AllTransactionPage() {
     { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },
     { value: 'ค่าคลิกที่ยังไม่ต้องเติม', label: 'ค่าคลิกที่ยังไม่ต้องเติม' }
   ];
+
+  // คำนวณหัก ณ ที่จ่ายอัตโนมัติ
+  const computeWithholdingTax = (entryIdx, idx, code) => {
+    setForm(prev => ({
+      ...prev,
+      serviceEntries: prev.serviceEntries.map((entry, ei) => {
+        if (ei !== entryIdx) return entry;
+        const rows = [...(entry.breakdowns || [])];
+        if (!rows[idx]) return entry;
+
+        // หัก ณ ที่จ่าย 3% ค่าคลิก (code 7) - ใช้ code 11 เป็นฐาน
+        if (code === '7') {
+          const idx11 = rows.findIndex((b, i) => i !== idx && b.code === '11');
+          if (idx11 === -1) {
+            alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อน');
+            return entry;
+          }
+          const row11 = rows[idx11];
+          const amount11 = parseFloat(row11.amount) || 0;
+          if (amount11 <= 0) {
+            alert('กรุณากรอกยอดเงินในรหัส 11 ก่อน');
+            return entry;
+          }
+          const w = Math.round(amount11 * 0.03 * 100) / 100;
+          rows[idx] = { ...rows[idx], code: '7', amount: (-w).toFixed(2) };
+          return { ...entry, breakdowns: rows };
+        }
+
+        // หัก ณ ที่จ่าย 2% ค่าบริการ (code 8) - ใช้ code 14, 18, 15 เป็นฐาน
+        if (code === '8') {
+          const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'));
+          if (idxSrc === -1) {
+            alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อน');
+            return entry;
+          }
+          const rowSrc = rows[idxSrc];
+          const amountSrc = parseFloat(rowSrc.amount) || 0;
+          if (amountSrc <= 0) {
+            alert('กรุณากรอกยอดเงินในรหัส 14, 18 หรือ 15 ก่อน');
+            return entry;
+          }
+          const w = Math.round(amountSrc * 0.02 * 100) / 100;
+          rows[idx] = { ...rows[idx], code: '8', amount: (-w).toFixed(2) };
+          return { ...entry, breakdowns: rows };
+        }
+
+        return entry;
+      })
+    }));
+  };
 
   const addBreakdownRow = (entryIdx) => {
     setForm(prev => ({
@@ -199,63 +251,20 @@ export default function AllTransactionPage() {
     const rows = [...(entry.breakdowns || [])];
     const current = rows[idx];
 
-    if (newCode === '9' && !rows.some((b, i) => i !== idx && b.code === '11')) {
-      alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 2% ได้');
+    // ตรวจสอบสำหรับ code 7, 8, 9, 10
+    if ((newCode === '7' || newCode === '9') && !rows.some((b, i) => i !== idx && b.code === '11')) {
+      alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่ายได้');
       return;
     }
-    if (newCode === '10' && !rows.some((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'))) {
-      alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 3% ได้');
+    if ((newCode === '8' || newCode === '10') && !rows.some((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'))) {
+      alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่ายได้');
       return;
     }
 
-    if (newCode === '9') {
-      const idx11 = rows.findIndex((b, i) => i !== idx && b.code === '11');
-      if (idx11 !== -1) {
-        const row11 = rows[idx11];
-        const amount11 = parseFloat(row11.amount) || 0;
-        if (amount11 > 0) {
-          const w = Math.round(amount11 * 0.02 * 100) / 100;
-          setForm(prev => ({
-            ...prev,
-            serviceEntries: prev.serviceEntries.map((ent, ei) => {
-              if (ei !== entryIdx) return ent;
-              return {
-                ...ent,
-                breakdowns: ent.breakdowns.map((r, i) => {
-                  if (i === idx) return { ...r, code: '9', amount: (-w).toFixed(2) };
-                  return r;
-                })
-              };
-            })
-          }));
-          return;
-        }
-      }
-    }
-
-    if (newCode === '10') {
-      const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '15' || b.code === '18'));
-      if (idxSrc !== -1) {
-        const rowSrc = rows[idxSrc];
-        const amountSrc = parseFloat(rowSrc.amount) || 0;
-        if (amountSrc > 0) {
-          const w = Math.round(amountSrc * 0.03 * 100) / 100;
-          setForm(prev => ({
-            ...prev,
-            serviceEntries: prev.serviceEntries.map((ent, ei) => {
-              if (ei !== entryIdx) return ent;
-              return {
-                ...ent,
-                breakdowns: ent.breakdowns.map((r, i) => {
-                  if (i === idx) return { ...r, code: '10', amount: (-w).toFixed(2) };
-                  return r;
-                })
-              };
-            })
-          }));
-          return;
-        }
-      }
+    // คำนวณหัก ณ ที่จ่ายอัตโนมัติ
+    if (newCode === '7' || newCode === '8' || newCode === '9' || newCode === '10') {
+      computeWithholdingTax(entryIdx, idx, newCode);
+      return;
     }
 
     updateBreakdown(entryIdx, idx, 'code', newCode);
@@ -486,6 +495,8 @@ export default function AllTransactionPage() {
 
   // Map รหัส breakdown -> ป้ายภาษาไทย
   const breakdownCodeLabels = {
+    '7': 'หัก ณ ที่จ่าย 3% ค่าคลิก',
+    '8': 'หัก ณ ที่จ่าย 2% ค่าบริการ',
     '9': 'หัก ณ ที่จ่าย 2% ค่าคลิก',
     '10': 'หัก ณ ที่จ่าย 3% ค่าบริการ',
     '11': 'ค่าคลิก',
@@ -1012,7 +1023,7 @@ export default function AllTransactionPage() {
                             <div className="breakdowns">
                               {tx.breakdowns.map((bd, idx) => {
                                 const label = breakdownCodeLabels[bd.code] || bd.code;
-                                const isDeduction = bd.code === '9' || bd.code === '10';
+                                const isDeduction = bd.code === '7' || bd.code === '8' || bd.code === '9' || bd.code === '10';
                                 const isVat = bd.code === '12' || bd.code === '13' || bd.code === '17' || bd.code === '19';
                                 const amountColor = isDeduction ? '#dc2626' : isVat ? '#7c3aed' : '#1d4ed8';
                                 return (

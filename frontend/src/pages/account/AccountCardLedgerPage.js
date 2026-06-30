@@ -130,6 +130,13 @@ export default function AccountCardLedgerPage() {
     return new Date(date).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const getBreakdownAmount = (item, code) => {
+    if (!item.breakdowns || !Array.isArray(item.breakdowns)) return 0;
+    return item.breakdowns
+      .filter(bd => String(bd.code) === String(code))
+      .reduce((sum, bd) => sum + (parseFloat(bd.amount) || 0), 0);
+  };
+
   const hasActiveFilters = filterType || filterChannel || dateFrom || dateTo;
 
   const setQuickDateFilter = (type) => {
@@ -287,13 +294,19 @@ export default function AccountCardLedgerPage() {
                     <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>ช่องทาง</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>อ้างอิง</th>
                     <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>จำนวนเงิน</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>ค่าคลิก</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>หัก ณ ที่จ่าย 3% ค่าคลิก</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>หัก ณ ที่จ่าย 2% ค่าบริการ</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>หัก ณ ที่จ่าย 2% ค่าคลิก</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>หัก ณ ที่จ่าย 3% ค่าบริการ</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>รายละเอียด</th>
                     <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>ยอดหลังรายการ</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>โดย</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedLedger.map((entry, i) => (
+                  {paginatedLedger.map((entry, i) => {
+                    return (
                     <tr key={entry._id} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 1 ? '#fafafa' : '#fff' }}>
                       <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatDate(entry.createdAt)} {formatTime(entry.createdAt)}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.type === 'topup' ? <span style={{ color: '#16a34a', fontWeight: 600 }}>เติมเงิน</span> : <span style={{ color: '#dc2626', fontWeight: 600 }}>ตัดยอด</span>}</td>
@@ -301,16 +314,27 @@ export default function AccountCardLedgerPage() {
                       <td style={{ padding: '8px 10px' }}>{entry.channel || '-'}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.reference || '-'}</td>
                       <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace', color: entry.direction === 'debit' ? '#dc2626' : '#16a34a' }}>{entry.direction === 'debit' ? '-' : '+'}{(entry.amount || 0).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{getBreakdownAmount(entry, 11).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{getBreakdownAmount(entry, 7).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{getBreakdownAmount(entry, 8).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{getBreakdownAmount(entry, 9).toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{getBreakdownAmount(entry, 10).toLocaleString()}</td>
                       <td style={{ padding: '8px 10px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.note}</td>
                       <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{(entry.balanceAfter || 0).toLocaleString()}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.createdBy?.name || '-'}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr style={{ borderTop: '2px solid #e5e5e5', background: '#f5f5f5' }}>
                     <td colSpan="5" style={{ padding: '8px 10px', fontWeight: 600 }}>รวม {filteredLedger.length} รายการ (หน้า {currentPage}/{totalPages})</td>
                     <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(summary.credit - summary.debit).toLocaleString()}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(11).toLocaleString(); })()}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(7).toLocaleString(); })()}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(8).toLocaleString(); })()}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(9).toLocaleString(); })()}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(10).toLocaleString(); })()}</td>
                     <td colSpan="3" style={{ padding: '8px 10px' }}></td>
                   </tr>
                 </tfoot>

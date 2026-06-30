@@ -420,6 +420,10 @@ export default function AdminLedgerPage() {
                   <th className="col-fb" scope="col">ต่ออายุ FB</th>
                   <th className="col-hosting" scope="col">Hosting Domain</th>
                   <th className="col-click" scope="col">ค่าคลิก</th>
+                  <th className="col-wht3click" scope="col">หัก ณ ที่จ่าย 3% ค่าคลิก</th>
+                  <th className="col-wht2svc" scope="col">หัก ณ ที่จ่าย 2% ค่าบริการ</th>
+                  <th className="col-wht2click" scope="col">หัก ณ ที่จ่าย 2% ค่าคลิก</th>
+                  <th className="col-wht3svc" scope="col">หัก ณ ที่จ่าย 3% ค่าบริการ</th>
                   <th className="col-prepaid" scope="col">สำรอง</th>
                   <th className="col-coupon" scope="col">คูปอง</th>
                   <th className="col-inv" scope="col">Inv. Gg</th>
@@ -472,6 +476,14 @@ export default function AdminLedgerPage() {
                     <td className="col-hosting">{formatNumber(getBreakdownAmount(item, 20))}</td>
                     {/* ค่าคลิก */}
                     <td className="col-click">{formatNumber(getBreakdownAmount(item, 11))}</td>
+                    {/* หัก ณ ที่จ่าย 3% ค่าคลิก (code 7) */}
+                    <td className="col-wht3click">{formatNumber(getBreakdownAmount(item, 7))}</td>
+                    {/* หัก ณ ที่จ่าย 2% ค่าบริการ (code 8) */}
+                    <td className="col-wht2svc">{formatNumber(getBreakdownAmount(item, 8))}</td>
+                    {/* หัก ณ ที่จ่าย 2% ค่าคลิก (code 9) */}
+                    <td className="col-wht2click">{formatNumber(getBreakdownAmount(item, 9))}</td>
+                    {/* หัก ณ ที่จ่าย 3% ค่าบริการ (code 10) */}
+                    <td className="col-wht3svc">{formatNumber(getBreakdownAmount(item, 10))}</td>
                     <td className="col-prepaid editable-cell" onClick={() => handleCellClick(item._id, 'prepaid', item.prepaid)}>
                       {editingCell?.id === item._id && editingCell?.field === 'prepaid' ? (
                         <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
@@ -530,6 +542,10 @@ export default function AdminLedgerPage() {
                     <td className="col-fb" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.renewFB)}</td>
                     <td className="col-hosting" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.hosting)}</td>
                     <td className="col-click" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.click)}</td>
+                    <td className="col-wht3click" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(getBreakdownAmount({ breakdowns: ledgerData.flatMap(i => i.breakdowns || []) }, 7))}</td>
+                    <td className="col-wht2svc" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(getBreakdownAmount({ breakdowns: ledgerData.flatMap(i => i.breakdowns || []) }, 8))}</td>
+                    <td className="col-wht2click" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(getBreakdownAmount({ breakdowns: ledgerData.flatMap(i => i.breakdowns || []) }, 9))}</td>
+                    <td className="col-wht3svc" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(getBreakdownAmount({ breakdowns: ledgerData.flatMap(i => i.breakdowns || []) }, 10))}</td>
                     <td className="col-prepaid"></td>
                     <td className="col-coupon"></td>
                     <td className="col-inv"></td>

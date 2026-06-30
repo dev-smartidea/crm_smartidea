@@ -55,7 +55,7 @@ router.get('/services/due-monthly', async (req, res) => {
 
     const Transaction = require('../models/Transaction');
 
-    const SERVICE_FEE_CODES = ['13', '14', '15', '17', '18', '19', '20'];
+    const SERVICE_FEE_CODES = ['7', '8', '13', '14', '15', '17', '18', '19', '20'];
 
     const paidTxAgg = await Transaction.aggregate([
       {

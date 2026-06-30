@@ -128,6 +128,10 @@ router.get('/ledger', async (req, res) => {
 
       // ดึงยอดต่างๆ จาก breakdowns
       const breakdowns = t.breakdowns || [];
+      const code7 = breakdowns.find(b => b.code === '7')?.amount || 0; // หัก ณ ที่จ่าย 3% ค่าคลิก
+      const code8 = breakdowns.find(b => b.code === '8')?.amount || 0; // หัก ณ ที่จ่าย 2% ค่าบริการ
+      const code9 = breakdowns.find(b => b.code === '9')?.amount || 0; // หัก ณ ที่จ่าย 2% ค่าคลิก
+      const code10 = breakdowns.find(b => b.code === '10')?.amount || 0; // หัก ณ ที่จ่าย 3% ค่าบริการ
       const code11 = breakdowns.find(b => b.code === '11')?.amount || 0; // ค่าคลิก
       const code12 = breakdowns.find(b => b.code === '12')?.amount || 0; // Vat ค่าคลิก
       const code13 = breakdowns.find(b => b.code === '13')?.amount || 0; // Vat ค่าบริการ Google
@@ -199,6 +203,10 @@ router.get('/ledger', async (req, res) => {
         newCustomerFB: newCustomerFB, // ลูกค้าใหม่ FB
         renewFB: renewFB, // ต่ออายุ FB
         clickCost: code11, // ค่าคลิก (11)
+        wht2Click: code9, // หัก ณ ที่จ่าย 2% ค่าคลิก (code 9)
+        wht3Service: code10, // หัก ณ ที่จ่าย 3% ค่าบริการ (code 10)
+        wht3Click: code7, // หัก ณ ที่จ่าย 3% ค่าคลิก (code 7)
+        wht2Service: code8, // หัก ณ ที่จ่าย 2% ค่าบริการ (code 8)
         prepaid: t.prepaid != null ? t.prepaid : code15, // สำรอง
         coupon: t.coupon != null ? t.coupon : code16, // คูปอง
         // Hosting Domain
@@ -243,6 +251,10 @@ router.get('/ledger', async (req, res) => {
       totalNewFB: ledgerItems.reduce((sum, item) => sum + (item.newCustomerFB || 0), 0),
       totalRenewFB: ledgerItems.reduce((sum, item) => sum + (item.renewFB || 0), 0),
       totalClickCost: ledgerItems.reduce((sum, item) => sum + (item.clickCost || 0), 0),
+      totalWht2Click: ledgerItems.reduce((sum, item) => sum + (item.wht2Click || 0), 0),
+      totalWht3Service: ledgerItems.reduce((sum, item) => sum + (item.wht3Service || 0), 0),
+      totalWht3Click: ledgerItems.reduce((sum, item) => sum + (item.wht3Click || 0), 0),
+      totalWht2Service: ledgerItems.reduce((sum, item) => sum + (item.wht2Service || 0), 0),
       totalVat36: ledgerItems.reduce((sum, item) => sum + (item.vat36 || 0), 0),
       totalVat30: ledgerItems.reduce((sum, item) => sum + (item.vat30 || 0), 0),
       totalNetAmount: ledgerItems.reduce((sum, item) => sum + (item.netAmount || 0), 0)
