@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import toast from '../utils/toast';
+import { getImageUrl } from '../utils/imageHelper';
 import '../pages/user/TransactionHistoryPage.css';
 
 export default function EditTransactionModal({
@@ -22,9 +23,27 @@ export default function EditTransactionModal({
     breakdowns: [],
   });
   const [slipFile, setSlipFile] = useState(null);
+  const [slipPreview, setSlipPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const modalRef = useRef(null);
   const previousFocusRef = useRef(null);
+
+  const BREAKDOWN_CODE_OPTIONS = [
+    { value: '9', label: '9 : หัก ณ ที่จ่าย 2% ค่าคลิก' },
+    { value: '10', label: '10 : หัก ณ ที่จ่าย 3% ค่าบริการ' },
+    { value: '11', label: '11 : ค่าคลิก' },
+    { value: '12', label: '12 : Vat ค่าคลิก' },
+    { value: '13', label: '13 : Vat ค่าบริการ Google' },
+    { value: '14', label: '14 : ค่าบริการ Google' },
+    { value: '15', label: '15 : ค่าบริการบางส่วน' },
+    { value: '16', label: '16 : คูปอง Google' },
+    { value: '17', label: '17 : Vat ค่าบริการ Facebook' },
+    { value: '18', label: '18 : ค่าบริการ Facebook' },
+    { value: '19', label: '19 : Vat ค่าบริการ Hosting Domain' },
+    { value: '20', label: '20 : ค่าบริการ Hosting Domain' }
+  ];
+
+  const VAT_CODES = ['12', '13', '17', '19'];
 
   // Focus trap & Escape key
   useEffect(() => {
@@ -71,6 +90,7 @@ export default function EditTransactionModal({
         })) : [],
       });
       setSlipFile(null);
+      setSlipPreview(null);
     }
   }, [transaction]);
 
@@ -113,13 +133,8 @@ export default function EditTransactionModal({
       const rows = [...(prev.breakdowns || [])];
       const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
       
-      // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่ (เพิ่ม logic สำหรับ 19/20)
-      if (
-        current.code === '12' ||
-        current.code === '13' ||
-        current.code === '17' ||
-        current.code === '19'
-      ) {
+      // ตรวจสอบว่ารายการนี้เป็น VAT อยู่แล้วหรือไม่
+      if (VAT_CODES.includes(current.code)) {
         toast.warning('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
         return prev;
       }
@@ -160,6 +175,69 @@ export default function EditTransactionModal({
       rows.splice(idx + 1, 0, newVatRow);
       return { ...prev, breakdowns: rows };
     });
+  };
+
+  // Auto-calculate withholding tax when selecting code 9 or 10
+  const handleCodeChange = (idx, newCode) => {
+    setForm(prev => {
+      const rows = [...(prev.breakdowns || [])];
+      const current = rows[idx];
+
+      // ถ้าเลือกรหัส 9 ให้ตรวจสอบว่ามีรายการรหัส 11 อยู่ในแถวอื่นหรือไม่
+      if (newCode === '9' && !rows.some((b, i) => i !== idx && b.code === '11')) {
+        toast.warning('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 2% ได้');
+        return prev;
+      }
+      // ถ้าเลือกรหัส 10 ให้ตรวจสอบว่ามีรายการรหัส 14, 18 หรือ 15 อยู่ในแถวอื่นหรือไม่
+      if (newCode === '10' && !rows.some((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'))) {
+        toast.warning('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 3% ได้');
+        return prev;
+      }
+
+      if (newCode === '9') {
+        const idx11 = rows.findIndex((b, i) => i !== idx && b.code === '11');
+        if (idx11 !== -1) {
+          const row11 = rows[idx11];
+          const amount11 = parseFloat(row11.amount) || 0;
+          if (amount11 > 0) {
+            const w = Math.round(amount11 * 0.02 * 100) / 100;
+            rows[idx] = { ...current, code: '9', amount: (-w).toFixed(2) };
+            return { ...prev, breakdowns: rows };
+          }
+        }
+      }
+
+      if (newCode === '10') {
+        const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '15' || b.code === '18'));
+        if (idxSrc !== -1) {
+          const rowSrc = rows[idxSrc];
+          const amountSrc = parseFloat(rowSrc.amount) || 0;
+          if (amountSrc > 0) {
+            const w = Math.round(amountSrc * 0.03 * 100) / 100;
+            rows[idx] = { ...current, code: '10', amount: (-w).toFixed(2) };
+            return { ...prev, breakdowns: rows };
+          }
+        }
+      }
+
+      rows[idx] = { ...current, code: newCode };
+      return { ...prev, breakdowns: rows };
+    });
+  };
+
+  const handleSlipChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSlipFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setSlipPreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSlipPreview = () => {
+    setSlipFile(null);
+    setSlipPreview(null);
   };
 
   const handleSave = async () => {
@@ -277,25 +355,18 @@ export default function EditTransactionModal({
                     <button type="button" className="btn btn-sm btn-primary" onClick={addBreakdown} title="เพิ่มแถว" style={{ padding: '4px 10px', lineHeight: 1 }}>+</button>
                   )}
                 </div>
-                <select value={row.code} onChange={e => updateBreakdown(idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
-                  <option value="11">11 : ค่าคลิก</option>
-                  <option value="12">12 : Vat ค่าคลิก</option>
-                  <option value="13">13 : Vat ค่าบริการ Google</option>
-                  <option value="14">14 : ค่าบริการ Google</option>
-                  <option value="15">15 : ค่าบริการบางส่วน</option>
-                  <option value="16">16 : คูปอง Google</option>
-                  <option value="17">17 : Vat ค่าบริการ Facebook</option>
-                  <option value="18">18 : ค่าบริการ Facebook</option>
-                  <option value="19">19 : Vat ค่าบริการ Hosting Domain</option>
-                  <option value="20">20 : ค่าบริการ Hosting Domain</option>
+                <select value={row.code} onChange={e => handleCodeChange(idx, e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
+                  {BREAKDOWN_CODE_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
                 </select>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
                   <input type="number" step="0.01" placeholder="ยอดเงิน" value={row.amount}
                     onChange={e => updateBreakdown(idx, 'amount', e.target.value)}
                     disabled={row.isAutoVat}
-                    style={{ flex: '1 1 auto', minWidth: 0, paddingRight: (row.code !== '12' && row.code !== '13' && row.code !== '17') ? '95px' : '8px' }} />
+                    style={{ flex: '1 1 auto', minWidth: 0, paddingRight: !VAT_CODES.includes(row.code) ? '95px' : '8px' }} />
                   {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
-                  {(row.code !== '12' && row.code !== '13' && row.code !== '17') && !row.isAutoVat && (
+                  {!VAT_CODES.includes(row.code) && !row.isAutoVat && (
                     <button
                       type="button"
                       onClick={() => computeVatForRow(idx)}
@@ -338,7 +409,31 @@ export default function EditTransactionModal({
           </label>
           <label>
             อัปโหลดสลิปโอนเงิน
-            <input type="file" accept="image/*" onChange={(e) => setSlipFile(e.target.files?.[0] || null)} style={{ marginTop: '8px' }} />
+            <input type="file" accept="image/*" onChange={handleSlipChange} style={{ marginTop: '8px' }} />
+            {/* แสดงสลิปปัจจุบัน (ถ้ามี) */}
+            {!slipPreview && transaction?.slipImage && (
+              <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                <img src={getImageUrl(transaction.slipImage, api)} alt="สลิปปัจจุบัน"
+                  style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #86efac' }} />
+                <div style={{ position: 'absolute', top: '5px', left: '5px', background: 'rgba(22,163,74,0.8)', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
+                  สลิปปัจจุบัน
+                </div>
+              </div>
+            )}
+            {/* แสดง preview สลิปใหม่ (ถ้ามี) */}
+            {slipPreview && (
+              <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                <img src={slipPreview} alt="ตัวอย่างสลิปใหม่"
+                  style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #3b82f6' }} />
+                <button type="button" onClick={removeSlipPreview}
+                  style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', fontSize: '16px' }}>
+                  ×
+                </button>
+                <div style={{ position: 'absolute', top: '5px', left: '5px', background: 'rgba(59,130,246,0.8)', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
+                  สลิปใหม่
+                </div>
+              </div>
+            )}
           </label>
 
           <div className="svc-actions">

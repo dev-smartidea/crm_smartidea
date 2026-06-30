@@ -312,7 +312,7 @@ export default function AllTransactionPage() {
 
         const cleaned = (entry.breakdowns || [])
           .filter(r => r && r.amount !== '' && !Number.isNaN(parseFloat(r.amount)))
-          .map(r => ({ code: r.code, amount: parseFloat(r.amount), statusNote: r.statusNote }));
+          .map(r => ({ code: r.code, amount: parseFloat(r.amount), statusNote: r.statusNote, isAutoVat: r.isAutoVat || false }));
         if (cleaned.length > 0) {
           formData.append('breakdowns', JSON.stringify(cleaned));
         }
