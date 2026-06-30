@@ -50,6 +50,8 @@ export const getBankName = (bank) => {
 
 export const getBreakdownLabel = (code) => {
   const labels = {
+    '9': 'หัก ณ ที่จ่าย 2% ค่าคลิก',
+    '10': 'หัก ณ ที่จ่าย 3% ค่าบริการ',
     '11': 'ค่าคลิก',
     '12': 'Vat ค่าคลิก',
     '13': 'Vat ค่าบริการ Google',
