@@ -296,3 +296,5 @@ Collection: `auditlogs`
 **ค่า action ที่รองรับ:**
 `login`, `logout`, `create_user`, `delete_user`, `reset_password`, `change_role`, `create_customer`, `delete_customer`, `reassign_customer`, `create_service`, `update_service`, `delete_service`, `create_transaction`, `update_transaction`, `delete_transaction`, `approve_transaction`, `reject_transaction`, `impersonate`, `backup`
 ทำ desing เพิ่มหัก ณ ที่จ่าย
+
+แก้ไข transaction history

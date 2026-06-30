@@ -990,8 +990,28 @@ export default function TransactionHistoryPage() {
                     <input type="date" value={form.transactionDate} onChange={e => setForm({ ...form, transactionDate: e.target.value })} required style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: '0.92rem', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', outline: 'none' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>เวลาที่โอน</label>
-                    <input type="time" value={form.transactionTime} onChange={e => setForm({ ...form, transactionTime: e.target.value })} style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: '0.92rem', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>เวลาที่โอน (AM เท่านั้น)</label>
+                    <input 
+                      type="text" 
+                      value={form.transactionTime} 
+                      onChange={e => {
+                        const timeValue = e.target.value;
+                        if (timeValue && !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeValue)) {
+                          alert('กรุณากรอกเวลาในรูปแบบ HH:MM (เช่น 09:30)');
+                          return;
+                        }
+                        if (timeValue) {
+                          const hour = parseInt(timeValue.split(':')[0], 10);
+                          if (hour >= 12) {
+                            alert('กรุณากรอกเวลาในช่วง AM (00:00 - 11:59) เท่านั้น');
+                            return;
+                          }
+                        }
+                        setForm({ ...form, transactionTime: timeValue });
+                      }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: '0.92rem', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', outline: 'none' }}
+                      placeholder="HH:MM (เช่น 09:30)"
+                    />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>บัญชีธนาคาร</label>
@@ -1094,8 +1114,28 @@ export default function TransactionHistoryPage() {
                     <input type="date" value={editForm.transactionDate} onChange={e => setEditForm({ ...editForm, transactionDate: e.target.value })} required style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: '0.92rem', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', outline: 'none' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>เวลาที่โอน</label>
-                    <input type="time" value={editForm.transactionTime} onChange={e => setEditForm({ ...editForm, transactionTime: e.target.value })} style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: '0.92rem', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', outline: 'none' }} />
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>เวลาที่โอน (AM เท่านั้น)</label>
+                    <input 
+                      type="text" 
+                      value={editForm.transactionTime} 
+                      onChange={e => {
+                        const timeValue = e.target.value;
+                        if (timeValue && !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeValue)) {
+                          alert('กรุณากรอกเวลาในรูปแบบ HH:MM (เช่น 09:30)');
+                          return;
+                        }
+                        if (timeValue) {
+                          const hour = parseInt(timeValue.split(':')[0], 10);
+                          if (hour >= 12) {
+                            alert('กรุณากรอกเวลาในช่วง AM (00:00 - 11:59) เท่านั้น');
+                            return;
+                          }
+                        }
+                        setEditForm({ ...editForm, transactionTime: timeValue });
+                      }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: '0.92rem', borderRadius: '8px', border: '1.5px solid #d1d5db', background: '#fff', outline: 'none' }}
+                      placeholder="HH:MM (เช่น 09:30)"
+                    />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: '#475569', marginBottom: '4px' }}>บัญชีธนาคาร</label>
