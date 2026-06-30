@@ -955,3 +955,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Hide AM/PM selector in time input - force 24h format */
+input[type="time"]::-webkit-datetime-edit-ampm-field {
+  display: none !important;
+}
+
+input[type="time"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-clear-button {
+  display: none !important;
+}
+
+input[type="time"] {
+  -webkit-appearance: textfield;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

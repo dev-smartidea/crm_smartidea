@@ -131,6 +131,42 @@ export default function AllTransactionPage() {
           return { ...entry, breakdowns: rows };
         }
 
+        // หัก ณ ที่จ่าย 2% ค่าคลิก (code 9) - ใช้ code 11 เป็นฐาน
+        if (code === '9') {
+          const idx11 = rows.findIndex((b, i) => i !== idx && b.code === '11');
+          if (idx11 === -1) {
+            alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อน');
+            return entry;
+          }
+          const row11 = rows[idx11];
+          const amount11 = parseFloat(row11.amount) || 0;
+          if (amount11 <= 0) {
+            alert('กรุณากรอกยอดเงินในรหัส 11 ก่อน');
+            return entry;
+          }
+          const w = Math.round(amount11 * 0.02 * 100) / 100;
+          rows[idx] = { ...rows[idx], code: '9', amount: (-w).toFixed(2) };
+          return { ...entry, breakdowns: rows };
+        }
+
+        // หัก ณ ที่จ่าย 3% ค่าบริการ (code 10) - ใช้ code 14, 18, 15 เป็นฐาน
+        if (code === '10') {
+          const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'));
+          if (idxSrc === -1) {
+            alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อน');
+            return entry;
+          }
+          const rowSrc = rows[idxSrc];
+          const amountSrc = parseFloat(rowSrc.amount) || 0;
+          if (amountSrc <= 0) {
+            alert('กรุณากรอกยอดเงินในรหัส 14, 18 หรือ 15 ก่อน');
+            return entry;
+          }
+          const w = Math.round(amountSrc * 0.03 * 100) / 100;
+          rows[idx] = { ...rows[idx], code: '10', amount: (-w).toFixed(2) };
+          return { ...entry, breakdowns: rows };
+        }
+
         return entry;
       })
     }));
@@ -1249,9 +1285,32 @@ export default function AllTransactionPage() {
                   <div>
                     <label style={formStyles.fieldLabel}>
                       <Clock size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                      เวลาที่โอน
+                      เวลาที่โอน (AM เท่านั้น)
                     </label>
-                    <input type="time" value={form.transactionTime} onChange={e => setForm({ ...form, transactionTime: e.target.value })} style={formStyles.input} />
+                    <input 
+                      type="text" 
+                      value={form.transactionTime} 
+                      onChange={e => {
+                        const timeValue = e.target.value;
+                        // ตรวจสอบรูปแบบ HH:MM
+                        if (timeValue && !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeValue)) {
+                          alert('กรุณากรอกเวลาในรูปแบบ HH:MM (เช่น 09:30)');
+                          return;
+                        }
+                        // ตรวจสอบว่าเป็น AM (00:00-11:59)
+                        if (timeValue) {
+                          const hour = parseInt(timeValue.split(':')[0], 10);
+                          if (hour >= 12) {
+                            alert('กรุณากรอกเวลาในช่วง AM (00:00 - 11:59) เท่านั้น');
+                            return;
+                          }
+                        }
+                        setForm({ ...form, transactionTime: timeValue });
+                      }}
+                      style={formStyles.input}
+                      placeholder="HH:MM (เช่น 09:30)"
+                      required
+                    />
                   </div>
 
                   {/* Bank */}
@@ -1369,7 +1428,15 @@ export default function AllTransactionPage() {
                           {/* Amount */}
                           <div style={{ marginBottom: '12px' }}>
                             <label style={formStyles.fieldLabel}>จำนวนเงิน (บาท) *</label>
-                            <input type="number" step="0.01" value={entry.amount} onChange={e => updateServiceEntry(entryIdx, 'amount', e.target.value)} required placeholder="0.00" style={formStyles.input} />
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              value={entry.amount} 
+                              onChange={e => updateServiceEntry(entryIdx, 'amount', e.target.value)} 
+                              required 
+                              placeholder="0.00" 
+                              style={formStyles.input} 
+                            />
                           </div>
 
                           {/* Breakdown */}
