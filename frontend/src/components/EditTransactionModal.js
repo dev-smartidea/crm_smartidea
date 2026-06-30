@@ -3,6 +3,7 @@ import axios from 'axios';
 import PropTypes from 'prop-types';
 import toast from '../utils/toast';
 import { getImageUrl } from '../utils/imageHelper';
+import { PencilSquare, XCircle, Calendar, Clock, Bank, FileText, Image, ListCheck, Upload } from 'react-bootstrap-icons';
 import '../pages/user/TransactionHistoryPage.css';
 
 export default function EditTransactionModal({
@@ -44,6 +45,86 @@ export default function EditTransactionModal({
   ];
 
   const VAT_CODES = ['12', '13', '17', '19'];
+
+  // Styled components
+  const formStyles = {
+    sectionCard: {
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      padding: '16px 18px',
+      marginBottom: '14px',
+    },
+    sectionTitle: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      fontSize: '0.95rem',
+      fontWeight: '700',
+      color: '#1e293b',
+      marginBottom: '14px',
+      paddingBottom: '10px',
+      borderBottom: '2px solid #e2e8f0',
+    },
+    sectionIcon: {
+      fontSize: '1.1rem',
+      color: '#3b82f6',
+    },
+    fieldLabel: {
+      display: 'block',
+      fontSize: '0.82rem',
+      fontWeight: '600',
+      color: '#475569',
+      marginBottom: '4px',
+    },
+    input: {
+      width: '100%',
+      boxSizing: 'border-box',
+      padding: '9px 12px',
+      fontSize: '0.92rem',
+      borderRadius: '8px',
+      border: '1.5px solid #d1d5db',
+      background: '#fff',
+      outline: 'none',
+    },
+    select: {
+      width: '100%',
+      boxSizing: 'border-box',
+      padding: '9px 12px',
+      fontSize: '0.92rem',
+      borderRadius: '8px',
+      border: '1.5px solid #d1d5db',
+      background: '#fff',
+      outline: 'none',
+    },
+    textarea: {
+      width: '100%',
+      boxSizing: 'border-box',
+      padding: '9px 12px',
+      fontSize: '0.92rem',
+      borderRadius: '8px',
+      border: '1.5px solid #d1d5db',
+      resize: 'vertical',
+      fontFamily: 'inherit',
+      outline: 'none',
+    },
+    breakdownRow: {
+      display: 'grid',
+      gridTemplateColumns: '32px 1fr 1.4fr 1fr 32px',
+      gap: '8px',
+      marginTop: '8px',
+      alignItems: 'center',
+    },
+    slipUploadArea: {
+      border: '2px dashed #d1d5db',
+      borderRadius: '10px',
+      padding: '16px',
+      textAlign: 'center',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      background: '#fafafa',
+    },
+  };
 
   // Focus trap & Escape key
   useEffect(() => {
@@ -287,75 +368,123 @@ export default function EditTransactionModal({
 
   return (
     <div className="svc-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="แก้ไขรายการโอนเงิน">
-      <div className="svc-modal-card" onClick={(e) => e.stopPropagation()} ref={modalRef} tabIndex={-1}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 style={{ margin: 0 }}>แก้ไขรายการโอนเงิน</h3>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--color-border, #e2e8f0)', width: '34px', height: '34px', borderRadius: '10px', cursor: 'pointer', fontSize: '1.1rem', color: '#64748b' }} aria-label="ปิด" type="button">✕</button>
-        </div>
-        <form className="svc-form" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-          <label>
-            จำนวนเงิน (บาท) <span style={{ color: 'var(--color-danger, #ef4444)' }}>*</span>
-            <input
-              type="number"
-              step="0.01"
-              value={form.amount}
-              onChange={(e) => updateField('amount', e.target.value)}
-              placeholder="0.00"
-              aria-required="true"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
-            />
-          </label>
-          <label>
-            วันที่โอน
-            <input
-              type="date"
-              value={form.transactionDate}
-              onChange={(e) => updateField('transactionDate', e.target.value)}
-            />
-          </label>
-          <label>
-            เวลาที่โอน (เช่น 14:30)
-            <input
-              type="text"
-              value={form.transactionTime}
-              onChange={(e) => updateField('transactionTime', e.target.value)}
-              placeholder="14:30"
-              pattern="[0-2][0-9]:[0-5][0-9]"
-              title="กรุณากรอกเวลาในรูปแบบ 24 ชั่วโมง (00:00 - 23:59)"
-              maxLength="5"
-              style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}
-            />
-          </label>
-          <label>
-            บัญชีธนาคาร
-            <select value={form.bank} onChange={(e) => updateField('bank', e.target.value)} aria-label="เลือกบัญชีธนาคาร">
-              <option value="KBANK">กสิกรไทย (KBANK)</option>
-              <option value="SCB">ไทยพาณิชย์ (SCB)</option>
-              <option value="BBL">กรุงเทพ (BBL)</option>
-              <option value="BAY-4396">กรุงศรี (BAY-4396)</option>
-              <option value="BAY-7146">กรุงศรี (BAY-7146)</option>
-              <option value="Cr.-8508">เครดิต (Cr.-8508)</option>
-              <option value="BBL-ส่วนตัว">กรุงเทพ - ส่วนตัว</option>
-            </select>
-          </label>
-
-          <div style={{ marginTop: '15px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <strong>แยกสัดส่วนการโอนเงิน</strong>
+      <div className="svc-modal-card" onClick={(e) => e.stopPropagation()} ref={modalRef} tabIndex={-1} style={{ maxWidth: '680px', width: '95vw', padding: '28px 30px' }}>
+        {/* Modal Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.3rem' }}>
+              <PencilSquare />
             </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: '#1e293b' }}>แก้ไขรายการโอนเงิน</h3>
+              <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#64748b' }}>แก้ไขข้อมูลรายการโอนเงิน</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid #e2e8f0', width: '36px', height: '36px', borderRadius: '10px', cursor: 'pointer', fontSize: '1.2rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="ปิด" type="button">✕</button>
+        </div>
+
+        <form className="svc-form" onSubmit={(e) => { e.preventDefault(); handleSave(); }} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          
+          {/* ── Section 1: ข้อมูลหลัก ── */}
+          <div style={formStyles.sectionCard}>
+            <div style={formStyles.sectionTitle}>
+              <FileText style={formStyles.sectionIcon} />
+              <span>ข้อมูลหลัก</span>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              {/* Amount - Full width */}
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={formStyles.fieldLabel}>จำนวนเงิน (บาท) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(e) => updateField('amount', e.target.value)}
+                  placeholder="0.00"
+                  aria-required="true"
+                  style={formStyles.input}
+                />
+              </div>
+
+              {/* Date */}
+              <div>
+                <label style={formStyles.fieldLabel}>
+                  <Calendar size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  วันที่โอน
+                </label>
+                <input
+                  type="date"
+                  value={form.transactionDate}
+                  onChange={(e) => updateField('transactionDate', e.target.value)}
+                  style={formStyles.input}
+                />
+              </div>
+
+              {/* Time */}
+              <div>
+                <label style={formStyles.fieldLabel}>
+                  <Clock size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  เวลาที่โอน
+                </label>
+                <input
+                  type="time"
+                  value={form.transactionTime}
+                  onChange={(e) => updateField('transactionTime', e.target.value)}
+                  style={formStyles.input}
+                />
+              </div>
+
+              {/* Bank */}
+              <div>
+                <label style={formStyles.fieldLabel}>
+                  <Bank size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  บัญชีธนาคาร
+                </label>
+                <select value={form.bank} onChange={(e) => updateField('bank', e.target.value)} aria-label="เลือกบัญชีธนาคาร" style={formStyles.select}>
+                  <option value="KBANK">กสิกรไทย (KBANK)</option>
+                  <option value="SCB">ไทยพาณิชย์ (SCB)</option>
+                  <option value="BBL">กรุงเทพ (BBL)</option>
+                  <option value="BAY-4396">กรุงศรี (BAY-4396)</option>
+                  <option value="BAY-7146">กรุงศรี (BAY-7146)</option>
+                  <option value="Cr.-8508">เครดิต (Cr.-8508)</option>
+                  <option value="BBL-ส่วนตัว">กรุงเทพ - ส่วนตัว</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label style={formStyles.fieldLabel}>
+                  <FileText size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  หมายเหตุ
+                </label>
+                <textarea rows={2} placeholder="เช่น เลขที่อ้างอิง, หมายเหตุเพิ่มเติม" value={form.notes}
+                  onChange={(e) => updateField('notes', e.target.value)} style={formStyles.textarea} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Section 2: แยกสัดส่วน ── */}
+          <div style={formStyles.sectionCard}>
+            <div style={formStyles.sectionTitle}>
+              <ListCheck style={formStyles.sectionIcon} />
+              <span>แยกสัดส่วนการโอนเงิน</span>
+            </div>
+            
             {form.amount && (
-              <div style={{ fontSize: '0.9rem', color: breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? '#dc3545' : '#6c757d', marginTop: 4 }}>
+              <div style={{ fontSize: '0.9rem', color: breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? '#dc3545' : '#6c757d', marginBottom: '10px', padding: '8px 12px', background: breakdownSum.toFixed(2) !== (parseFloat(form.amount || 0)).toFixed(2) ? '#fef2f2' : '#f0fdf4', borderRadius: '8px', fontWeight: '500' }}>
                 ยอดรวม: {breakdownSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท (ยอดทั้งหมด {parseFloat(form.amount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} บาท)
               </div>
             )}
+            
             {(form.breakdowns || []).map((row, idx) => (
-              <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1.8fr 1fr auto', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
-                <div>
+              <div key={idx} style={formStyles.breakdownRow}>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
                   {idx === form.breakdowns.length - 1 && (
-                    <button type="button" className="btn btn-sm btn-primary" onClick={addBreakdown} title="เพิ่มแถว" style={{ padding: '4px 10px', lineHeight: 1 }}>+</button>
+                    <button type="button" className="btn btn-sm btn-primary" onClick={addBreakdown} title="เพิ่มแถว" style={{ padding: '4px 8px', lineHeight: 1, minWidth: '28px', fontSize: '12px' }}>+</button>
                   )}
                 </div>
-                <select value={row.code} onChange={e => handleCodeChange(idx, e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0 }}>
+                <select value={row.code} onChange={e => handleCodeChange(idx, e.target.value)} disabled={row.isAutoVat} style={{ ...formStyles.select, fontSize: '0.8rem', padding: '6px 8px' }}>
                   {BREAKDOWN_CODE_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
@@ -364,7 +493,7 @@ export default function EditTransactionModal({
                   <input type="number" step="0.01" placeholder="ยอดเงิน" value={row.amount}
                     onChange={e => updateBreakdown(idx, 'amount', e.target.value)}
                     disabled={row.isAutoVat}
-                    style={{ flex: '1 1 auto', minWidth: 0, paddingRight: !VAT_CODES.includes(row.code) ? '95px' : '8px' }} />
+                    style={{ ...formStyles.input, paddingRight: !VAT_CODES.includes(row.code) ? '72px' : '8px', fontSize: '0.85rem', padding: '6px 8px' }} />
                   {/* ปุ่มคำนวณ VAT อยู่ภายในฟิลด์ยอดเงิน */}
                   {!VAT_CODES.includes(row.code) && !row.isAutoVat && (
                     <button
@@ -373,71 +502,88 @@ export default function EditTransactionModal({
                       title="คำนวณ VAT 7%"
                       style={{
                         position: 'absolute',
-                        right: '4px',
-                        padding: '3px 7px',
+                        right: '3px',
+                        padding: '2px 5px',
                         border: '1px solid #d3d8e2',
                         background: '#f8f9fa',
                         borderRadius: '4px',
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
-                        fontSize: '10px',
+                        fontSize: '8px',
                         color: '#334155',
-                        fontWeight: '500'
+                        fontWeight: '600',
+                        lineHeight: '1.2'
                       }}
                     >
                       คำนวณ VAT
                     </button>
                   )}
                 </div>
-                <select value={row.statusNote} onChange={e => updateBreakdown(idx, 'statusNote', e.target.value)} style={{ minWidth: 0 }}>
+                <select value={row.statusNote} onChange={e => updateBreakdown(idx, 'statusNote', e.target.value)} style={{ ...formStyles.select, fontSize: '0.8rem', padding: '6px 8px' }}>
                   <option value="รอบันทึกบัญชี">รอบันทึกบัญชี</option>
                   <option value="ค่าคลิกที่ยังไม่ต้องเติม">ค่าคลิกที่ยังไม่ต้องเติม</option>
                 </select>
-                <div style={{ display: 'flex', gap: '4px', minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
                   {form.breakdowns.length > 1 && (
-                    <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdown(idx)} style={{ whiteSpace: 'nowrap' }}>ลบ</button>
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdown(idx)} style={{ padding: '3px 7px', minWidth: '28px', fontSize: '12px' }}>✕</button>
                   )}
                 </div>
               </div>
             ))}
           </div>
 
-          <label>
-            หมายเหตุ
-            <textarea rows={3} placeholder="เช่น เลขที่อ้างอิง, หมายเหตุเพิ่มเติม" value={form.notes}
-              onChange={(e) => updateField('notes', e.target.value)} />
-          </label>
-          <label>
-            อัปโหลดสลิปโอนเงิน
-            <input type="file" accept="image/*" onChange={handleSlipChange} style={{ marginTop: '8px' }} />
-            {/* แสดงสลิปปัจจุบัน (ถ้ามี) */}
-            {!slipPreview && transaction?.slipImage && (
-              <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
-                <img src={getImageUrl(transaction.slipImage, api)} alt="สลิปปัจจุบัน"
-                  style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #86efac' }} />
-                <div style={{ position: 'absolute', top: '5px', left: '5px', background: 'rgba(22,163,74,0.8)', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
-                  สลิปปัจจุบัน
+          {/* ── Section 3: สลิปโอนเงิน ── */}
+          <div style={formStyles.sectionCard}>
+            <div style={formStyles.sectionTitle}>
+              <Image style={formStyles.sectionIcon} />
+              <span>สลิปโอนเงิน</span>
+            </div>
+            
+            <div style={formStyles.slipUploadArea}
+              onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = '#eff6ff'; }}
+              onDragLeave={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#fafafa'; }}
+              onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) { setSlipFile(file); const reader = new FileReader(); reader.onloadend = () => setSlipPreview(reader.result); reader.readAsDataURL(file); } }}>
+              <input type="file" accept="image/*" onChange={handleSlipChange} style={{ display: 'none' }} id="edit-slip-upload-input" />
+              <label htmlFor="edit-slip-upload-input" style={{ cursor: 'pointer', display: 'block' }}>
+                <Upload size={24} style={{ color: '#94a3b8', marginBottom: '6px' }} />
+                <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', fontWeight: '500' }}>คลิกเพื่อเปลี่ยนสลิป หรือลากไฟล์มาวาง</p>
+                <p style={{ margin: '2px 0 0', color: '#94a3b8', fontSize: '0.75rem' }}>รองรับไฟล์ JPG, PNG, GIF, WEBP (สูงสุด 5MB)</p>
+              </label>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+              {/* แสดงสลิปปัจจุบัน (ถ้ามี) */}
+              {!slipPreview && transaction?.slipImage && (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <img src={getImageUrl(transaction.slipImage, api)} alt="สลิปปัจจุบัน"
+                    style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '10px', border: '3px solid #86efac', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(22,163,74,0.9)', color: '#fff', padding: '2px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
+                    สลิปปัจจุบัน
+                  </div>
                 </div>
-              </div>
-            )}
-            {/* แสดง preview สลิปใหม่ (ถ้ามี) */}
-            {slipPreview && (
-              <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
-                <img src={slipPreview} alt="ตัวอย่างสลิปใหม่"
-                  style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #3b82f6' }} />
-                <button type="button" onClick={removeSlipPreview}
-                  style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', fontSize: '16px' }}>
-                  ×
-                </button>
-                <div style={{ position: 'absolute', top: '5px', left: '5px', background: 'rgba(59,130,246,0.8)', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
-                  สลิปใหม่
+              )}
+              {/* แสดง preview สลิปใหม่ (ถ้ามี) */}
+              {slipPreview && (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <img src={slipPreview} alt="ตัวอย่างสลิปใหม่"
+                    style={{ maxWidth: '180px', maxHeight: '180px', borderRadius: '10px', border: '3px solid #3b82f6', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  <button type="button" onClick={removeSlipPreview}
+                    style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', fontSize: '14px', boxShadow: '0 2px 8px rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    ×
+                  </button>
+                  <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(59,130,246,0.9)', color: '#fff', padding: '2px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
+                    สลิปใหม่
+                  </div>
                 </div>
-              </div>
-            )}
-          </label>
+              )}
+            </div>
+          </div>
 
-          <div className="svc-actions">
-            <button type="button" className="btn-modal btn-modal-cancel" onClick={onClose} disabled={saving}>ยกเลิก</button>
+          {/* ── Actions ── */}
+          <div className="svc-actions" style={{ marginTop: '6px' }}>
+            <button type="button" className="btn-modal btn-modal-cancel" onClick={onClose} disabled={saving}>
+              <XCircle /> ยกเลิก
+            </button>
             <button 
               type="submit" 
               className="btn-modal btn-modal-save" 
@@ -447,7 +593,7 @@ export default function EditTransactionModal({
               {saving ? 'กำลังบันทึก...' : 'บันทึก'}
             </button>
             {transaction?.submissionStatus === 'rejected' && (
-              <button type="button" className="btn-modal btn-modal-save" onClick={handleResubmit} disabled={saving}>ส่งใหม่</button>
+              <button type="button" className="btn-modal btn-modal-save" onClick={handleResubmit} disabled={saving} style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>ส่งใหม่</button>
             )}
           </div>
         </form>

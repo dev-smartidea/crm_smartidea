@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send, PencilSquare } from 'react-bootstrap-icons';
+import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send, PencilSquare, Person, Calendar, Clock, Bank, FileText, Image, Gear, ListCheck, Calculator } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
 import '../shared/DashboardPage.css'; // reuse service-badge styles
 import './TransactionHistoryPage.css'; // reuse slip upload button styles
@@ -50,6 +50,8 @@ export default function AllTransactionPage() {
   const [showFormCustomerDropdown, setShowFormCustomerDropdown] = useState(false);
   // collapse/expand state for service entries
   const [expandedEntries, setExpandedEntries] = useState(new Set([0]));
+
+  const VAT_CODES = ['12', '13', '17', '19'];
 
   // เมื่อเปลี่ยนลูกค้าในฟอร์ม ให้รีเซ็ต serviceId ทุก entry
   useEffect(() => {
@@ -171,7 +173,7 @@ export default function AllTransactionPage() {
         if (ei !== entryIdx) return entry;
         const rows = [...(entry.breakdowns || [])];
         const current = rows[idx] || { amount: '', code: '11', statusNote: 'รอบันทึกบัญชี', isAutoVat: false };
-        if (current.code === '12' || current.code === '13' || current.code === '17' || current.code === '19') {
+        if (VAT_CODES.includes(current.code)) {
           alert('ไม่สามารถคำนวณ VAT จากรายการ VAT ได้');
           return entry;
         }
@@ -189,6 +191,74 @@ export default function AllTransactionPage() {
         return { ...entry, breakdowns: rows };
       })
     }));
+  };
+
+  // Auto-calculate withholding tax
+  const handleCodeChange = (entryIdx, idx, newCode) => {
+    const entry = form.serviceEntries[entryIdx];
+    const rows = [...(entry.breakdowns || [])];
+    const current = rows[idx];
+
+    if (newCode === '9' && !rows.some((b, i) => i !== idx && b.code === '11')) {
+      alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 2% ได้');
+      return;
+    }
+    if (newCode === '10' && !rows.some((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'))) {
+      alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 3% ได้');
+      return;
+    }
+
+    if (newCode === '9') {
+      const idx11 = rows.findIndex((b, i) => i !== idx && b.code === '11');
+      if (idx11 !== -1) {
+        const row11 = rows[idx11];
+        const amount11 = parseFloat(row11.amount) || 0;
+        if (amount11 > 0) {
+          const w = Math.round(amount11 * 0.02 * 100) / 100;
+          setForm(prev => ({
+            ...prev,
+            serviceEntries: prev.serviceEntries.map((ent, ei) => {
+              if (ei !== entryIdx) return ent;
+              return {
+                ...ent,
+                breakdowns: ent.breakdowns.map((r, i) => {
+                  if (i === idx) return { ...r, code: '9', amount: (-w).toFixed(2) };
+                  return r;
+                })
+              };
+            })
+          }));
+          return;
+        }
+      }
+    }
+
+    if (newCode === '10') {
+      const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '15' || b.code === '18'));
+      if (idxSrc !== -1) {
+        const rowSrc = rows[idxSrc];
+        const amountSrc = parseFloat(rowSrc.amount) || 0;
+        if (amountSrc > 0) {
+          const w = Math.round(amountSrc * 0.03 * 100) / 100;
+          setForm(prev => ({
+            ...prev,
+            serviceEntries: prev.serviceEntries.map((ent, ei) => {
+              if (ei !== entryIdx) return ent;
+              return {
+                ...ent,
+                breakdowns: ent.breakdowns.map((r, i) => {
+                  if (i === idx) return { ...r, code: '10', amount: (-w).toFixed(2) };
+                  return r;
+                })
+              };
+            })
+          }));
+          return;
+        }
+      }
+    }
+
+    updateBreakdown(entryIdx, idx, 'code', newCode);
   };
 
   // ดึงข้อมูลทั้งหมด (client-side pagination)
@@ -581,6 +651,131 @@ export default function AllTransactionPage() {
     </div>
   );
 
+  // ====== Styled Components for Create Form ======
+  const formStyles = {
+    sectionCard: {
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      padding: '16px 18px',
+      marginBottom: '14px',
+    },
+    sectionTitle: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      fontSize: '0.95rem',
+      fontWeight: '700',
+      color: '#1e293b',
+      marginBottom: '14px',
+      paddingBottom: '10px',
+      borderBottom: '2px solid #e2e8f0',
+    },
+    sectionIcon: {
+      fontSize: '1.1rem',
+      color: '#3b82f6',
+    },
+    fieldLabel: {
+      display: 'block',
+      fontSize: '0.82rem',
+      fontWeight: '600',
+      color: '#475569',
+      marginBottom: '4px',
+    },
+    input: {
+      width: '100%',
+      boxSizing: 'border-box',
+      padding: '9px 12px',
+      fontSize: '0.92rem',
+      borderRadius: '8px',
+      border: '1.5px solid #d1d5db',
+      background: '#fff',
+      transition: 'border-color 0.2s, box-shadow 0.2s',
+      outline: 'none',
+    },
+    inputFocus: {
+      borderColor: '#3b82f6',
+      boxShadow: '0 0 0 3px rgba(59,130,246,0.1)',
+    },
+    select: {
+      width: '100%',
+      boxSizing: 'border-box',
+      padding: '9px 12px',
+      fontSize: '0.92rem',
+      borderRadius: '8px',
+      border: '1.5px solid #d1d5db',
+      background: '#fff',
+      outline: 'none',
+    },
+    textarea: {
+      width: '100%',
+      boxSizing: 'border-box',
+      padding: '9px 12px',
+      fontSize: '0.92rem',
+      borderRadius: '8px',
+      border: '1.5px solid #d1d5db',
+      resize: 'vertical',
+      fontFamily: 'inherit',
+      outline: 'none',
+    },
+    serviceCard: {
+      border: '1.5px solid #e2e8f0',
+      borderRadius: '12px',
+      marginBottom: '10px',
+      overflow: 'hidden',
+      transition: 'border-color 0.2s',
+    },
+    serviceHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '12px 16px',
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background 0.2s',
+    },
+    serviceBody: {
+      padding: '16px',
+      borderTop: '1.5px solid #e2e8f0',
+    },
+    breakdownRow: {
+      display: 'grid',
+      gridTemplateColumns: '32px 1fr 1.4fr 1fr 32px',
+      gap: '8px',
+      marginTop: '8px',
+      alignItems: 'center',
+    },
+    addServiceBtn: {
+      width: '100%',
+      padding: '10px',
+      border: '2px dashed #93c5fd',
+      borderRadius: '10px',
+      background: '#f0f7ff',
+      color: '#2563eb',
+      cursor: 'pointer',
+      fontSize: '0.9rem',
+      fontWeight: '600',
+      marginBottom: '14px',
+      transition: 'all 0.2s',
+    },
+    summaryBar: {
+      background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+      border: '1px solid #bfdbfe',
+      borderRadius: '10px',
+      padding: '12px 16px',
+      marginBottom: '14px',
+    },
+    slipUploadArea: {
+      border: '2px dashed #d1d5db',
+      borderRadius: '10px',
+      padding: '20px',
+      textAlign: 'center',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      background: '#fafafa',
+    },
+  };
+
   return (
     <div className="all-transaction-page fade-up">
       {showDeleteConfirm && <DeleteConfirmModal />}
@@ -967,84 +1162,124 @@ export default function AllTransactionPage() {
         </div>
       </div>
 
-      {/* Create Form Modal - outside container for proper overlay */}
+      {/* Create Form Modal - Redesigned Professional Layout */}
       {showCreateForm && (
         <div className="svc-modal-overlay" onClick={() => setShowCreateForm(false)}>
-          <div className="svc-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px', width: '95vw' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>เพิ่มรายการโอนเงินใหม่</h3>
-            <form onSubmit={handleCreate} className="svc-form">
+          <div className="svc-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px', width: '95vw', padding: '28px 30px' }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '44px', height: '44px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.3rem' }}>
+                  <Plus />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: '#1e293b' }}>เพิ่มรายการโอนเงินใหม่</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#64748b' }}>กรอกข้อมูลรายการโอนเงินให้ครบถ้วน</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCreateForm(false)} style={{ background: 'none', border: '1px solid #e2e8f0', width: '36px', height: '36px', borderRadius: '10px', cursor: 'pointer', fontSize: '1.2rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }} type="button">✕</button>
+            </div>
 
-              {/* ── ข้อมูลหลัก ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', alignItems: 'start' }}>
-                <label style={{ gridColumn: '1 / -1', display: 'block' }}>
-                  เลือกลูกค้า *
-                  <div className="combo" style={{ marginTop: '4px' }}>
-                    <input
-                      className="combo-input"
-                      type="text"
-                      placeholder="พิมพ์ค้นหาชื่อลูกค้า..."
-                      value={formCustomerQuery}
-                      onChange={e => {
-                        setFormCustomerQuery(e.target.value);
-                        setShowFormCustomerDropdown(true);
-                        if (!e.target.value) setForm(prev => ({ ...prev, customerId: '' }));
-                      }}
-                      onFocus={() => setShowFormCustomerDropdown(true)}
-                      onBlur={() => setTimeout(() => setShowFormCustomerDropdown(false), 150)}
-                      autoComplete="off"
-                      required={!form.customerId}
-                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: form.customerId ? '1px solid #86efac' : '1px solid #ccc' }}
-                    />
-                    {showFormCustomerDropdown && (
-                      <div className="combo-panel">
-                        {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).map(c => (
-                          <div key={c._id} className="combo-item" onMouseDown={() => { setForm(prev => ({ ...prev, customerId: c._id })); setFormCustomerQuery(c.name); setShowFormCustomerDropdown(false); }}>
-                            {c.name}
-                          </div>
-                        ))}
-                        {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).length === 0 && (
-                          <div className="combo-item" style={{ color: '#9ca3af' }}>ไม่พบลูกค้า</div>
-                        )}
-                      </div>
-                    )}
+            <form onSubmit={handleCreate} className="svc-form" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              
+              {/* ── Section 1: ข้อมูลหลัก ── */}
+              <div style={formStyles.sectionCard}>
+                <div style={formStyles.sectionTitle}>
+                  <Person style={formStyles.sectionIcon} />
+                  <span>ข้อมูลหลัก</span>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  {/* Customer - Full width */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={formStyles.fieldLabel}>เลือกผู้รับบริการ *</label>
+                    <div className="combo">
+                      <input
+                        className="combo-input"
+                        type="text"
+                        placeholder="พิมพ์ค้นหาชื่อลูกค้า..."
+                        value={formCustomerQuery}
+                        onChange={e => {
+                          setFormCustomerQuery(e.target.value);
+                          setShowFormCustomerDropdown(true);
+                          if (!e.target.value) setForm(prev => ({ ...prev, customerId: '' }));
+                        }}
+                        onFocus={() => setShowFormCustomerDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowFormCustomerDropdown(false), 150)}
+                        autoComplete="off"
+                        required={!form.customerId}
+                        style={{ ...formStyles.input, border: form.customerId ? '1.5px solid #86efac' : '1.5px solid #d1d5db' }}
+                      />
+                      {showFormCustomerDropdown && (
+                        <div className="combo-panel">
+                          {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).map(c => (
+                            <div key={c._id} className="combo-item" onMouseDown={() => { setForm(prev => ({ ...prev, customerId: c._id })); setFormCustomerQuery(c.name); setShowFormCustomerDropdown(false); }}>
+                              {c.name}
+                            </div>
+                          ))}
+                          {customers.filter(c => c.name.toLowerCase().includes(formCustomerQuery.toLowerCase())).length === 0 && (
+                            <div className="combo-item" style={{ color: '#9ca3af' }}>ไม่พบลูกค้า</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </label>
-                <label style={{ display: 'block' }}>
-                  วันที่โอน *
-                  <input type="date" value={form.transactionDate} onChange={e => setForm({ ...form, transactionDate: e.target.value })} required
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }} />
-                </label>
-                <label style={{ display: 'block' }}>
-                  เวลาที่โอน
-                  <input type="text" value={form.transactionTime} onChange={e => setForm({ ...form, transactionTime: e.target.value })} placeholder="14:30" pattern="[0-2][0-9]:[0-5][0-9]" maxLength="5"
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }} />
-                </label>
-                <label style={{ display: 'block' }}>
-                  บัญชีธนาคาร
-                  <select value={form.bank} onChange={e => setForm({ ...form, bank: e.target.value })}
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }}>
-                    <option value="KBANK">KBANK</option>
-                    <option value="SCB">SCB</option>
-                    <option value="BBL">BBL</option>
-                    <option value="BAY-4396">BAY-4396</option>
-                    <option value="BAY-7146">BAY-7146</option>
-                    <option value="Cr.-8508">Cr.-8508</option>
-                    <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
-                  </select>
-                </label>
-                <label style={{ display: 'block' }}>
-                  หมายเหตุ
-                  <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="เลขอ้างอิง, หมายเหตุ..."
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px', resize: 'vertical' }} />
-                </label>
+
+                  {/* Date */}
+                  <div>
+                    <label style={formStyles.fieldLabel}>
+                      <Calendar size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      วันที่โอน *
+                    </label>
+                    <input type="date" value={form.transactionDate} onChange={e => setForm({ ...form, transactionDate: e.target.value })} required style={formStyles.input} />
+                  </div>
+
+                  {/* Time */}
+                  <div>
+                    <label style={formStyles.fieldLabel}>
+                      <Clock size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      เวลาที่โอน
+                    </label>
+                    <input type="time" value={form.transactionTime} onChange={e => setForm({ ...form, transactionTime: e.target.value })} style={formStyles.input} />
+                  </div>
+
+                  {/* Bank */}
+                  <div>
+                    <label style={formStyles.fieldLabel}>
+                      <Bank size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      บัญชีธนาคาร
+                    </label>
+                    <select value={form.bank} onChange={e => setForm({ ...form, bank: e.target.value })} style={formStyles.select}>
+                      <option value="KBANK">KBANK</option>
+                      <option value="SCB">SCB</option>
+                      <option value="BBL">BBL</option>
+                      <option value="BAY-4396">BAY-4396</option>
+                      <option value="BAY-7146">BAY-7146</option>
+                      <option value="Cr.-8508">Cr.-8508</option>
+                      <option value="BBL-ส่วนตัว">BBL-ส่วนตัว</option>
+                    </select>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label style={formStyles.fieldLabel}>
+                      <FileText size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      หมายเหตุ
+                    </label>
+                    <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="เลขอ้างอิง, หมายเหตุ..." style={formStyles.textarea} />
+                  </div>
+                </div>
               </div>
 
               {/* ── Summary Bar ── */}
               {form.serviceEntries.some(e => e.amount) && (
-                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', fontSize: '0.88rem' }}>
+                <div style={formStyles.summaryBar}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <span style={{ fontWeight: '600', color: '#1d4ed8' }}>สรุปยอดรวม</span>
-                    <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '1rem' }}>
+                    <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '0.9rem' }}>
+                      <Calculator size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+                      สรุปยอดรวม
+                    </span>
+                    <span style={{ fontWeight: '800', color: '#1d4ed8', fontSize: '1.1rem' }}>
                       ฿{form.serviceEntries.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -1053,7 +1288,7 @@ export default function AllTransactionPage() {
                     const bdSum = (entry.breakdowns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
                     const mismatch = entry.amount && bdSum.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
                     return entry.amount ? (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderTop: '1px solid #dbeafe', color: mismatch ? '#dc2626' : '#374151' }}>
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid #dbeafe', color: mismatch ? '#dc2626' : '#374151', fontSize: '0.85rem' }}>
                         <span>{svc ? `${svc.name} - ${svc.cid || svc.customerIdField || '-'}` : `บริการที่ ${i + 1}`}</span>
                         <span style={{ fontWeight: '600' }}>฿{parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}{mismatch ? ' ⚠️' : ''}</span>
                       </div>
@@ -1062,198 +1297,164 @@ export default function AllTransactionPage() {
                 </div>
               )}
 
-              {/* ── Service Entries ── */}
-              {form.serviceEntries.map((entry, entryIdx) => {
-                const isExpanded = expandedEntries.has(entryIdx);
-                const entryBdSum = (entry.breakdowns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-                const mismatch = entry.amount && entryBdSum.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
-                const svc = services.find(s => s._id === entry.serviceId);
-                return (
-                  <div key={entryIdx} style={{ border: `1px solid ${mismatch ? '#fca5a5' : '#e5e7eb'}`, borderRadius: '8px', marginBottom: '8px', overflow: 'hidden' }}>
-                    {/* Header (always visible) */}
-                    <div
-                      onClick={() => toggleEntry(entryIdx)}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: isExpanded ? '#f0f9ff' : '#f8fafc', cursor: 'pointer', userSelect: 'none' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: '700', background: '#3b82f6', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{entryIdx + 1}</span>
-                        <span style={{ fontWeight: '600', fontSize: '0.9rem', color: '#374151' }}>
-                          {svc ? `${svc.name} — ${svc.cid || svc.customerIdField || '-'}` : 'เลือกบริการ...'}
-                        </span>
-                        {entry.amount && (
-                          <span style={{ fontSize: '0.88rem', color: mismatch ? '#dc2626' : '#16a34a', fontWeight: '600' }}>
-                            ฿{parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                            {mismatch && ' ⚠️ breakdown ไม่ตรง'}
+              {/* ── Section 2: รายการบริการ ── */}
+              <div style={formStyles.sectionCard}>
+                <div style={formStyles.sectionTitle}>
+                  <Gear style={formStyles.sectionIcon} />
+                  <span>รายการบริการ</span>
+                </div>
+
+                {form.serviceEntries.map((entry, entryIdx) => {
+                  const isExpanded = expandedEntries.has(entryIdx);
+                  const entryBdSum = (entry.breakdowns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                  const mismatch = entry.amount && entryBdSum.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
+                  const svc = services.find(s => s._id === entry.serviceId);
+                  return (
+                    <div key={entryIdx} style={{ ...formStyles.serviceCard, borderColor: mismatch ? '#fca5a5' : '#e2e8f0' }}>
+                      {/* Header */}
+                      <div
+                        onClick={() => toggleEntry(entryIdx)}
+                        style={{ ...formStyles.serviceHeader, background: isExpanded ? '#f0f9ff' : '#f8fafc' }}
+                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#f1f5f9'; }}
+                        onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = '#f8fafc'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: '700', background: '#3b82f6', color: '#fff', borderRadius: '50%', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{entryIdx + 1}</span>
+                          <span style={{ fontWeight: '600', fontSize: '0.88rem', color: '#374151' }}>
+                            {svc ? `${svc.name} — ${svc.cid || svc.customerIdField || '-'}` : 'เลือกบริการ...'}
                           </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {form.serviceEntries.length > 1 && (
-                          <button type="button" onClick={e => { e.stopPropagation(); removeServiceEntry(entryIdx); }}
-                            style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}>
-                            ✕
-                          </button>
-                        )}
-                        <span style={{ color: '#94a3b8', fontSize: '1rem' }}>{isExpanded ? '▲' : '▼'}</span>
-                      </div>
-                    </div>
-
-                    {/* Body (collapsible) */}
-                    {isExpanded && (
-                      <div style={{ padding: '12px 14px', borderTop: '1px solid #e5e7eb' }}>
-                        <label>
-                          เลือกบริการ *
-                          <select value={entry.serviceId} onChange={e => updateServiceEntry(entryIdx, 'serviceId', e.target.value)} required disabled={!form.customerId} style={{ width: '100%', marginTop: '4px' }}>
-                            <option value="">-- เลือกบริการ --</option>
-                            {services.filter(s => s.customerId === form.customerId || s.customerId?._id === form.customerId).map(s => (
-                              <option key={s._id} value={s._id}>{s.name} - {s.customerIdField || s.cid || '-'} — {s.pageUrl || '-'}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label style={{ marginTop: '10px', display: 'block' }}>
-                          จำนวนเงิน (บาท) *
-                          <input type="number" step="0.01" value={entry.amount} onChange={e => updateServiceEntry(entryIdx, 'amount', e.target.value)} required placeholder="0.00"
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '8px', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ccc', marginTop: '4px' }} />
-                        </label>
-
-                        {/* Breakdown */}
-                        <div style={{ marginTop: '12px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <span style={{ fontWeight: '600', fontSize: '0.88rem', color: '#374151' }}>แยกสัดส่วน</span>
-                            <span style={{ fontSize: '0.82rem', color: mismatch ? '#dc2626' : '#6c757d' }}>
-                              รวม ฿{entryBdSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} {entry.amount ? `/ ฿${parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : ''}
+                          {entry.amount && (
+                            <span style={{ fontSize: '0.85rem', color: mismatch ? '#dc2626' : '#16a34a', fontWeight: '600', background: mismatch ? '#fef2f2' : '#f0fdf4', padding: '2px 8px', borderRadius: '6px' }}>
+                              ฿{parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                              {mismatch && ' ⚠️'}
                             </span>
-                          </div>
-                          {entry.breakdowns.map((row, idx) => (
-                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1.6fr 1fr auto', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
-                              <div>
-                                {idx === entry.breakdowns.length - 1 && (
-                                  <button type="button" className="btn btn-sm btn-primary" onClick={() => addBreakdownRow(entryIdx)} style={{ padding: '4px 8px', lineHeight: 1 }}>+</button>
-                                )}
-                              </div>
-                              <select value={row.code} onChange={e => {
-                                const newCode = e.target.value;
-                                // ถ้าเลือกรหัส 9 ให้ตรวจสอบว่ามีรายการรหัส 11 อยู่ในแถวอื่นหรือไม่
-                                if (newCode === '9' && !entry.breakdowns.some((b, i) => i !== idx && b.code === '11')) {
-                                  alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 2% ได้');
-                                  return;
-                                }
-                                // ถ้าเลือกรหัส 10 ให้ตรวจสอบว่ามีรายการรหัส 14, 18 หรือ 15 อยู่ในแถวอื่นหรือไม่
-                                if (newCode === '10' && !entry.breakdowns.some((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'))) {
-                                  alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 3% ได้');
-                                  return;
-                                }
-
-                                if (newCode === '9') {
-                                  const idx11 = entry.breakdowns.findIndex((b, i) => i !== idx && b.code === '11');
-                                  if (idx11 !== -1) {
-                                    const row11 = entry.breakdowns[idx11];
-                                    const amount11 = parseFloat(row11.amount) || 0;
-                                    if (amount11 > 0) {
-                                      const w = Math.round(amount11 * 0.02 * 100) / 100;
-                                      setForm(prev => ({
-                                        ...prev,
-                                        serviceEntries: prev.serviceEntries.map((ent, ei) => {
-                                          if (ei !== entryIdx) return ent;
-                                          return {
-                                            ...ent,
-                                            breakdowns: ent.breakdowns.map((r, i) => {
-                                              if (i === idx) {
-                                                return { ...r, code: '9', amount: (-w).toFixed(2) };
-                                              }
-                                              return r;
-                                            })
-                                          };
-                                        })
-                                      }));
-                                      return;
-                                    }
-                                  }
-                                }
-
-                                if (newCode === '10') {
-                                  // หาแถวรหัส 14, 15 หรือ 18 แถวแรก (ไม่รวมแถวปัจจุบัน)
-                                  const idxSrc = entry.breakdowns.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '15' || b.code === '18'));
-                                  if (idxSrc !== -1) {
-                                    const rowSrc = entry.breakdowns[idxSrc];
-                                    const amountSrc = parseFloat(rowSrc.amount) || 0;
-                                    if (amountSrc > 0) {
-                                      const w = Math.round(amountSrc * 0.03 * 100) / 100;
-                                      setForm(prev => ({
-                                        ...prev,
-                                        serviceEntries: prev.serviceEntries.map((ent, ei) => {
-                                          if (ei !== entryIdx) return ent;
-                                          return {
-                                            ...ent,
-                                            breakdowns: ent.breakdowns.map((r, i) => {
-                                              if (i === idx) {
-                                                return { ...r, code: '10', amount: (-w).toFixed(2) };
-                                              }
-                                              return r;
-                                            })
-                                          };
-                                        })
-                                      }));
-                                      return;
-                                    }
-                                  }
-                                }
-
-                                updateBreakdown(entryIdx, idx, 'code', newCode);
-                              }} disabled={row.isAutoVat} style={{ minWidth: 0, fontSize: '0.82rem' }}>
-                                {BREAKDOWN_CODE_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                              </select>
-                              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                                <input type="number" step="0.01" placeholder="ยอดเงิน" value={row.amount}
-                                  onChange={e => updateBreakdown(entryIdx, idx, 'amount', e.target.value)}
-                                  style={{ flex: '1 1 auto', minWidth: 0, paddingRight: row.code !== '12' && row.code !== '13' && row.code !== '17' && row.code !== '19' ? '80px' : '8px' }}
-                                  disabled={row.isAutoVat} />
-                                {row.code !== '12' && row.code !== '13' && row.code !== '17' && row.code !== '19' && (
-                                  <button type="button" onClick={() => computeVatForRow(entryIdx, idx)}
-                                    style={{ position: 'absolute', right: '4px', padding: '2px 6px', border: '1px solid #d3d8e2', background: '#f8f9fa', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '9px', color: '#334155', fontWeight: '600' }}>
-                                    +VAT 7%
-                                  </button>
-                                )}
-                              </div>
-                              <select value={row.statusNote} onChange={e => updateBreakdown(entryIdx, idx, 'statusNote', e.target.value)} style={{ minWidth: 0, fontSize: '0.82rem' }}>
-                                {STATUS_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                              </select>
-                              <div>
-                                {entry.breakdowns.length > 1 && (
-                                  <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdownRow(entryIdx, idx)} style={{ padding: '3px 7px' }}>✕</button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {form.serviceEntries.length > 1 && (
+                            <button type="button" onClick={e => { e.stopPropagation(); removeServiceEntry(entryIdx); }}
+                              style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}>
+                              ✕
+                            </button>
+                          )}
+                          <span style={{ color: '#94a3b8', fontSize: '0.85rem', transition: 'transform 0.2s', display: 'inline-block', transform: isExpanded ? 'rotate(180deg)' : 'none' }}>▼</span>
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
 
-              {/* ── Add Service Button ── */}
-              <button type="button" onClick={addServiceEntry} disabled={!form.customerId}
-                style={{ width: '100%', padding: '9px', border: '2px dashed #3b82f6', borderRadius: '8px', background: 'transparent', color: '#3b82f6', cursor: form.customerId ? 'pointer' : 'not-allowed', fontSize: '0.9rem', fontWeight: '500', marginBottom: '14px', opacity: form.customerId ? 1 : 0.45 }}>
-                + เพิ่มบริการอีกรายการ (สลิปเดียวกัน)
-              </button>
+                      {/* Body */}
+                      {isExpanded && (
+                        <div style={formStyles.serviceBody}>
+                          {/* Service Select */}
+                          <div style={{ marginBottom: '12px' }}>
+                            <label style={formStyles.fieldLabel}>เลือกบริการ *</label>
+                            <select value={entry.serviceId} onChange={e => updateServiceEntry(entryIdx, 'serviceId', e.target.value)} required disabled={!form.customerId} style={formStyles.select}>
+                              <option value="">-- เลือกบริการ --</option>
+                              {services.filter(s => s.customerId === form.customerId || s.customerId?._id === form.customerId).map(s => (
+                                <option key={s._id} value={s._id}>{s.name} - {s.customerIdField || s.cid || '-'} — {s.pageUrl || '-'}</option>
+                              ))}
+                            </select>
+                          </div>
 
-              {/* ── Slip Upload ── */}
-              <label>
-                อัปโหลดสลิปโอนเงิน
-                <input type="file" accept="image/*" onChange={handleSlipChange} style={{ marginTop: '8px' }} />
+                          {/* Amount */}
+                          <div style={{ marginBottom: '12px' }}>
+                            <label style={formStyles.fieldLabel}>จำนวนเงิน (บาท) *</label>
+                            <input type="number" step="0.01" value={entry.amount} onChange={e => updateServiceEntry(entryIdx, 'amount', e.target.value)} required placeholder="0.00" style={formStyles.input} />
+                          </div>
+
+                          {/* Breakdown */}
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <span style={{ fontWeight: '600', fontSize: '0.85rem', color: '#374151' }}>
+                                <ListCheck size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                                แยกสัดส่วน
+                              </span>
+                              <span style={{ fontSize: '0.8rem', color: mismatch ? '#dc2626' : '#6c757d', fontWeight: '500' }}>
+                                รวม ฿{entryBdSum.toLocaleString('th-TH', { minimumFractionDigits: 2 })} {entry.amount ? `/ ฿${parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}` : ''}
+                              </span>
+                            </div>
+                            {entry.breakdowns.map((row, idx) => (
+                              <div key={idx} style={formStyles.breakdownRow}>
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                  {idx === entry.breakdowns.length - 1 && (
+                                    <button type="button" className="btn btn-sm btn-primary" onClick={() => addBreakdownRow(entryIdx)} style={{ padding: '4px 8px', lineHeight: 1, minWidth: '28px', fontSize: '12px' }}>+</button>
+                                  )}
+                                </div>
+                                <select value={row.code} onChange={e => handleCodeChange(entryIdx, idx, e.target.value)} disabled={row.isAutoVat} style={{ ...formStyles.select, fontSize: '0.8rem', padding: '6px 8px' }}>
+                                  {BREAKDOWN_CODE_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                </select>
+                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                                  <input type="number" step="0.01" placeholder="ยอดเงิน" value={row.amount}
+                                    onChange={e => updateBreakdown(entryIdx, idx, 'amount', e.target.value)}
+                                    style={{ ...formStyles.input, paddingRight: !VAT_CODES.includes(row.code) ? '72px' : '8px', fontSize: '0.85rem', padding: '6px 8px' }}
+                                    disabled={row.isAutoVat} />
+                                  {!VAT_CODES.includes(row.code) && (
+                                    <button type="button" onClick={() => computeVatForRow(entryIdx, idx)}
+                                      style={{ position: 'absolute', right: '3px', padding: '2px 5px', border: '1px solid #d3d8e2', background: '#f8f9fa', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '8px', color: '#334155', fontWeight: '600', lineHeight: '1.2' }}>
+                                      +VAT
+                                    </button>
+                                  )}
+                                </div>
+                                <select value={row.statusNote} onChange={e => updateBreakdown(entryIdx, idx, 'statusNote', e.target.value)} style={{ ...formStyles.select, fontSize: '0.8rem', padding: '6px 8px' }}>
+                                  {STATUS_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                                </select>
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                  {entry.breakdowns.length > 1 && (
+                                    <button type="button" className="btn btn-sm btn-danger" onClick={() => removeBreakdownRow(entryIdx, idx)} style={{ padding: '3px 7px', minWidth: '28px', fontSize: '12px' }}>✕</button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Add Service Button */}
+                <button type="button" onClick={addServiceEntry} disabled={!form.customerId}
+                  style={{ ...formStyles.addServiceBtn, opacity: form.customerId ? 1 : 0.45, cursor: form.customerId ? 'pointer' : 'not-allowed' }}
+                  onMouseEnter={e => { if (form.customerId) e.currentTarget.style.background = '#dbeafe'; }}
+                  onMouseLeave={e => { if (form.customerId) e.currentTarget.style.background = '#f0f7ff'; }}>
+                  + เพิ่มบริการอีกรายการ (สลิปเดียวกัน)
+                </button>
+              </div>
+
+              {/* ── Section 3: สลิปโอนเงิน ── */}
+              <div style={formStyles.sectionCard}>
+                <div style={formStyles.sectionTitle}>
+                  <Image style={formStyles.sectionIcon} />
+                  <span>สลิปโอนเงิน</span>
+                </div>
+                
+                <div style={formStyles.slipUploadArea}
+                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = '#eff6ff'; }}
+                  onDragLeave={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#fafafa'; }}
+                  onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) { setForm({ ...form, slipImage: file }); const reader = new FileReader(); reader.onloadend = () => setSlipPreview(reader.result); reader.readAsDataURL(file); } }}>
+                  <input type="file" accept="image/*" onChange={handleSlipChange} style={{ display: 'none' }} id="slip-upload-input" />
+                  <label htmlFor="slip-upload-input" style={{ cursor: 'pointer', display: 'block' }}>
+                    <Upload size={28} style={{ color: '#94a3b8', marginBottom: '8px' }} />
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '500' }}>คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</p>
+                    <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>รองรับไฟล์ JPG, PNG, GIF, WEBP (สูงสุด 5MB)</p>
+                  </label>
+                </div>
+                
                 {slipPreview && (
-                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
-                    <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', border: '2px solid #ddd' }} />
+                  <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
+                    <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '220px', maxHeight: '220px', borderRadius: '10px', border: '3px solid #3b82f6', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                     <button type="button" onClick={removeSlipPreview}
-                      style={{ position: 'absolute', top: '5px', right: '5px', background: 'rgba(255,0,0,0.8)', color: '#fff', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', fontSize: '16px' }}>
+                      style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '16px', boxShadow: '0 2px 8px rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       ×
                     </button>
+                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(59,130,246,0.9)', color: '#fff', padding: '2px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
+                      สลิปที่เลือก
+                    </div>
                   </div>
                 )}
-              </label>
+              </div>
 
-              <div className="svc-actions">
+              {/* ── Actions ── */}
+              <div className="svc-actions" style={{ marginTop: '6px' }}>
                 <button type="button" className="btn-modal btn-modal-cancel" onClick={() => setShowCreateForm(false)}>
                   <XCircle /> ยกเลิก
                 </button>
