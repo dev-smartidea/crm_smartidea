@@ -64,6 +64,8 @@ export default function AllTransactionPage() {
 
   // ====== Breakdown Rows UI Handlers ======
   const BREAKDOWN_CODE_OPTIONS = [
+    { value: '9', label: '9 : หัก ณ ที่จ่าย 2% ค่าคลิก' },
+    { value: '10', label: '10 : หัก ณ ที่จ่าย 3% ค่าบริการ' },
     { value: '11', label: '11 : ค่าคลิก' },
     { value: '12', label: '12 : Vat ค่าคลิก' },
     { value: '13', label: '13 : Vat ค่าบริการ Google' },
@@ -414,6 +416,8 @@ export default function AllTransactionPage() {
 
   // Map รหัส breakdown -> ป้ายภาษาไทย
   const breakdownCodeLabels = {
+    '9': 'หัก ณ ที่จ่าย 2% ค่าคลิก',
+    '10': 'หัก ณ ที่จ่าย 3% ค่าบริการ',
     '11': 'ค่าคลิก',
     '12': 'Vat ค่าคลิก',
     '13': 'Vat ค่าบริการ Google',
@@ -808,18 +812,38 @@ export default function AllTransactionPage() {
                       </td>
                       <td>
                         <div className="notes-cell">
-                          {tx.notes && <div className="note-text">{tx.notes}</div>}
+                          {tx.notes && <div className="note-text" style={{ marginBottom: tx.breakdowns?.length ? '6px' : 0 }}>{tx.notes}</div>}
                           {tx.breakdowns && tx.breakdowns.length > 0 && (
                             <div className="breakdowns">
                               {tx.breakdowns.map((bd, idx) => {
                                 const label = breakdownCodeLabels[bd.code] || bd.code;
+                                const isDeduction = bd.code === '9' || bd.code === '10';
+                                const isVat = bd.code === '12' || bd.code === '13' || bd.code === '17' || bd.code === '19';
+                                const amountColor = isDeduction ? '#dc2626' : isVat ? '#7c3aed' : '#1d4ed8';
                                 return (
-                                  <div key={idx} className="breakdown-item">
-                                    <span className="bd-code">{bd.code}</span>
+                                  <div key={idx} className="breakdown-item" style={{ marginBottom: '4px' }}>
+                                    <span className="bd-code" style={{ background: isDeduction ? '#fee2e2' : isVat ? '#ede9fe' : '#eff6ff', color: isDeduction ? '#b91c1c' : isVat ? '#6d28d9' : '#1d4ed8' }}>{bd.code}</span>
                                     <span className="bd-sep"> :</span>{' '}
                                     <span className="bd-label">{label}:</span>{' '}
-                                    <span className="bd-amount">{formatNumber(bd.amount)} บาท</span>
-                                    {bd.statusNote && <span className="bd-status"> — {bd.statusNote}</span>}
+                                    <span className="bd-amount" style={{ color: amountColor, fontWeight: '600' }}>{formatNumber(bd.amount)} บาท</span>
+                                    {bd.statusNote && (
+                                      <span
+                                        className="bd-status"
+                                        style={{
+                                          display: 'inline-block',
+                                          marginLeft: '6px',
+                                          padding: '1px 6px',
+                                          borderRadius: '4px',
+                                          fontSize: '0.75rem',
+                                          background: bd.statusNote === 'ค่าคลิกที่ยังไม่ต้องเติม' ? '#fef9c3' : '#f0fdf4',
+                                          color: bd.statusNote === 'ค่าคลิกที่ยังไม่ต้องเติม' ? '#92400e' : '#15803d',
+                                          border: `1px solid ${bd.statusNote === 'ค่าคลิกที่ยังไม่ต้องเติม' ? '#fde68a' : '#86efac'}`,
+                                          whiteSpace: 'nowrap'
+                                        }}
+                                      >
+                                        {bd.statusNote}
+                                      </span>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1107,7 +1131,76 @@ export default function AllTransactionPage() {
                                   <button type="button" className="btn btn-sm btn-primary" onClick={() => addBreakdownRow(entryIdx)} style={{ padding: '4px 8px', lineHeight: 1 }}>+</button>
                                 )}
                               </div>
-                              <select value={row.code} onChange={e => updateBreakdown(entryIdx, idx, 'code', e.target.value)} disabled={row.isAutoVat} style={{ minWidth: 0, fontSize: '0.82rem' }}>
+                              <select value={row.code} onChange={e => {
+                                const newCode = e.target.value;
+                                // ถ้าเลือกรหัส 9 ให้ตรวจสอบว่ามีรายการรหัส 11 อยู่ในแถวอื่นหรือไม่
+                                if (newCode === '9' && !entry.breakdowns.some((b, i) => i !== idx && b.code === '11')) {
+                                  alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 2% ได้');
+                                  return;
+                                }
+                                // ถ้าเลือกรหัส 10 ให้ตรวจสอบว่ามีรายการรหัส 14, 18 หรือ 15 อยู่ในแถวอื่นหรือไม่
+                                if (newCode === '10' && !entry.breakdowns.some((b, i) => i !== idx && (b.code === '14' || b.code === '18' || b.code === '15'))) {
+                                  alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่าย 3% ได้');
+                                  return;
+                                }
+
+                                if (newCode === '9') {
+                                  const idx11 = entry.breakdowns.findIndex((b, i) => i !== idx && b.code === '11');
+                                  if (idx11 !== -1) {
+                                    const row11 = entry.breakdowns[idx11];
+                                    const amount11 = parseFloat(row11.amount) || 0;
+                                    if (amount11 > 0) {
+                                      const w = Math.round(amount11 * 0.02 * 100) / 100;
+                                      setForm(prev => ({
+                                        ...prev,
+                                        serviceEntries: prev.serviceEntries.map((ent, ei) => {
+                                          if (ei !== entryIdx) return ent;
+                                          return {
+                                            ...ent,
+                                            breakdowns: ent.breakdowns.map((r, i) => {
+                                              if (i === idx) {
+                                                return { ...r, code: '9', amount: (-w).toFixed(2) };
+                                              }
+                                              return r;
+                                            })
+                                          };
+                                        })
+                                      }));
+                                      return;
+                                    }
+                                  }
+                                }
+
+                                if (newCode === '10') {
+                                  // หาแถวรหัส 14, 15 หรือ 18 แถวแรก (ไม่รวมแถวปัจจุบัน)
+                                  const idxSrc = entry.breakdowns.findIndex((b, i) => i !== idx && (b.code === '14' || b.code === '15' || b.code === '18'));
+                                  if (idxSrc !== -1) {
+                                    const rowSrc = entry.breakdowns[idxSrc];
+                                    const amountSrc = parseFloat(rowSrc.amount) || 0;
+                                    if (amountSrc > 0) {
+                                      const w = Math.round(amountSrc * 0.03 * 100) / 100;
+                                      setForm(prev => ({
+                                        ...prev,
+                                        serviceEntries: prev.serviceEntries.map((ent, ei) => {
+                                          if (ei !== entryIdx) return ent;
+                                          return {
+                                            ...ent,
+                                            breakdowns: ent.breakdowns.map((r, i) => {
+                                              if (i === idx) {
+                                                return { ...r, code: '10', amount: (-w).toFixed(2) };
+                                              }
+                                              return r;
+                                            })
+                                          };
+                                        })
+                                      }));
+                                      return;
+                                    }
+                                  }
+                                }
+
+                                updateBreakdown(entryIdx, idx, 'code', newCode);
+                              }} disabled={row.isAutoVat} style={{ minWidth: 0, fontSize: '0.82rem' }}>
                                 {BREAKDOWN_CODE_OPTIONS.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
                               </select>
                               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
