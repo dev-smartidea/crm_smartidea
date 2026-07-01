@@ -18,6 +18,9 @@ const DEFAULT_CARDS = [
   { displayName: 'บัตรลงท้าย 6119', last4: '6119', channels: ['Google Ads', 'Facebook Ads'] }
 ];
 
+// กลุ่มบัตรที่ใช้วงเงินร่วมกัน (shared balance)
+const SHARED_BALANCE_GROUP = ['1000', '1018', '1026'];
+
 function getUserFromReq(req) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return null;
@@ -56,6 +59,31 @@ async function ensureDefaultCards(userId) {
       { $setOnInsert: { ...card, balance: 0, status: 'active', createdBy: userId } },
       { upsert: true, new: true }
     );
+  }
+}
+
+// ซิงค์ยอดเงินของบัตรในกลุ่มเดียวกัน (1000, 1018, 1026)
+async function syncSharedBalanceGroup(updatedCard) {
+  try {
+    // ตรวจสอบว่าบัตรนี้อยู่ในกลุ่ม shared balance หรือไม่
+    if (!SHARED_BALANCE_GROUP.includes(updatedCard.last4)) {
+      return; // ไม่อยู่ในกลุ่ม ไม่ต้องซิงค์
+    }
+
+    // ดึงยอดเงินปัจจุบันของบัตรที่อัปเดต
+    const newBalance = updatedCard.balance;
+
+    // อัปเดตยอดเงินของบัตรอื่นๆ ในกลุ่ม
+    const otherCardsLast4 = SHARED_BALANCE_GROUP.filter(last4 => last4 !== updatedCard.last4);
+    
+    await Card.updateMany(
+      { last4: { $in: otherCardsLast4 } },
+      { $set: { balance: newBalance } }
+    );
+
+    console.log(`✅ Synced balance ${newBalance} to cards: ${otherCardsLast4.join(', ')}`);
+  } catch (err) {
+    console.error('❌ Failed to sync shared balance group:', err);
   }
 }
 
@@ -99,6 +127,9 @@ router.post('/cards/topup', async (req, res) => {
 
     card.balance += numericAmount;
     await card.save();
+
+    // ซิงค์ยอดเงินกับบัตรอื่นๆ ในกลุ่ม (1000, 1018, 1026)
+    await syncSharedBalanceGroup(card);
 
     const ledger = await CardLedger.create({
       cardId,
@@ -228,6 +259,9 @@ router.post('/cards/charge', async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  // ซิงค์ยอดเงินกับบัตรอื่นๆ ในกลุ่ม (1000, 1018, 1026)
+  await syncSharedBalanceGroup(card);
 
   // แจ้งเตือนยอดเงินต่ำ (non-critical — ทำหลัง transaction commit แล้ว)
   const LOW_BALANCE_THRESHOLD = 3000;

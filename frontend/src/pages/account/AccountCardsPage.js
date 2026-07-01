@@ -55,12 +55,29 @@ export default function AccountCardsPage() {
     }
   }, [showAddCard, showEditCard, showDeleteConfirm, actionCard, closeAllModals]);
 
+  // ปรับแต่งบัตรที่ใช้วงเงินร่วมกัน (1000, 1018, 1026)
+  const cardsWithSharedBalance = useMemo(() => {
+    const sharedBalanceCards = ['1000', '1018', '1026'];
+    const masterCard = cards.find(c => c.last4 === '1000');
+    
+    if (!masterCard) return cards; // ถ้าไม่มีบัตร 1000 ให้ใช้ cards ตัวเดิม
+
+    const sharedBalance = masterCard.balance;
+
+    return cards.map(card => {
+      if (sharedBalanceCards.includes(card.last4)) {
+        return { ...card, balance: sharedBalance };
+      }
+      return card;
+    });
+  }, [cards]);
+
   const totals = useMemo(() => ({
-    totalCards: cards.length,
-    totalBalance: cards.reduce((sum, c) => sum + (c.balance || 0), 0),
-    google: cards.filter(c => c.channels?.includes('Google Ads')).length,
-    facebook: cards.filter(c => c.channels?.includes('Facebook Ads')).length
-  }), [cards]);
+    totalCards: cardsWithSharedBalance.length,
+    totalBalance: cardsWithSharedBalance.reduce((sum, c) => sum + (c.balance || 0), 0),
+    google: cardsWithSharedBalance.filter(c => c.channels?.includes('Google Ads')).length,
+    facebook: cardsWithSharedBalance.filter(c => c.channels?.includes('Facebook Ads')).length
+  }), [cardsWithSharedBalance]);
 
   // Filter services by selected channel + search text
   const filteredServices = useMemo(() => {
@@ -312,7 +329,7 @@ export default function AccountCardsPage() {
               <SummaryCard label="Facebook Ads" value={totals.facebook} tone="d" note="บัตร" />
             </div>
 
-            {cards.length === 0 && (
+            {cardsWithSharedBalance.length === 0 && (
               <div style={{ textAlign: 'center', padding: '48px 20px', color: '#94a3b8' }}>
                 <CreditCard2BackFill size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
                 <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '4px' }}>ยังไม่มีบัตร</p>
@@ -321,7 +338,7 @@ export default function AccountCardsPage() {
             )}
 
             <div className="cards-grid">
-              {cards.map(card => (
+              {cardsWithSharedBalance.map(card => (
                 <div key={card._id} className="card-panel">
                   <div className="card-top">
                     <div className="card-chip">{card.last4}</div>
