@@ -178,7 +178,7 @@ export default function AllTransactionPage() {
       serviceEntries: prev.serviceEntries.map((entry, ei) =>
         ei !== entryIdx ? entry : {
           ...entry,
-          breakdowns: [...(entry.breakdowns || [])], 
+          breakdowns: [...(entry.breakdowns || []), { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }],
         }
       )
     }));

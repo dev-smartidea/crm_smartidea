@@ -289,6 +289,56 @@ router.post('/cards/charge', async (req, res) => {
   res.json({ card: cardResponse, ledger });
 });
 
+// DELETE /api/cards/ledger/:ledgerEntryId - ลบ CardLedger entry พร้อมคืน balance บัตร
+router.delete('/cards/ledger/:ledgerEntryId', async (req, res) => {
+  const user = getUserFromReq(req);
+  if (!requireAccountOrAdmin(user)) return res.status(403).json({ error: 'Forbidden' });
+
+  let session;
+  try {
+    session = await mongoose.startSession();
+  } catch (sessionErr) {
+    return res.status(500).json({ error: 'Database connection error' });
+  }
+
+  try {
+    let card;
+    await session.withTransaction(async () => {
+      const entry = await CardLedger.findById(req.params.ledgerEntryId).session(session);
+      if (!entry) throw Object.assign(new Error('ไม่พบรายการ'), { statusCode: 404 });
+
+      // คืน balance: debit → บวกคืน, credit → ลบออก
+      const balanceDelta = entry.direction === 'debit' ? entry.amount : -entry.amount;
+      card = await Card.findByIdAndUpdate(
+        entry.cardId,
+        { $inc: { balance: balanceDelta } },
+        { new: true, session }
+      );
+      if (!card) throw Object.assign(new Error('ไม่พบบัตร'), { statusCode: 404 });
+
+      // ถ้า entry นี้เป็น fbTopup (note ขึ้นต้นด้วย "เติมเงินรอ FB ตัด:") → รีเซ็ต fbToppedUp บน Transaction
+      if (entry.reference && entry.direction === 'credit' && entry.type === 'topup') {
+        await Transaction.findByIdAndUpdate(
+          entry.reference,
+          { $unset: { fbToppedUp: '', fbTopupCardId: '' } },
+          { session }
+        );
+      }
+
+      await CardLedger.findByIdAndDelete(req.params.ledgerEntryId, { session });
+    });
+
+    if (card) await syncSharedBalanceGroup(card);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Delete ledger entry failed:', err);
+    const status = err.statusCode || 500;
+    res.status(status).json({ error: err.statusCode ? err.message : 'ลบรายการไม่สำเร็จ' });
+  } finally {
+    session.endSession();
+  }
+});
+
 // GET /api/cards/charge-history/:transactionId - charge history for a transaction
 router.get('/cards/charge-history/:transactionId', async (req, res) => {
   try {

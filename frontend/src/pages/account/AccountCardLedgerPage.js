@@ -20,6 +20,7 @@ export default function AccountCardLedgerPage() {
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletingId, setDeletingId] = useState(null);
   const itemsPerPage = 20;
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -138,6 +139,22 @@ export default function AccountCardLedgerPage() {
   };
 
   const hasActiveFilters = filterType || filterChannel || dateFrom || dateTo;
+
+  const handleDeleteEntry = async (entryId) => {
+    if (!window.confirm('ลบรายการนี้และคืนยอดเงินกลับสู่บัตร?')) return;
+    try {
+      setDeletingId(entryId);
+      await axios.delete(`${api}/api/cards/ledger/${entryId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('ลบรายการสำเร็จ');
+      setLedger(prev => prev.filter(e => e._id !== entryId));
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'ลบรายการไม่สำเร็จ');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const setQuickDateFilter = (type) => {
     const today = new Date();
@@ -302,12 +319,14 @@ export default function AccountCardLedgerPage() {
                     <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>รายละเอียด</th>
                     <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600 }}>ยอดหลังรายการ</th>
                     <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600 }}>โดย</th>
+                    <th style={{ padding: '8px 10px', fontSize: 12, fontWeight: 600 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedLedger.map((entry, i) => {
+                    const isFbTopup = entry.type === 'topup' && entry.direction === 'credit' && entry.channel === 'Facebook Ads';
                     return (
-                    <tr key={entry._id} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 1 ? '#fafafa' : '#fff' }}>
+                    <tr key={entry._id} style={{ borderBottom: '1px solid #f0f0f0', background: isFbTopup ? '#fff8e1' : (i % 2 === 1 ? '#fafafa' : '#fff') }}>
                       <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatDate(entry.createdAt)} {formatTime(entry.createdAt)}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.type === 'topup' ? <span style={{ color: '#16a34a', fontWeight: 600 }}>เติมเงิน</span> : <span style={{ color: '#dc2626', fontWeight: 600 }}>ตัดยอด</span>}</td>
                       <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 12 }}>{entry.serviceId?.cid || '-'}</td>
@@ -322,6 +341,23 @@ export default function AccountCardLedgerPage() {
                       <td style={{ padding: '8px 10px', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.note}</td>
                       <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{(entry.balanceAfter || 0).toLocaleString()}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.createdBy?.name || '-'}</td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                        {isFbTopup && (
+                          <button
+                            onClick={() => handleDeleteEntry(entry._id)}
+                            disabled={deletingId === entry._id}
+                            title="ลบรายการเติมเงินนี้"
+                            style={{
+                              padding: '3px 8px', fontSize: 12, fontWeight: 600,
+                              background: '#fff', color: '#dc2626',
+                              border: '1px solid #dc2626', borderRadius: 4,
+                              cursor: 'pointer', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {deletingId === entry._id ? '...' : 'ลบ'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                     );
                   })}
@@ -335,7 +371,7 @@ export default function AccountCardLedgerPage() {
                     <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(8).toLocaleString(); })()}</td>
                     <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(9).toLocaleString(); })()}</td>
                     <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>{(() => { const getBD = (code) => filteredLedger.reduce((s, e) => s + (getBreakdownAmount(e, code) || 0), 0); return getBD(10).toLocaleString(); })()}</td>
-                    <td colSpan="3" style={{ padding: '8px 10px' }}></td>
+                    <td colSpan="4" style={{ padding: '8px 10px' }}></td>
                   </tr>
                 </tfoot>
               </table>
