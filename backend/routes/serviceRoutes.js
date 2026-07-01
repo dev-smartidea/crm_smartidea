@@ -70,6 +70,7 @@ router.get('/services/due-monthly', async (req, res) => {
     const paidServiceIds = paidTxAgg.map(t => t._id);
 
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
 
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
@@ -81,7 +82,15 @@ router.get('/services/due-monthly', async (req, res) => {
       userFilter.$or = buildServiceOwnerFilter(user, currentUser);
     }
     if (serviceScope) {
-      userFilter.serviceType = serviceScope;
+      // Special case: parn เห็นบริการทั้งหมดของลูกค้า AASA1 (ทั้ง Google และ Facebook)
+      if (isPanAdmin) {
+        userFilter.$or = [
+          { serviceType: serviceScope },
+          { customerId: SPECIAL_CUSTOMER_AASA1 }
+        ];
+      } else {
+        userFilter.serviceType = serviceScope;
+      }
     }
     const dueOrPaidFilter = {
       $or: [
@@ -162,6 +171,7 @@ router.get('/services', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
 
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
@@ -172,7 +182,11 @@ router.get('/services', async (req, res) => {
     if (user.role === 'admin' || user.role === 'account') {
       services = await Service.find().populate('customerId', 'name phone');
     } else if (serviceScope) {
-      services = await Service.find({ serviceType: serviceScope }).populate('customerId', 'name phone');
+      // Special case: parn เห็นบริการทั้งหมดของลูกค้า AASA1 (ทั้ง Google และ Facebook)
+      const query = isPanAdmin 
+        ? { $or: [{ serviceType: serviceScope }, { customerId: SPECIAL_CUSTOMER_AASA1 }] }
+        : { serviceType: serviceScope };
+      services = await Service.find(query).populate('customerId', 'name phone');
     } else {
       const currentUser = await getCurrentUser(user);
       services = await Service.find({ 
@@ -193,6 +207,7 @@ router.get('/customers/:customerId/services', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
     const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role) || isPanAdmin;
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
@@ -220,7 +235,12 @@ router.get('/customers/:customerId/services', async (req, res) => {
     if (!isAdminRole) {
       svcQuery.$or = ownerFilters;
     }
-    if (serviceScope) svcQuery.serviceType = serviceScope;
+    // Special case: parn เห็นบริการทั้งหมดของลูกค้า AASA1 (ทั้ง Google และ Facebook)
+    if (serviceScope) {
+      if (!(isPanAdmin && req.params.customerId === SPECIAL_CUSTOMER_AASA1)) {
+        svcQuery.serviceType = serviceScope;
+      }
+    }
     const services = await Service.find(svcQuery).sort({ createdAt: -1 });
     res.json(services);
   } catch (err) {

@@ -1308,26 +1308,14 @@ export default function AllTransactionPage() {
                   <div>
                     <label style={formStyles.fieldLabel}>
                       <Clock size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                      เวลาที่โอน (AM เท่านั้น)
+                      เวลาที่โอน
                     </label>
                     <input 
                       type="text" 
                       value={form.transactionTime} 
                       onChange={e => setForm({ ...form, transactionTime: e.target.value })}
-                      onBlur={e => {
-                        const timeValue = e.target.value;
-                        if (!timeValue) return;
-                        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeValue)) {
-                          alert('กรุณากรอกเวลาในรูปแบบ HH:MM (เช่น 09:30)');
-                          return;
-                        }
-                        const hour = parseInt(timeValue.split(':')[0], 10);
-                        if (hour >= 12) {
-                          alert('กรุณากรอกเวลาในช่วง AM (00:00 - 11:59) เท่านั้น');
-                        }
-                      }}
                       style={formStyles.input}
-                      placeholder="HH:MM (เช่น 09:30)"
+                      placeholder="เช่น 0930"
                     />
                   </div>
 
