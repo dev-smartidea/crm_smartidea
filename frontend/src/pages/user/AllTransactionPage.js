@@ -405,10 +405,12 @@ export default function AllTransactionPage() {
       }
     }
 
-    try {
-      let sharedSlipUrl = null;
-      let sharedCloudinaryId = null;
+    let sharedSlipUrl = null;
+    let sharedCloudinaryId = null;
+    const errors = [];
+    let successCount = 0;
 
+    try {
       for (let i = 0; i < form.serviceEntries.length; i++) {
         const entry = form.serviceEntries[i];
         const formData = new FormData();
@@ -432,26 +434,38 @@ export default function AllTransactionPage() {
           formData.append('breakdowns', JSON.stringify(cleaned));
         }
 
-        const res = await axios.post(
-          `${api}/api/services/${entry.serviceId}/transactions`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
-        );
+        try {
+          const res = await axios.post(
+            `${api}/api/services/${entry.serviceId}/transactions`,
+            formData,
+            { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
+          );
 
-        if (i === 0 && res.data?.slipImage) {
-          sharedSlipUrl = res.data.slipImage;
-          sharedCloudinaryId = res.data.cloudinaryId || null;
+          if (i === 0 && res.data?.slipImage) {
+            sharedSlipUrl = res.data.slipImage;
+            sharedCloudinaryId = res.data.cloudinaryId || null;
+          }
+          successCount++;
+        } catch (entryErr) {
+          console.error(`Error creating transaction entry ${i + 1}:`, entryErr);
+          errors.push(`รายการที่ ${i + 1}: ${entryErr?.response?.data?.error || entryErr.message || 'ไม่ทราบสาเหตุ'}`);
         }
       }
-
+    } finally {
+      // โหลดข้อมูลใหม่เสมอ แม้บางรายการจะผิดพลาด
       setShowCreateForm(false);
       resetForm();
       await fetchAllData();
-    } catch (error) {
-      console.error('Error creating transaction:', error);
-      alert('ไม่สามารถเพิ่มรายการได้');
+
+      if (errors.length > 0) {
+        const msg = successCount > 0
+          ? `บันทึกสำเร็จ ${successCount} รายการ แต่มีข้อผิดพลาด ${errors.length} รายการ:\n${errors.join('\n')}`
+          : `ไม่สามารถเพิ่มรายการได้:\n${errors.join('\n')}`;
+        alert(msg);
+      }
     }
   };
+
 
   // ลบรายการ
   const handleConfirmDelete = async () => {

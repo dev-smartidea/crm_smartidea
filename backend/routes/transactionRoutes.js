@@ -83,6 +83,7 @@ router.get('/transactions', async (req, res) => {
     let query;
     
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
 
     if (user.role === 'admin' || user.role === 'account') {
       // Admin และ Account เห็นทุกรายการ
@@ -92,7 +93,10 @@ router.get('/transactions', async (req, res) => {
     } else if (user.role === 'google_manager' || user.role === 'facebook_manager' || isPanAdmin) {
       // Sub-admin / Pan Admin: เห็นเฉพาะ transaction ที่เชื่อมโยงกับ service ใน scope
       const serviceScope = user.role === 'google_manager' ? 'Google Ads' : 'Facebook Ads';
-      const scopedServices = await Service.find({ serviceType: serviceScope }, '_id');
+      const serviceQuery = isPanAdmin
+        ? { $or: [{ serviceType: serviceScope }, { customerId: SPECIAL_CUSTOMER_AASA1 }] }
+        : { serviceType: serviceScope };
+      const scopedServices = await Service.find(serviceQuery, '_id');
       const scopedServiceIds = scopedServices.map(s => s._id);
       query = Transaction.find({ serviceId: { $in: scopedServiceIds } });
     } else {
@@ -303,13 +307,15 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
     // ตรวจสอบสิทธิ์: admin/account เห็นทุกอัน, google_manager/facebook_manager เห็นเฉพาะ service ใน scope, 
     // user เห็นของตัวเอง (เป็นเจ้าของ service หรือเป็นผู้ดูแลลูกค้า)
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
     const isAdmin = user.role === 'admin' || user.role === 'account';
     const isGoogleAdmin = user.role === 'google_manager' && service.serviceType === 'Google Ads';
     const isFacebookAdmin = (user.role === 'facebook_manager' || isPanAdmin) && service.serviceType === 'Facebook Ads';
+    const isSpecialCustomerAccess = isPanAdmin && service.customerId && service.customerId._id.toString() === SPECIAL_CUSTOMER_AASA1;
     const isServiceOwner = service.userId.toString() === user.id;
     const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
     
-    if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isServiceOwner && !isCustomerManager) {
+    if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isSpecialCustomerAccess && !isServiceOwner && !isCustomerManager) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -355,8 +361,10 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     const isServiceOwner = service.userId.toString() === user.id;
     const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
     const isFacebookAdmin = isPanAdmin && service.serviceType === 'Facebook Ads';
-    const isAdmin = ['admin', 'google_manager', 'facebook_manager'].includes(user.role) || isFacebookAdmin;
+    const isSpecialCustomerAccess = isPanAdmin && service.customerId && service.customerId._id.toString() === SPECIAL_CUSTOMER_AASA1;
+    const isAdmin = ['admin', 'google_manager', 'facebook_manager'].includes(user.role) || isFacebookAdmin || isSpecialCustomerAccess;
 
     if (!isAdmin && !isServiceOwner && !isCustomerManager) {
       return res.status(403).json({ error: 'Forbidden' });
