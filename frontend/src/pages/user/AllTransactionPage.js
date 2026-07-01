@@ -178,7 +178,7 @@ export default function AllTransactionPage() {
       serviceEntries: prev.serviceEntries.map((entry, ei) =>
         ei !== entryIdx ? entry : {
           ...entry,
-          breakdowns: [...(entry.breakdowns || []), { code: '11', amount: '', statusNote: 'รอบันทึกบัญชี', isAutoVat: false }]
+          breakdowns: [...(entry.breakdowns || [])], 
         }
       )
     }));
@@ -823,6 +823,8 @@ export default function AllTransactionPage() {
     },
   };
 
+  const totalAmount = form.serviceEntries.reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+
   return (
     <div className="all-transaction-page fade-up">
       {showDeleteConfirm && <DeleteConfirmModal />}
@@ -1229,6 +1231,27 @@ export default function AllTransactionPage() {
 
             <form onSubmit={handleCreate} className="svc-form" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               
+              {/* --- TOTAL AMOUNT BAR --- */}
+              <div style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                background: 'linear-gradient(to right, #3b82f6, #2563eb)',
+                color: 'white',
+                padding: '12px 20px',
+                borderRadius: '10px',
+                marginBottom: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              }}>
+                <span style={{ fontSize: '1rem', fontWeight: '600' }}>ยอดรวมทั้งหมด</span>
+                <span style={{ fontSize: '1.4rem', fontWeight: '800' }}>
+                  {formatCurrency(totalAmount)}
+                </span>
+              </div>
+
               {/* ── Section 1: ข้อมูลหลัก ── */}
               <div style={formStyles.sectionCard}>
                 <div style={formStyles.sectionTitle}>
@@ -1336,31 +1359,7 @@ export default function AllTransactionPage() {
                 </div>
               </div>
 
-              {/* ── Summary Bar ── */}
-              {form.serviceEntries.some(e => e.amount) && (
-                <div style={formStyles.summaryBar}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '0.9rem' }}>
-                      <Calculator size={16} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-                      สรุปยอดรวม
-                    </span>
-                    <span style={{ fontWeight: '800', color: '#1d4ed8', fontSize: '1.1rem' }}>
-                      ฿{form.serviceEntries.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  {form.serviceEntries.map((entry, i) => {
-                    const svc = services.find(s => s._id === entry.serviceId);
-                    const bdSum = (entry.breakdowns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-                    const mismatch = entry.amount && bdSum.toFixed(2) !== (parseFloat(entry.amount || 0)).toFixed(2);
-                    return entry.amount ? (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid #dbeafe', color: mismatch ? '#dc2626' : '#374151', fontSize: '0.85rem' }}>
-                        <span>{svc ? `${svc.name} - ${svc.cid || svc.customerIdField || '-'}` : `บริการที่ ${i + 1}`}</span>
-                        <span style={{ fontWeight: '600' }}>฿{parseFloat(entry.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}{mismatch ? ' ⚠️' : ''}</span>
-                      </div>
-                    ) : null;
-                  })}
-                </div>
-              )}
+              {/* ── Summary Bar (REMOVED, REPLACED BY STICKY TOTAL BAR) ── */}
 
               {/* ── Section 2: รายการบริการ ── */}
               <div style={formStyles.sectionCard}>
@@ -1386,7 +1385,7 @@ export default function AllTransactionPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <span style={{ fontSize: '0.7rem', fontWeight: '700', background: '#3b82f6', color: '#fff', borderRadius: '50%', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{entryIdx + 1}</span>
                           <span style={{ fontWeight: '600', fontSize: '0.88rem', color: '#374151' }}>
-                            {svc ? `${svc.name} — ${svc.cid || svc.customerIdField || '-'}` : 'เลือกบริการ...'}
+                            {svc ? `${svc.name} - ${svc.cid || svc.customerIdField || '-'}` : 'เลือกบริการ...'}
                           </span>
                           {entry.amount && (
                             <span style={{ fontSize: '0.85rem', color: mismatch ? '#dc2626' : '#16a34a', fontWeight: '600', background: mismatch ? '#fef2f2' : '#f0fdf4', padding: '2px 8px', borderRadius: '6px' }}>

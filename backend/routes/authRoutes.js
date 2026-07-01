@@ -243,7 +243,7 @@ router.post('/login',
     if (!match) {
       return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
     }
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
     createAuditLog({ userId: user._id, username: user.username, action: 'login', target: user.username, ip: req.ip });
     res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
   } catch (err) {
@@ -361,7 +361,7 @@ router.post('/impersonate/:userId', requireAdmin, async (req, res) => {
     }
     // ออก token ใหม่ที่แนบ field _impersonatedBy ไว้
     const impersonationToken = jwt.sign(
-      { id: targetUser._id, role: targetUser.role, _impersonatedBy: req.user._id },
+      { id: targetUser._id, role: targetUser.role, email: targetUser.email, _impersonatedBy: req.user._id },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );

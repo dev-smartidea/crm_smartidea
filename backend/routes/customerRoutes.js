@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
@@ -35,18 +35,22 @@ router.get('/', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const loggedInUserId = decoded.id;
 
+    // Special override for pan@smartidea.co.th to see all Facebook customers
+    const isPanAdmin = decoded.email === 'pan@smartidea.co.th' || decoded.email === 'maill@mail.com' || decoded.id === '6a2b7767e3ea12ab437922ad';
+
   const { search } = req.query;
   let query = {};
     // กำหนด service scope ตาม role
     const serviceScope =
       decoded.role === 'google_manager' ? 'Google Ads' :
-      decoded.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      decoded.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
 
     if (decoded.role === 'admin') {
       // Super admin: sees all (or filter by userId if query param)
       if (req.query.userId) query.userIds = req.query.userId;
     } else if (serviceScope) {
-      // google_manager / facebook_manager: เห็นเฉพาะลูกค้าที่มีบริการในขอบเขตของตัวเอง
+      // google_manager / facebook_manager / Pan Admin: เห็นเฉพาะลูกค้าที่มีบริการในขอบเขตของตัวเอง
       const scopedServices = await Service.find({ serviceType: serviceScope }, 'customerId');
       const scopedCustomerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
       query._id = { $in: scopedCustomerIds };
@@ -209,6 +213,7 @@ router.get('/:id', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
+    const isPanAdmin = decoded.email === 'pan@smartidea.co.th' || decoded.email === 'maill@mail.com' || decoded.id === '6a2b7767e3ea12ab437922ad';
     const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(decoded.role);
     let query = { _id: req.params.id };
     if (!isAdminRole) {
@@ -217,7 +222,11 @@ router.get('/:id', async (req, res) => {
         customerId: req.params.id,
         $or: serviceOwnerFilter(userId, currentUser)
       });
-      query = ownsService
+      const hasFacebookService = isPanAdmin && await Service.exists({
+        customerId: req.params.id,
+        serviceType: 'Facebook Ads'
+      });
+      query = (ownsService || hasFacebookService)
         ? { _id: req.params.id }
         : { _id: req.params.id, userIds: userId };
     }

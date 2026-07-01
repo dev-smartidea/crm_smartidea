@@ -33,6 +33,21 @@ function requireAccountOrAdmin(user) {
   return user && ['account', 'admin', 'google_manager', 'facebook_manager'].includes(user.role);
 }
 
+// Helper: แปลง Decimal128 เป็น Number
+function convertDecimalFields(obj) {
+  if (!obj) return obj;
+  const converted = { ...obj };
+  if (obj._doc) {
+    Object.assign(converted, obj._doc);
+  }
+  if (converted.balance && converted.balance.$numberDecimal) {
+    converted.balance = parseFloat(converted.balance.$numberDecimal);
+  } else if (typeof converted.balance === 'object' && converted.balance !== null) {
+    converted.balance = parseFloat(converted.balance.toString());
+  }
+  return converted;
+}
+
 // Ensure default cards exist (idempotent)
 async function ensureDefaultCards(userId) {
   for (const card of DEFAULT_CARDS) {
@@ -51,8 +66,12 @@ router.get('/cards', async (req, res) => {
     if (!requireAccountOrAdmin(user)) return res.status(403).json({ error: 'Forbidden' });
 
     await ensureDefaultCards(user?.id);
-    const cards = await Card.find().sort({ last4: 1 });
-    res.json(cards);
+    const cards = await Card.find().sort({ last4: 1 }).lean();
+    const cardsWithConvertedBalance = cards.map(card => ({
+      ...card,
+      balance: card.balance && typeof card.balance === 'object' ? parseFloat(card.balance.toString()) : card.balance
+    }));
+    res.json(cardsWithConvertedBalance);
   } catch (err) {
     console.error('List cards failed:', err);
     res.status(500).json({ error: 'Server error' });
@@ -93,7 +112,9 @@ router.post('/cards/topup', async (req, res) => {
       createdBy: user.id
     });
 
-    res.json({ card, ledger });
+    const cardResponse = card.toObject();
+    cardResponse.balance = typeof card.balance === 'object' ? parseFloat(card.balance.toString()) : card.balance;
+    res.json({ card: cardResponse, ledger });
   } catch (err) {
     console.error('Topup failed:', err);
     res.status(500).json({ error: 'Topup failed' });
@@ -229,7 +250,9 @@ router.post('/cards/charge', async (req, res) => {
     }
   }
 
-  res.json({ card, ledger });
+  const cardResponse = card.toObject ? card.toObject() : { ...card };
+  cardResponse.balance = typeof card.balance === 'object' ? parseFloat(card.balance.toString()) : card.balance;
+  res.json({ card: cardResponse, ledger });
 });
 
 // GET /api/cards/charge-history/:transactionId - charge history for a transaction
@@ -342,7 +365,9 @@ router.put('/cards/:id', async (req, res) => {
         console.error('Create card status notification failed:', notifErr.message);
       }
     }
-    res.json(card);
+    const cardResponse = card.toObject ? card.toObject() : { ...card };
+    cardResponse.balance = typeof card.balance === 'object' ? parseFloat(card.balance.toString()) : card.balance;
+    res.json(cardResponse);
   } catch (err) {
     console.error('Update card failed:', err);
     res.status(500).json({ error: 'Failed to update card' });
@@ -361,7 +386,9 @@ router.delete('/cards/:id', async (req, res) => {
     // Optionally delete associated ledger entries
     await CardLedger.deleteMany({ cardId: req.params.id });
 
-    res.json({ message: 'Card deleted successfully', card });
+    const cardResponse = card.toObject ? card.toObject() : { ...card };
+    cardResponse.balance = typeof card.balance === 'object' ? parseFloat(card.balance.toString()) : card.balance;
+    res.json({ message: 'Card deleted successfully', card: cardResponse });
   } catch (err) {
     console.error('Delete card failed:', err);
     res.status(500).json({ error: 'Failed to delete card' });
@@ -383,7 +410,9 @@ router.get('/cards/:id/ledger', async (req, res) => {
       .populate('createdBy', 'name email')
       .populate('serviceId', 'name cid customerId');
 
-    res.json({ card, ledger });
+    const cardResponse = card.toObject ? card.toObject() : { ...card };
+    cardResponse.balance = typeof card.balance === 'object' ? parseFloat(card.balance.toString()) : card.balance;
+    res.json({ card: cardResponse, ledger });
   } catch (err) {
     console.error('Get ledger failed:', err);
     res.status(500).json({ error: 'Server error' });

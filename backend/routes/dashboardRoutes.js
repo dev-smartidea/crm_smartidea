@@ -24,14 +24,43 @@ router.get('/dashboard/summary', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const isPrivileged = user.role === 'admin' || user.role === 'account';
-    const serviceStatusFilter = isPrivileged ? {} : { userId: user.id };
-    const transactionFilter = isPrivileged ? {} : { userId: user.id };
 
-    // สำหรับ aggregation pipeline ต้องใช้ ObjectId ไม่ใช่ string
-    const txAggMatch = isPrivileged
-      ? {}
-      : { userId: new mongoose.Types.ObjectId(user.id) };
+    let serviceStatusFilter;
+    let customerFilter;
+    let transactionFilter;
+    let txAggMatch;
+
+    if (isPrivileged) {
+      serviceStatusFilter = {};
+      customerFilter = {};
+      transactionFilter = {};
+      txAggMatch = {};
+    } else if (isPanAdmin || user.role === 'facebook_manager') {
+      const scopedServices = await Service.find({ serviceType: 'Facebook Ads' }, '_id customerId');
+      const scopedServiceIds = scopedServices.map(s => s._id);
+      const scopedCustomerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
+
+      serviceStatusFilter = { _id: { $in: scopedServiceIds } };
+      customerFilter = { _id: { $in: scopedCustomerIds } };
+      transactionFilter = { serviceId: { $in: scopedServiceIds } };
+      txAggMatch = { serviceId: { $in: scopedServiceIds.map(id => new mongoose.Types.ObjectId(id)) } };
+    } else if (user.role === 'google_manager') {
+      const scopedServices = await Service.find({ serviceType: 'Google Ads' }, '_id customerId');
+      const scopedServiceIds = scopedServices.map(s => s._id);
+      const scopedCustomerIds = [...new Set(scopedServices.map(s => s.customerId.toString()))];
+
+      serviceStatusFilter = { _id: { $in: scopedServiceIds } };
+      customerFilter = { _id: { $in: scopedCustomerIds } };
+      transactionFilter = { serviceId: { $in: scopedServiceIds } };
+      txAggMatch = { serviceId: { $in: scopedServiceIds.map(id => new mongoose.Types.ObjectId(id)) } };
+    } else {
+      serviceStatusFilter = { userId: user.id };
+      customerFilter = { userIds: user.id };
+      transactionFilter = { userId: user.id };
+      txAggMatch = { userId: new mongoose.Types.ObjectId(user.id) };
+    }
 
     const sevenDaysLater = new Date();
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
@@ -52,12 +81,10 @@ router.get('/dashboard/summary', async (req, res) => {
       salesByServiceAgg,
       monthlyAgg
     ] = await Promise.all([
-      isPrivileged ? Customer.countDocuments() : Customer.countDocuments({ userIds: user.id }),
-      isPrivileged ? Service.countDocuments() : Service.countDocuments({ userId: user.id }),
+      Customer.countDocuments(customerFilter),
+      Service.countDocuments(serviceStatusFilter),
       Service.find(serviceStatusFilter).select('name serviceType status'),
-      isPrivileged
-        ? Customer.find().sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode')
-        : Customer.find({ userIds: user.id }).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode'),
+      Customer.find(customerFilter).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode'),
       Transaction.find(transactionFilter)
         .populate('customerId', 'name')
         .populate('serviceId', 'customerIdField name')

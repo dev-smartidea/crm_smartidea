@@ -13,7 +13,7 @@ function getUserFromReq(req) {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return { id: decoded.id, role: decoded.role || 'user' };
+    return { id: decoded.id, role: decoded.role || 'user', email: decoded.email };
   } catch {
     return null;
   }
@@ -69,11 +69,14 @@ router.get('/services/due-monthly', async (req, res) => {
     ]);
     const paidServiceIds = paidTxAgg.map(t => t._id);
 
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
-      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      user.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
     let userFilter = {};
-    if (user.role !== 'admin' && user.role !== 'account' && !serviceScope) {
+    if (user.role !== 'admin' && user.role !== 'account' && !isPanAdmin && !serviceScope) {
       const currentUser = await getCurrentUser(user);
       userFilter.$or = buildServiceOwnerFilter(user, currentUser);
     }
@@ -158,9 +161,12 @@ router.get('/services', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
-      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      user.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
 
     let services;
     if (user.role === 'admin' || user.role === 'account') {
@@ -186,10 +192,12 @@ router.get('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role);
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role) || isPanAdmin;
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
-      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      user.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
     
     const customer = await Customer.findById(req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
@@ -226,10 +234,12 @@ router.post('/customers/:customerId/services', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(user.role);
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    const isAdminRole = ['admin', 'google_manager', 'facebook_manager'].includes(user.role) || isPanAdmin;
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
-      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      user.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
     if (!isAdminRole) {
       return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้นที่สามารถเพิ่มบริการได้' });
     }
@@ -338,10 +348,12 @@ router.get('/services/:id', async (req, res) => {
     const service = await Service.findById(req.params.id).populate('customerId');
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const isAdmin = ['admin', 'account'].includes(user.role);
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
-      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      user.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
 
     const currentUser = await getCurrentUser(user);
     const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
@@ -370,10 +382,12 @@ router.put('/services/:id', async (req, res) => {
     const service = await Service.findById(req.params.id).populate('customerId');
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const isAdmin = ['admin', 'account'].includes(user.role);
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
-      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      user.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
 
     const currentUser = await getCurrentUser(user);
     const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
@@ -426,10 +440,12 @@ router.delete('/services/:id', async (req, res) => {
     const service = await Service.findById(req.params.id).populate('customerId');
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const isAdmin = ['admin', 'account'].includes(user.role);
     const serviceScope =
       user.role === 'google_manager' ? 'Google Ads' :
-      user.role === 'facebook_manager' ? 'Facebook Ads' : null;
+      user.role === 'facebook_manager' ? 'Facebook Ads' :
+      isPanAdmin ? 'Facebook Ads' : null;
 
     const currentUser = await getCurrentUser(user);
     const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
@@ -467,7 +483,8 @@ router.post('/services/:id/transfer', async (req, res) => {
   try {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
-    if (user.role !== 'admin' && user.role !== 'account') {
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
+    if (user.role !== 'admin' && user.role !== 'account' && !isPanAdmin) {
       return res.status(403).json({ error: 'Permission denied' });
     }
 

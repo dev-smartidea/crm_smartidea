@@ -307,7 +307,7 @@ export default function AccountCardsPage() {
           <>
             <div className="cards-summary-grid">
               <SummaryCard label="จำนวนบัตรทั้งหมด" value={totals.totalCards} tone="a" note="บัตร" />
-              <SummaryCard label="ยอดคงเหลือรวม" value={totals.totalBalance.toLocaleString()} tone="b" note="บาท" />
+              <SummaryCard label="ยอดคงเหลือรวม" value={totals.totalBalance.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} tone="b" note="บาท" />
               <SummaryCard label="Google Ads" value={totals.google} tone="c" note="บัตร" />
               <SummaryCard label="Facebook Ads" value={totals.facebook} tone="d" note="บัตร" />
             </div>
@@ -337,7 +337,7 @@ export default function AccountCardsPage() {
                   <div className="card-balance-row">
                     <div>
                       <p className="muted">ยอดคงเหลือ</p>
-                      <div className="value-xxl">{card.balance?.toLocaleString() || '0'} <span className="muted">฿</span></div>
+                      <div className="value-xxl">{card.balance?.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} <span className="muted">฿</span></div>
                     </div>
                     <div className="balance-crest" />
                   </div>
