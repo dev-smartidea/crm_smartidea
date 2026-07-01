@@ -1290,26 +1290,21 @@ export default function AllTransactionPage() {
                     <input 
                       type="text" 
                       value={form.transactionTime} 
-                      onChange={e => {
+                      onChange={e => setForm({ ...form, transactionTime: e.target.value })}
+                      onBlur={e => {
                         const timeValue = e.target.value;
-                        // ตรวจสอบรูปแบบ HH:MM
-                        if (timeValue && !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeValue)) {
+                        if (!timeValue) return;
+                        if (!/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(timeValue)) {
                           alert('กรุณากรอกเวลาในรูปแบบ HH:MM (เช่น 09:30)');
                           return;
                         }
-                        // ตรวจสอบว่าเป็น AM (00:00-11:59)
-                        if (timeValue) {
-                          const hour = parseInt(timeValue.split(':')[0], 10);
-                          if (hour >= 12) {
-                            alert('กรุณากรอกเวลาในช่วง AM (00:00 - 11:59) เท่านั้น');
-                            return;
-                          }
+                        const hour = parseInt(timeValue.split(':')[0], 10);
+                        if (hour >= 12) {
+                          alert('กรุณากรอกเวลาในช่วง AM (00:00 - 11:59) เท่านั้น');
                         }
-                        setForm({ ...form, transactionTime: timeValue });
                       }}
                       style={formStyles.input}
                       placeholder="HH:MM (เช่น 09:30)"
-                      required
                     />
                   </div>
 
