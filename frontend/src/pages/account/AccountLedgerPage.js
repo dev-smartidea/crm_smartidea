@@ -359,18 +359,7 @@ export default function AccountLedgerPage() {
     }
     try {
       setTopupLoading(true);
-      // 1. หักยอดบัตร (ไม่ mark cardCharged — ยังรอ FB ตัด)
-      await axios.post(`${api}/api/cards/charge`, {
-        cardId: topupCardId,
-        amount: Number(topupAmount),
-        channel: 'Facebook Ads',
-        reference: topupModal._id,
-        note: `เติมเงินรอ FB ตัด: ${topupModal.accountName}`,
-        serviceId: topupModal.serviceId,
-        breakdowns: topupModal.breakdowns || [],
-        skipMarkCharged: true,
-      }, { headers: { Authorization: `Bearer ${token}` } });
-      // 2. บันทึก fbToppedUp
+      // บันทึกสถานะเติมเงินเท่านั้น — ไม่หักบัตร (หักจริงเมื่อ FB ตัดแล้ว)
       await axios.patch(`${api}/api/ledger/${topupModal._id}`, {
         fbToppedUp: true,
         fbTopupCardId: topupCardId,
