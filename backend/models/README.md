@@ -188,12 +188,19 @@ Collection: `cards`
 | `displayName` | String | ✓ | ชื่อบัตรที่แสดง เช่น `GG 1000` |
 | `last4` | String | ✓ | 4 หลักสุดท้ายของบัตร |
 | `channels` | String[] | — | `Google Ads` / `Facebook Ads` |
-| `balance` | Number | — | ยอดคงเหลือปัจจุบัน (default: 0) |
+| `balance` | Decimal128 | — | ยอดคงเหลือปัจจุบัน (default: 0.00, รองรับทศนิยม) |
 | `currency` | String | — | default: `THB` |
 | `status` | String | — | `active` / `inactive` |
 | `remarks` | String | — | หมายเหตุ |
 | `createdBy` | ObjectId → User | — | |
 | `createdAt` / `updatedAt` | Date | — | auto |
+
+**ความพิเศษ - Shared Balance Group:**
+
+บัตร `1000`, `1018`, `1026` ใช้วงเงินร่วมกัน:
+- เมื่อเติมเงิน/ตัดยอดบัตรใดใบหนึ่งแล้ว ระบบจะซิงค์ยอดเงินไปให้บัตรอีก 2 ใบโดยอัตโนมัติ
+- ฟังก์ชัน `syncSharedBalanceGroup()` ใน `routes/cardRoutes.js` ทำการซิงค์นี้
+- ตัวอย่าง: เติมเงินบัตร `1000` จำนวน 100 บาท → บัตร `1018` และ `1026` ก็จะเพิ่มไป 100 บาทด้วย
 
 ---
 
