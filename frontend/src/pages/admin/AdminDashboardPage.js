@@ -189,6 +189,20 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const handleServiceScopeToggle = async (userId, currentScope) => {
+    const newScope = currentScope === 'Google Ads' ? null : 'Google Ads';
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_URL}/api/auth/users/${userId}/serviceTypeScope`,
+        { serviceTypeScope: newScope },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchUsers();
+    } catch (err) {
+      setError('เปลี่ยนขอบเขตบริการไม่สำเร็จ');
+    }
+  };
+
   // Customer delete
   const [showDeleteCust, setShowDeleteCust] = useState(false);
   const [custToDelete, setCustToDelete] = useState(null);
@@ -727,6 +741,19 @@ const AdminDashboardPage = () => {
                             <button className="action-btn action-btn-amber"
                               onClick={() => { setResetPwUser(user); setResetPwVal(''); setShowResetPw(true); }}>
                               <FaKey /> Reset PW
+                            </button>
+                          )}
+                          {user.role === 'user' && (
+                            <button
+                              title={user.serviceTypeScope === 'Google Ads' ? 'คลิกเพื่อยกเลิกขอบเขต Google Ads' : 'คลิกเพื่อจำกัดให้เห็นเฉพาะ Google Ads'}
+                              className="action-btn"
+                              style={{
+                                background: user.serviceTypeScope === 'Google Ads' ? '#4285F4' : '#e2e8f0',
+                                color: user.serviceTypeScope === 'Google Ads' ? '#fff' : '#64748b',
+                                fontWeight: 600, fontSize: 12,
+                              }}
+                              onClick={() => handleServiceScopeToggle(user._id, user.serviceTypeScope)}>
+                              G Only
                             </button>
                           )}
                           <button className="action-btn action-btn-red"

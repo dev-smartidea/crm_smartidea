@@ -60,7 +60,12 @@ router.get('/', async (req, res) => {
     } else {
       // user: เห็นลูกค้าที่ถูกมอบหมายโดยตรง หรือมีบริการที่ตัวเองเป็นผู้ดูแล
       const currentUser = await User.findById(loggedInUserId, 'name username');
-      const ownedServices = await Service.find({ $or: serviceOwnerFilter(loggedInUserId, currentUser) }, 'customerId');
+      const ownerOrFilter = { $or: serviceOwnerFilter(loggedInUserId, currentUser) };
+      // ถ้า user มี serviceTypeScope (เช่น Google เท่านั้น) ให้กรอง service ตาม type ด้วย
+      const ownedServiceFilter = decoded.serviceTypeScope
+        ? { $and: [ownerOrFilter, { serviceType: decoded.serviceTypeScope }] }
+        : ownerOrFilter;
+      const ownedServices = await Service.find(ownedServiceFilter, 'customerId');
       const serviceCustomerIds = ownedServices.map(s => s.customerId);
       query.$or = [
         { userIds: loggedInUserId },

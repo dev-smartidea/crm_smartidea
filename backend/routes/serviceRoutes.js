@@ -13,7 +13,7 @@ function getUserFromReq(req) {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return { id: decoded.id, role: decoded.role || 'user', email: decoded.email };
+    return { id: decoded.id, role: decoded.role || 'user', email: decoded.email, serviceTypeScope: decoded.serviceTypeScope || null };
   } catch {
     return null;
   }
@@ -80,6 +80,10 @@ router.get('/services/due-monthly', async (req, res) => {
     if (user.role !== 'admin' && user.role !== 'account' && !isPanAdmin && !serviceScope) {
       const currentUser = await getCurrentUser(user);
       userFilter.$or = buildServiceOwnerFilter(user, currentUser);
+      // ถ้า user มี serviceTypeScope restriction (เช่น เห็นเฉพาะ Google Ads)
+      if (user.serviceTypeScope) {
+        userFilter.serviceType = user.serviceTypeScope;
+      }
     }
     if (serviceScope) {
       // Special case: parn เห็นบริการทั้งหมดของลูกค้า AASA1 (ทั้ง Google และ Facebook)
@@ -189,9 +193,11 @@ router.get('/services', async (req, res) => {
       services = await Service.find(query).populate('customerId', 'name phone');
     } else {
       const currentUser = await getCurrentUser(user);
-      services = await Service.find({ 
-        $or: buildServiceOwnerFilter(user, currentUser)
-      }).populate('customerId', 'name phone');
+      const ownerFilter = { $or: buildServiceOwnerFilter(user, currentUser) };
+      const query = user.serviceTypeScope
+        ? { ...ownerFilter, serviceType: user.serviceTypeScope }
+        : ownerFilter;
+      services = await Service.find(query).populate('customerId', 'name phone');
     }
     
     res.json(services);
@@ -234,6 +240,10 @@ router.get('/customers/:customerId/services', async (req, res) => {
     // Admin/account/manager roles see all services (or filtered by serviceScope)
     if (!isAdminRole) {
       svcQuery.$or = ownerFilters;
+      // ถ้า user มี serviceTypeScope restriction (เช่น เห็นเฉพาะ Google Ads)
+      if (user.serviceTypeScope) {
+        svcQuery.serviceType = user.serviceTypeScope;
+      }
     }
     // Special case: parn เห็นบริการทั้งหมดของลูกค้า AASA1 (ทั้ง Google และ Facebook)
     if (serviceScope) {

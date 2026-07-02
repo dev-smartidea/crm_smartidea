@@ -100,6 +100,22 @@ router.patch('/users/:id/role', requireAdmin, async (req, res) => {
   }
 });
 
+// PATCH /users/:id/serviceTypeScope - กำหนดขอบเขตบริการที่เห็นได้ (admin เท่านั้น)
+router.patch('/users/:id/serviceTypeScope', requireAdmin, async (req, res) => {
+  try {
+    const { serviceTypeScope } = req.body;
+    const allowed = ['Google Ads', 'Facebook Ads', null];
+    if (!allowed.includes(serviceTypeScope)) return res.status(400).json({ error: 'Invalid serviceTypeScope' });
+    const user = await User.findByIdAndUpdate(req.params.id, { serviceTypeScope: serviceTypeScope || null }, { new: true, runValidators: true });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    createAuditLog({ userId: req.user._id, username: req.user.username, action: 'update_service_scope', target: user.username, detail: `serviceTypeScope: ${serviceTypeScope}`, ip: req.ip });
+    res.json({ message: 'อัปเดต serviceTypeScope สำเร็จ', user });
+  } catch (err) {
+    console.error('Update serviceTypeScope error:', err);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาด' });
+  }
+});
+
 // PATCH /users/:id/reset-password — admin reset password ของ user
 router.patch('/users/:id/reset-password', requireAdmin, async (req, res) => {
   try {
@@ -243,9 +259,9 @@ router.post('/login',
     if (!match) {
       return res.status(400).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
     }
-    const token = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ id: user._id, role: user.role, email: user.email, serviceTypeScope: user.serviceTypeScope || null }, process.env.JWT_SECRET, { expiresIn: '1d' });
     createAuditLog({ userId: user._id, username: user.username, action: 'login', target: user.username, ip: req.ip });
-    res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
+    res.json({ token, user: { id: user._id, username: user.username, name: user.name, email: user.email, role: user.role, serviceTypeScope: user.serviceTypeScope || null, avatar: user.avatar } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'เกิดข้อผิดพลาดที่ server' });
@@ -361,14 +377,14 @@ router.post('/impersonate/:userId', requireAdmin, async (req, res) => {
     }
     // ออก token ใหม่ที่แนบ field _impersonatedBy ไว้
     const impersonationToken = jwt.sign(
-      { id: targetUser._id, role: targetUser.role, email: targetUser.email, _impersonatedBy: req.user._id },
+      { id: targetUser._id, role: targetUser.role, email: targetUser.email, serviceTypeScope: targetUser.serviceTypeScope || null, _impersonatedBy: req.user._id },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
     createAuditLog({ userId: req.user._id, username: req.user.username, action: 'impersonate', target: targetUser.username, detail: `role: ${targetUser.role}`, ip: req.ip });
     res.json({
       token: impersonationToken,
-      user: { id: targetUser._id, username: targetUser.username, name: targetUser.name, email: targetUser.email, role: targetUser.role, avatar: targetUser.avatar },
+      user: { id: targetUser._id, username: targetUser.username, name: targetUser.name, email: targetUser.email, role: targetUser.role, serviceTypeScope: targetUser.serviceTypeScope || null, avatar: targetUser.avatar },
     });
   } catch (err) {
     console.error('Impersonate error:', err);
