@@ -69,16 +69,29 @@ router.get('/', async (req, res) => {
     }
     if (search) {
       // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
+      // รวมถึงค้นหาโดย CID ของบริการที่ผูกกับลูกค้ารายนั้น
       // และป้องกัน regex injection ด้วยการ escape อักขระพิเศษ
       const escaped = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(escaped, 'i');
+
+      // ค้นหา services ที่มี cid ตรงกับคำค้น แล้วดึง customerId ของบริการเหล่านั้น
+      let serviceCustomerIds = [];
+      try {
+        const matchingServices = await Service.find({ cid: regex }, 'customerId');
+        serviceCustomerIds = matchingServices.map(s => s.customerId && s.customerId.toString()).filter(Boolean);
+      } catch (e) {
+        // หากการค้นหา services มีปัญหา ให้ไม่บล็อกการค้นหาอื่น
+        console.error('Service CID search failed:', e && e.message);
+      }
+
       const searchQuery = {
         $or: [
-        { name: regex },
-        { customerCode: regex },
-        { phone: regex },
-        { email: regex },
-        { productService: regex },
+          { name: regex },
+          { customerCode: regex },
+          { phone: regex },
+          { email: regex },
+          { productService: regex },
+          ...(serviceCustomerIds.length > 0 ? [{ _id: { $in: serviceCustomerIds } }] : []),
         ]
       };
       query = query.$or ? { $and: [query, searchQuery] } : { ...query, ...searchQuery };
