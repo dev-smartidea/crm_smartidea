@@ -234,29 +234,55 @@ export default function AccountLedgerPage() {
   // ฟังก์ชันสำหรับ inline editing
   const handleCellClick = (id, field, currentValue) => {
     setEditingCell({ id, field });
-    setEditValue(currentValue === '-' ? '' : currentValue || '');
+    // normalize currentValue: if number -> format with 2 decimals, if null/undefined or '-' -> empty
+    let v = '';
+    if (currentValue === '-' || currentValue === null || currentValue === undefined) v = '';
+    else if (typeof currentValue === 'number') v = currentValue.toFixed(2);
+    else v = String(currentValue);
+    setEditValue(v);
   };
 
   const handleCellBlur = async () => {
     if (!editingCell) return;
     
     try {
+      // Prepare payload: numeric fields sent as numbers with 2 decimals
+      const numericFields = ['prepaid', 'coupon', 'invGG', 'invFB', 'amount', 'fbClickAmount'];
+      const payload = {};
+      if (numericFields.includes(editingCell.field)) {
+        const num = editValue === '' ? null : Number(parseFloat(editValue || 0).toFixed(2));
+        payload[editingCell.field] = num;
+      } else {
+        payload[editingCell.field] = editValue === '' ? null : editValue;
+      }
+
       await axios.patch(
         `${api}/api/ledger/${editingCell.id}`,
-        { [editingCell.field]: editValue },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       // อัพเดต local state
-      const numericFields = ['prepaid', 'coupon', 'invGG', 'invFB'];
-      const newValue = numericFields.includes(editingCell.field)
-        ? (editValue === '' ? null : Number(editValue))
-        : (editValue || '-');
-      setLedgerData(prev => prev.map(item => 
-        item._id === editingCell.id 
-          ? { ...item, [editingCell.field]: newValue }
-          : item
-      ));
+      const newValue = (payload[editingCell.field] === null) ? null : payload[editingCell.field];
+      setLedgerData(prev => prev.map(item => {
+        if (item._id !== editingCell.id) return item;
+        // If updating fbClickAmount, update breakdowns array
+        if (editingCell.field === 'fbClickAmount') {
+          const bd = Array.isArray(item.breakdowns) ? [...item.breakdowns] : [];
+          const idx = bd.findIndex(b => String(b.code) === '11');
+          if (idx >= 0) {
+            bd[idx] = { ...bd[idx], amount: newValue || 0 };
+          } else {
+            bd.push({ code: '11', amount: newValue || 0, statusNote: 'ค่าคลิกที่ยังไม่ต้องเติม', isAutoVat: false });
+          }
+          return { ...item, breakdowns: bd };
+        }
+        // If updating amount, set item.amount
+        if (editingCell.field === 'amount') {
+          return { ...item, amount: newValue };
+        }
+        return { ...item, [editingCell.field]: newValue };
+      }));
     } catch (err) {
       toast.error('บันทึกไม่สำเร็จ');
     }
@@ -648,7 +674,13 @@ export default function AccountLedgerPage() {
                     <td className="col-bank">{item.bank}</td>
                     <td className="col-date">{formatDate(item.transactionDate)}</td>
                     <td className="col-time">{item.transactionTime}</td>
-                    <td className="col-amount">{formatNumber(item.amount)}</td>
+                    <td className="col-amount editable-cell" onClick={() => handleCellClick(item._id, 'amount', item.amount)}>
+                      {editingCell?.id === item._id && editingCell?.field === 'amount' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(item.amount)}</span>
+                      )}
+                    </td>
                     <td className="col-status">{getStatusBadge(item.status)}</td>
                     <td className="col-card editable-cell" onClick={() => handleCellClick(item._id, 'cardNumber', item.cardNumber)}>
                       {editingCell?.id === item._id && editingCell?.field === 'cardNumber' ? (
@@ -675,7 +707,13 @@ export default function AccountLedgerPage() {
                     {/* Hosting Domain */}
                     <td className="col-hosting">{formatNumber(getBreakdownAmount(item, 20))}</td>
                     {/* ค่าคลิก */}
-                    <td className="col-click">{formatNumber(getBreakdownAmount(item, 11))}</td>
+                    <td className="col-click editable-cell" onClick={() => handleCellClick(item._id, 'fbClickAmount', getBreakdownAmount(item, 11))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'fbClickAmount' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 11))}</span>
+                      )}
+                    </td>
                     {/* หัก ณ ที่จ่าย 3% ค่าคลิก (code 7) */}
                     <td className="col-wht3click">{formatNumber(getBreakdownAmount(item, 7))}</td>
                     {/* หัก ณ ที่จ่าย 2% ค่าบริการ (code 8) */}

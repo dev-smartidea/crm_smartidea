@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Transaction = require('../models/Transaction');
+const User = require('../models/User');
+const { createAuditLog } = require('../utils/auditLogger');
 const Service = require('../models/Service');
 const Customer = require('../models/Customer');
 
@@ -284,8 +286,9 @@ router.patch('/ledger/:id', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-        const { cardNumber, cardTime, prepaid, coupon, invGG, invFB,
-          fbToppedUp, fbTopupCardId, fbTopupAmount, cardCharged, fbChargedDate, fbChargedAmount } = req.body;
+            const { cardNumber, cardTime, prepaid, coupon, invGG, invFB,
+              fbToppedUp, fbTopupCardId, fbTopupAmount, fbClickAmount, amount,
+              cardCharged, fbChargedDate, fbChargedAmount } = req.body;
     const updateData = {};
     
     if (cardNumber !== undefined) updateData.cardNumber = cardNumber;
@@ -316,11 +319,18 @@ router.patch('/ledger/:id', async (req, res) => {
       return res.status(404).json({ error: 'Transaction not found' });
     }
 
+    // capture old values for audit
+    const oldAmount = transaction.amount != null ? Number(transaction.amount) : null;
+    const oldFbClickObj = Array.isArray(transaction.breakdowns) ? transaction.breakdowns.find(b => String(b.code) === '11') : null;
+    const oldFbClick = oldFbClickObj ? Number(oldFbClickObj.amount || 0) : null;
+
     // ensure breakdowns array
     if (!Array.isArray(transaction.breakdowns)) transaction.breakdowns = [];
 
-    if (fbTopupAmount !== undefined) {
-      const numeric = Number(fbTopupAmount) || 0;
+    // update fb click breakdown if provided (either fbTopupAmount or fbClickAmount)
+    const fbClickValue = (fbClickAmount !== undefined) ? fbClickAmount : (fbTopupAmount !== undefined ? fbTopupAmount : undefined);
+    if (fbClickValue !== undefined) {
+      const numeric = Math.round((Number(fbClickValue) || 0) * 100) / 100;
       const idx = transaction.breakdowns.findIndex(b => String(b.code) === '11');
       if (idx >= 0) {
         transaction.breakdowns[idx].amount = numeric;
@@ -329,13 +339,41 @@ router.patch('/ledger/:id', async (req, res) => {
       }
     }
 
+    // update transaction amount if provided
+    if (amount !== undefined) {
+      transaction.amount = Math.round((Number(amount) || 0) * 100) / 100;
+    }
+
     // apply other updates
     Object.keys(updateData).forEach(k => { transaction[k] = updateData[k]; });
 
     await transaction.save();
 
-    if (!transaction) {
-      return res.status(404).json({ error: 'Transaction not found' });
+    // create audit log if amount or fbClick changed
+    try {
+      const changes = [];
+      const newAmount = transaction.amount != null ? Number(transaction.amount) : null;
+      const newFbClickObj = Array.isArray(transaction.breakdowns) ? transaction.breakdowns.find(b => String(b.code) === '11') : null;
+      const newFbClick = newFbClickObj ? Number(newFbClickObj.amount || 0) : null;
+      if (oldAmount !== null && newAmount !== null && oldAmount !== newAmount) {
+        changes.push(`amount: ${oldAmount} -> ${newAmount}`);
+      }
+      if (oldFbClick !== null && newFbClick !== null && oldFbClick !== newFbClick) {
+        changes.push(`fbClick(code11): ${oldFbClick} -> ${newFbClick}`);
+      }
+      if (changes.length > 0) {
+        const userDoc = await User.findById(user.id).select('username name').lean().catch(() => null);
+        await createAuditLog({
+          userId: user.id,
+          username: userDoc?.username || user.id,
+          action: 'update_transaction',
+          target: transaction._id.toString(),
+          detail: changes.join('; '),
+          ip: req.ip || ''
+        });
+      }
+    } catch (auditErr) {
+      console.error('Audit log error:', auditErr);
     }
 
     res.json({ success: true, transaction });
