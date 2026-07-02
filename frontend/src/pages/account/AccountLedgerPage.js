@@ -602,6 +602,7 @@ export default function AccountLedgerPage() {
                   <th className="col-index" scope="col">#</th>
                   <th className="col-txid" scope="col">Transaction ID</th>
                   <th className="col-account" scope="col">บัญชี</th>
+                  <th className="col-customer" scope="col">ชื่อลูกค้า</th>
                   <th className="col-service" scope="col">บริการ</th>
                   <th className="col-code" scope="col">รหัส cid</th>
                   <th className="col-bank" scope="col">ธนาคาร</th>
@@ -636,6 +637,7 @@ export default function AccountLedgerPage() {
                     <td className="col-index">{item.index}</td>
                     <td className="col-txid">{item._id}</td>
                     <td className="col-account" title={item.accountName}>{item.accountName}</td>
+                    <td className="col-customer" title={item.customerName}>{item.customerName}</td>
                     <td className="col-service">
                       {item.serviceType === 'Google Ads' && <span className="service-tag google">Google</span>}
                       {item.serviceType === 'Facebook Ads' && <span className="service-tag facebook">Facebook</span>}
@@ -779,7 +781,7 @@ export default function AccountLedgerPage() {
               {pageSummary && (
                 <tfoot>
                   <tr style={{ background: '#f0f4ff', fontWeight: 700, borderTop: '2px solid #c7d2fe', fontSize: 12 }}>
-                    <td className="col-index" colSpan="8" style={{ padding: '8px 10px', color: '#3730a3' }}>รวม {ledgerData.length} รายการ (หน้านี้)</td>
+                    <td className="col-index" colSpan="9" style={{ padding: '8px 10px', color: '#3730a3' }}>รวม {ledgerData.length} รายการ (หน้านี้)</td>
                     <td className="col-amount" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.amount)}</td>
                     <td className="col-status"></td>
                     <td className="col-card"></td>
