@@ -55,7 +55,13 @@ router.get('/services/due-monthly', async (req, res) => {
 
     const Transaction = require('../models/Transaction');
 
-    const SERVICE_FEE_CODES = ['7', '8', '13', '14', '15', '17', '18', '19', '20'];
+    // รหัสที่เกี่ยวข้องกับค่าบริการเท่านั้น (ไม่รวมค่าคลิก)
+    // Code 8, 10: หัก ณ ที่จ่าย ค่าบริการ
+    // Code 13, 14: Vat + ค่าบริการ Google
+    // Code 15: โดนเบิกล่วงหน้า
+    // Code 17, 18: Vat + ค่าบริการ Facebook
+    // Code 19, 20: Vat + Hosting Domain
+    const SERVICE_FEE_CODES = ['8', '10', '13', '14', '15', '17', '18', '19', '20'];
 
     const paidTxAgg = await Transaction.aggregate([
       {
