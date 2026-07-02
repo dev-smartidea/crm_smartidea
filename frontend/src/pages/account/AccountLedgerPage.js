@@ -363,6 +363,7 @@ export default function AccountLedgerPage() {
       await axios.patch(`${api}/api/ledger/${topupModal._id}`, {
         fbToppedUp: true,
         fbTopupCardId: topupCardId,
+        fbTopupAmount: Number(topupAmount || 0)
       }, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('บันทึกการเติมเงินสำเร็จ');
       setTopupModal(null);

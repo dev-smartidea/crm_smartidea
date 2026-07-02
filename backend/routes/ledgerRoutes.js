@@ -284,8 +284,8 @@ router.patch('/ledger/:id', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { cardNumber, cardTime, prepaid, coupon, invGG, invFB,
-            fbToppedUp, fbTopupCardId, cardCharged, fbChargedDate, fbChargedAmount } = req.body;
+        const { cardNumber, cardTime, prepaid, coupon, invGG, invFB,
+          fbToppedUp, fbTopupCardId, fbTopupAmount, cardCharged, fbChargedDate, fbChargedAmount } = req.body;
     const updateData = {};
     
     if (cardNumber !== undefined) updateData.cardNumber = cardNumber;
@@ -310,11 +310,29 @@ router.patch('/ledger/:id', async (req, res) => {
     if (fbChargedDate !== undefined) updateData.fbChargedDate = fbChargedDate ? new Date(fbChargedDate) : null;
     if (fbChargedAmount !== undefined) updateData.fbChargedAmount = fbChargedAmount === '' ? null : Number(fbChargedAmount);
 
-    const transaction = await Transaction.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
+    // If a topup amount for FB is provided, update breakdown code '11' (ค่าคลิก)
+    let transaction = await Transaction.findById(req.params.id);
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    // ensure breakdowns array
+    if (!Array.isArray(transaction.breakdowns)) transaction.breakdowns = [];
+
+    if (fbTopupAmount !== undefined) {
+      const numeric = Number(fbTopupAmount) || 0;
+      const idx = transaction.breakdowns.findIndex(b => String(b.code) === '11');
+      if (idx >= 0) {
+        transaction.breakdowns[idx].amount = numeric;
+      } else {
+        transaction.breakdowns.push({ code: '11', amount: numeric, statusNote: 'ค่าคลิกที่ยังไม่ต้องเติม', isAutoVat: false });
+      }
+    }
+
+    // apply other updates
+    Object.keys(updateData).forEach(k => { transaction[k] = updateData[k]; });
+
+    await transaction.save();
 
     if (!transaction) {
       return res.status(404).json({ error: 'Transaction not found' });
