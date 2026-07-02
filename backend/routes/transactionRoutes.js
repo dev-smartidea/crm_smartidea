@@ -55,16 +55,40 @@ const optionalUploadSlip = (req, res, next) => {
   });
 };
 
-// Helper: auth + return user object (id, role)
+// Helper: auth + return user object (id, role, serviceTypeScope)
 function getUserFromReq(req) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return { id: decoded.id, role: decoded.role || 'user', email: decoded.email };
+    return { id: decoded.id, role: decoded.role || 'user', email: decoded.email, serviceTypeScope: decoded.serviceTypeScope || null };
   } catch {
     return null;
   }
+}
+
+async function getCurrentUser(user) {
+  if (!user?.id) return null;
+  const User = require('../models/User');
+  return User.findById(user.id, 'name username role');
+}
+
+function buildServiceOwnerFilter(user, currentUser) {
+  const ownerFilters = [{ userId: user.id }];
+  const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
+  if (caretakerNames.length > 0) {
+    ownerFilters.push({ caretaker: { $in: caretakerNames } });
+  }
+  return ownerFilters;
+}
+
+// Helper: ตรวจสอบว่า user เป็น service owner หรือไม่ (userId หรือ caretaker)
+function isServiceOwner(user, service, currentUser) {
+  if (!user || !service) return false;
+  if (service.userId && service.userId.toString() === user.id) return true;
+  const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
+  if (service.caretaker && caretakerNames.includes(service.caretaker)) return true;
+  return false;
 }
 
 // GET /api/transactions - ดึงรายการโอนเงินทั้งหมด (สำหรับหน้า AllTransactionPage) พร้อม pagination
@@ -100,11 +124,15 @@ router.get('/transactions', async (req, res) => {
       const scopedServiceIds = scopedServices.map(s => s._id);
       query = Transaction.find({ serviceId: { $in: scopedServiceIds } });
     } else {
-      // User เห็นเฉพาะของตัวเอง (ลูกค้าที่ตัวเองเป็นผู้ดูแล)
-      const customers = await Customer.find({ userIds: user.id });
-      const customerIds = customers.map(c => c._id);
-      const services = await Service.find({ customerId: { $in: customerIds } });
-      const serviceIds = services.map(s => s._id);
+      // User เห็นเฉพาะของตัวเอง — บริการที่ตนเป็นเจ้าของ (userId หรือ caretaker)
+      const currentUser = await getCurrentUser(user);
+      const ownerOrFilter = { $or: buildServiceOwnerFilter(user, currentUser) };
+      // ถ้า user มี serviceTypeScope (เช่น เห็นเฉพาะ Google Ads) ให้กรองด้วย
+      const serviceQuery = user.serviceTypeScope
+        ? { $and: [ownerOrFilter, { serviceType: user.serviceTypeScope }] }
+        : ownerOrFilter;
+      const ownedServices = await Service.find(serviceQuery, '_id');
+      const serviceIds = ownedServices.map(s => s._id);
       query = Transaction.find({ serviceId: { $in: serviceIds } });
     }
 
@@ -157,13 +185,17 @@ router.put('/transactions/:id/submit', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // ดึงรายการตามสิทธิ์
-    const tx = await Transaction.findById(req.params.id).populate('customerId');
+    const tx = await Transaction.findById(req.params.id).populate({
+      path: 'serviceId',
+      populate: { path: 'customerId' }
+    });
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
     const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role);
-    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+    const currentUser = await getCurrentUser(user);
+    const ownsService = tx.serviceId ? isServiceOwner(user, tx.serviceId, currentUser) : false;
 
-    if (!isAdminRole && !isOwner) {
+    if (!isAdminRole && !ownsService) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -312,10 +344,11 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
     const isGoogleAdmin = user.role === 'google_manager' && service.serviceType === 'Google Ads';
     const isFacebookAdmin = (user.role === 'facebook_manager' || isPanAdmin) && service.serviceType === 'Facebook Ads';
     const isSpecialCustomerAccess = isPanAdmin && service.customerId && service.customerId._id.toString() === SPECIAL_CUSTOMER_AASA1;
-    const isServiceOwner = service.userId.toString() === user.id;
-    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const currentUser = await getCurrentUser(user);
+    const ownsService = isServiceOwner(user, service, currentUser);
+    const ownsCustomer = service.customerId && service.customerId.userIds.includes(user.id);
     
-    if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isSpecialCustomerAccess && !isServiceOwner && !isCustomerManager) {
+    if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isSpecialCustomerAccess && !ownsService && !ownsCustomer) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -358,15 +391,16 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     if (!service) return res.status(404).json({ error: 'Service not found' });
 
     // ตรวจสอบสิทธิ์
-    const isServiceOwner = service.userId.toString() === user.id;
-    const isCustomerManager = service.customerId && service.customerId.userIds.includes(user.id);
+    const currentUser = await getCurrentUser(user);
+    const ownsService = isServiceOwner(user, service, currentUser);
+    const ownsCustomer = service.customerId && service.customerId.userIds.includes(user.id);
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
     const isFacebookAdmin = isPanAdmin && service.serviceType === 'Facebook Ads';
     const isSpecialCustomerAccess = isPanAdmin && service.customerId && service.customerId._id.toString() === SPECIAL_CUSTOMER_AASA1;
     const isAdmin = ['admin', 'google_manager', 'facebook_manager'].includes(user.role) || isFacebookAdmin || isSpecialCustomerAccess;
 
-    if (!isAdmin && !isServiceOwner && !isCustomerManager) {
+    if (!isAdmin && !ownsService && !ownsCustomer) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -501,13 +535,17 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const tx = await Transaction.findById(req.params.id).populate('customerId');
+    const tx = await Transaction.findById(req.params.id).populate({
+      path: 'serviceId',
+      populate: { path: 'customerId' }
+    });
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
     const isAdmin = ['admin', 'account'].includes(user.role);
-    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+    const currentUser = await getCurrentUser(user);
+    const ownsService = tx.serviceId ? isServiceOwner(user, tx.serviceId, currentUser) : false;
 
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !ownsService) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -637,13 +675,17 @@ router.delete('/transactions/:id/slip', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // ดึงรายการตามสิทธิ์ (admin และ account สามารถลบได้ทุกรายการ, user ลบได้เฉพาะรายการตัวเอง)
-    const tx = await Transaction.findById(req.params.id).populate('customerId');
+    const tx = await Transaction.findById(req.params.id).populate({
+      path: 'serviceId',
+      populate: { path: 'customerId' }
+    });
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
     const isAdmin = ['admin', 'account'].includes(user.role);
-    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+    const currentUser = await getCurrentUser(user);
+    const ownsService = tx.serviceId ? isServiceOwner(user, tx.serviceId, currentUser) : false;
 
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !ownsService) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -672,13 +714,17 @@ router.delete('/transactions/:id', async (req, res) => {
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    const tx = await Transaction.findById(req.params.id).populate('customerId');
+    const tx = await Transaction.findById(req.params.id).populate({
+      path: 'serviceId',
+      populate: { path: 'customerId' }
+    });
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
     const isAdmin = ['admin', 'account'].includes(user.role);
-    const isOwner = tx.userId.toString() === user.id || (tx.customerId && tx.customerId.userIds.includes(user.id));
+    const currentUser = await getCurrentUser(user);
+    const ownsService = tx.serviceId ? isServiceOwner(user, tx.serviceId, currentUser) : false;
 
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !ownsService) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 

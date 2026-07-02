@@ -225,14 +225,25 @@ router.get('/customers/:customerId/services', async (req, res) => {
 
     const currentUser = await getCurrentUser(user);
     const ownerFilters = buildServiceOwnerFilter(user, currentUser);
-    const ownsCustomer = hasId(customer.userIds, user.id);
+    
+    // ถ้า user มี serviceTypeScope → บังคับให้ต้อง own service เท่านั้น (ไม่นับ customer manager)
     const ownsServiceInCustomer = await Service.exists({
       customerId: customer._id,
-      $or: ownerFilters
+      $or: ownerFilters,
+      ...(user.serviceTypeScope ? { serviceType: user.serviceTypeScope } : {})
     });
 
-    if (!isAdminRole && !ownsCustomer && !ownsServiceInCustomer) {
-      return res.status(403).json({ error: 'Forbidden' });
+    if (user.serviceTypeScope) {
+      // User ที่มี serviceTypeScope ต้อง own service ในขอบเขตนั้นเท่านั้น
+      if (!isAdminRole && !ownsServiceInCustomer) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } else {
+      // User ปกติ: เป็น customer manager หรือ own service ก็ได้
+      const ownsCustomer = hasId(customer.userIds, user.id);
+      if (!isAdminRole && !ownsCustomer && !ownsServiceInCustomer) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
     }
 
     let svcQuery = { customerId: customer._id };
@@ -304,9 +315,18 @@ router.post('/customers/:customerId/services', async (req, res) => {
     const effectiveName = serviceType || name;
     if (!effectiveName) return res.status(400).json({ error: 'Service type/name is required' });
 
+    // ถ้าส่ง userId มาตรงๆ ใช้เลย; ถ้าไม่มีแต่มี caretaker → หา userId ของ caretaker จาก DB
+    // เพื่อให้ service.userId ตรงกับผู้ดูแลจริง ไม่ใช่ fallback เป็น userIds[0] ของลูกค้า
+    let effectiveUserId = userId || null;
+    if (!effectiveUserId && caretaker) {
+      const caretakerUser = await User.findOne({ $or: [{ name: caretaker }, { username: caretaker }] }, '_id');
+      if (caretakerUser) effectiveUserId = caretakerUser._id;
+    }
+    if (!effectiveUserId) effectiveUserId = customer.userIds[0] || user.id;
+
     const service = new Service({
       customerId: customer._id,
-      userId: userId || customer.userIds[0] || user.id,
+      userId: effectiveUserId,
       serviceType: serviceType || undefined,
       cid: cid || customerIdField || undefined,
       acquisitionRole: acquisitionRole || undefined,
@@ -388,12 +408,22 @@ router.get('/services/:id', async (req, res) => {
     const currentUser = await getCurrentUser(user);
     const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
     const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
-    const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
     const isServiceOwner = service.userId.toString() === user.id;
     const isCaretaker = caretakerNames.includes(service.caretaker);
 
-    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
-      return res.status(403).json({ error: 'Forbidden' });
+    // ถ้า user มี serviceTypeScope → ต้อง own service และ type ตรง (ไม่นับ customer manager)
+    if (user.serviceTypeScope) {
+      const matchesScope = service.serviceType === user.serviceTypeScope;
+      const ownsService = isServiceOwner || isCaretaker;
+      if (!isAdmin && !isScopeAdmin && !(matchesScope && ownsService)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } else {
+      // User ปกติ: เป็น customer manager, service owner, หรือ caretaker ก็ได้
+      const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
+      if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
     }
     
     res.json(service);
@@ -422,12 +452,22 @@ router.put('/services/:id', async (req, res) => {
     const currentUser = await getCurrentUser(user);
     const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
     const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
-    const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
     const isServiceOwner = service.userId.toString() === user.id;
     const isCaretaker = caretakerNames.includes(service.caretaker);
 
-    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
-      return res.status(403).json({ error: 'Forbidden' });
+    // ถ้า user มี serviceTypeScope → ต้อง own service และ type ตรง (ไม่นับ customer manager)
+    if (user.serviceTypeScope) {
+      const matchesScope = service.serviceType === user.serviceTypeScope;
+      const ownsService = isServiceOwner || isCaretaker;
+      if (!isAdmin && !isScopeAdmin && !(matchesScope && ownsService)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } else {
+      // User ปกติ: เป็น customer manager, service owner, หรือ caretaker ก็ได้
+      const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
+      if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
     }
 
     const ALLOWED_SERVICE_UPDATE_FIELDS = [
@@ -441,6 +481,16 @@ router.put('/services/:id', async (req, res) => {
     }
     if (update.startDate) update.startDate = new Date(update.startDate);
     if (update.dueDate) update.dueDate = new Date(update.dueDate);
+
+    // ถ้า update caretaker แต่ไม่ได้ส่ง userId มาด้วย → sync userId ให้ตรงกับ caretaker
+    // เพื่อป้องกัน service.userId ไม่ตรงกับผู้ดูแลจริง
+    if (update.caretaker && !update.userId) {
+      const caretakerUser = await User.findOne(
+        { $or: [{ name: update.caretaker }, { username: update.caretaker }] },
+        '_id'
+      );
+      if (caretakerUser) update.userId = caretakerUser._id;
+    }
 
     if (update.dueDate || update.startDate) {
       if (service.startDate && service.dueDate) {
@@ -480,12 +530,22 @@ router.delete('/services/:id', async (req, res) => {
     const currentUser = await getCurrentUser(user);
     const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
     const isScopeAdmin = serviceScope && service.serviceType === serviceScope;
-    const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
     const isServiceOwner = service.userId.toString() === user.id;
     const isCaretaker = caretakerNames.includes(service.caretaker);
 
-    if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
-      return res.status(403).json({ error: 'Forbidden' });
+    // ถ้า user มี serviceTypeScope → ต้อง own service และ type ตรง (ไม่นับ customer manager)
+    if (user.serviceTypeScope) {
+      const matchesScope = service.serviceType === user.serviceTypeScope;
+      const ownsService = isServiceOwner || isCaretaker;
+      if (!isAdmin && !isScopeAdmin && !(matchesScope && ownsService)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    } else {
+      // User ปกติ: เป็น customer manager, service owner, หรือ caretaker ก็ได้
+      const isCustomerManager = service.customerId && hasId(service.customerId.userIds, user.id);
+      if (!isAdmin && !isScopeAdmin && !isCustomerManager && !isServiceOwner && !isCaretaker) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
     }
 
     await Service.findByIdAndDelete(req.params.id);

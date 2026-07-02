@@ -67,10 +67,17 @@ router.get('/', async (req, res) => {
         : ownerOrFilter;
       const ownedServices = await Service.find(ownedServiceFilter, 'customerId');
       const serviceCustomerIds = ownedServices.map(s => s.customerId);
-      query.$or = [
-        { userIds: loggedInUserId },
-        { _id: { $in: serviceCustomerIds } }
-      ];
+      
+      // ถ้ามี serviceTypeScope → เห็นเฉพาะลูกค้าที่มี service ในขอบเขตที่ตนเป็น owner (ไม่รวม customer.userIds)
+      // ถ้าไม่มี serviceTypeScope → เห็นลูกค้าที่ assigned โดยตรง หรือมี service ที่ตนเป็น owner
+      if (decoded.serviceTypeScope) {
+        query._id = { $in: serviceCustomerIds };
+      } else {
+        query.$or = [
+          { userIds: loggedInUserId },
+          { _id: { $in: serviceCustomerIds } }
+        ];
+      }
     }
     if (search) {
       // ทำให้ค้นหาได้หลายฟิลด์: name, customerCode, phone, email, productService
