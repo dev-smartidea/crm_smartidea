@@ -120,13 +120,14 @@ router.post('/cards/topup', async (req, res) => {
       return res.status(400).json({ error: 'Invalid cardId or amount' });
     }
 
-    const card = await Card.findById(cardId);
+    const card = await Card.findByIdAndUpdate(
+      cardId,
+      { $inc: { balance: numericAmount } },
+      { new: true }
+    );
     if (!card) {
       return res.status(404).json({ error: 'Card not found' });
     }
-
-    card.balance += numericAmount;
-    await card.save();
 
     // ซิงค์ยอดเงินกับบัตรอื่นๆ ในกลุ่ม (1000, 1018, 1026)
     await syncSharedBalanceGroup(card);
