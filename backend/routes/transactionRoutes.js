@@ -141,6 +141,20 @@ router.get('/transactions', async (req, res) => {
       query = query.where({ submissionStatus });
     }
 
+    // กรองช่วงวันที่ (startDate - endDate)
+    if (req.query.startDate || req.query.endDate) {
+      const dateFilter = {};
+      if (req.query.startDate) {
+        dateFilter.$gte = new Date(req.query.startDate);
+      }
+      if (req.query.endDate) {
+        const end = new Date(req.query.endDate);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      query = query.where({ transactionDate: dateFilter });
+    }
+
     // ถ้ากรองรายการที่เติมเงินแล้ว (cardCharged หรือ fbToppedUp)
     // ต่อ query เดิมด้วย where เพื่อรักษา role-based filter ที่สร้างไว้แล้ว
     if (funded === 'true') {

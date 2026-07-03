@@ -4,6 +4,7 @@ import axios from 'axios';
 import { FaUserShield, FaTrashAlt, FaSignInAlt, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
 import { AuthContext } from '../../context/AuthContext';
+import '../shared/DashboardPage.css';
 import './AdminDashboardPage.css';
 
 const AdminDashboardPage = () => {

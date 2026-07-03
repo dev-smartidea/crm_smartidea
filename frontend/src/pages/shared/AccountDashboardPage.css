@@ -237,6 +237,23 @@
   z-index: 1;
 }
 
+.dashboard-summary-row {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.35fr);
+  gap: 1.25rem;
+  align-items: stretch;
+  margin-bottom: 2rem;
+}
+
+.status-overview-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 1.2rem;
+  margin-bottom: 0;
+}
+
 .section-title {
   color: var(--color-text-primary);
   font-size: 1.5rem;
@@ -247,18 +264,18 @@
 .status-cards-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
+  gap: 0.9rem;
 }
 
 .status-card {
-  background: var(--color-bg-card);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   border-radius: var(--radius-lg);
-  padding: 2rem 1.8rem;
+  padding: 1.2rem 0.8rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  box-shadow: var(--shadow-md);
+  gap: 0.6rem;
+  box-shadow: var(--shadow-sm);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
@@ -310,8 +327,8 @@
 }
 
 .status-icon-wrapper {
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
@@ -326,7 +343,7 @@
 
 .status-card.approved .status-icon {
   color: var(--color-success);
-  font-size: 3rem;
+  font-size: 2.25rem;
 }
 
 .status-card.pending .status-icon-wrapper {
@@ -335,7 +352,7 @@
 
 .status-card.pending .status-icon {
   color: var(--color-warning);
-  font-size: 3rem;
+  font-size: 2.25rem;
 }
 
 .status-card.rejected .status-icon-wrapper {
@@ -344,7 +361,7 @@
 
 .status-card.rejected .status-icon {
   color: var(--color-danger);
-  font-size: 3rem;
+  font-size: 2.25rem;
 }
 
 .status-card:hover .status-icon-wrapper {
@@ -359,18 +376,214 @@
 }
 
 .status-count {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 800;
   color: var(--color-text-primary);
   line-height: 1;
 }
 
 .status-label {
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   color: var(--color-text-muted);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.status-overview-footer {
+  margin-top: 0.9rem;
+  border-top: 1px dashed var(--color-border);
+  padding-top: 0.65rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.bank-summary-card {
+  min-width: 0;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.bank-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.bank-summary-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.bank-summary-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.bank-summary-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.bank-summary-subtitle {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.bank-filter-select {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.bank-custom-date-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.bank-custom-date-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.bank-custom-date-dash {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.bank-date-input {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #1e293b;
+}
+
+.bank-summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.bank-loading-state,
+.bank-empty-state {
+  text-align: center;
+  padding: 1.6rem 0;
+  font-size: 0.82rem;
+}
+
+.bank-loading-state { color: #94a3b8; }
+.bank-empty-state { color: #cbd5e1; }
+
+.bank-loading-icon,
+.bank-empty-icon {
+  font-size: 1.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.bank-list-scrollable {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.bank-list-item {
+  border-radius: 10px;
+  padding: 0.68rem 0.8rem;
+  border: 1px solid;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.bank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  width: fit-content;
+}
+
+.bank-amount-text {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.bank-count-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.bank-total-footer {
+  margin-top: 0.2rem;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 0.55rem;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.bank-total-label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.bank-total-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #10b981;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 20px;
+  padding: 0.15rem 0.8rem;
 }
 
 /* Charts Row */
@@ -712,6 +925,10 @@
   .summary-amount {
     font-size: 1.6rem;
   }
+
+  .dashboard-summary-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -757,6 +974,15 @@
 
   .summary-amount {
     font-size: 1.4rem;
+  }
+
+  .status-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-list-item {
+    grid-template-columns: 1fr;
+    justify-items: start;
   }
 
   .chart-title {

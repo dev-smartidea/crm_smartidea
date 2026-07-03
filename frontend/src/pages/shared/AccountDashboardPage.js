@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import 'chart.js/auto';
@@ -12,7 +12,8 @@ import {
   XCircle,
   Clock,
   GraphUpArrow,
-  GraphDownArrow
+  GraphDownArrow,
+  Bank
 } from 'react-bootstrap-icons';
 import './AccountDashboardPage.css';
 
@@ -83,6 +84,73 @@ export default function AccountDashboardPage() {
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
+
+  // Bank stats state
+  const [bankFilterType, setBankFilterType] = useState('thisWeek'); // 'today', 'yesterday', 'thisWeek', 'thisMonth', 'custom'
+  const [bankStartDate, setBankStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bankEndDate, setBankEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bankTotals, setBankTotals] = useState({});
+  const [bankLoading, setBankLoading] = useState(false);
+
+  const getDatesForFilter = useCallback((type) => {
+    const today = new Date();
+    if (type === 'today') {
+      const dateStr = today.toISOString().split('T')[0];
+      return { start: dateStr, end: dateStr };
+    } else if (type === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      const dateStr = yesterday.toISOString().split('T')[0];
+      return { start: dateStr, end: dateStr };
+    } else if (type === 'thisWeek') {
+      const day = today.getDay();
+      const diffToMonday = day === 0 ? 6 : day - 1;
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - diffToMonday);
+      return {
+        start: weekStart.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0],
+      };
+    } else if (type === 'thisMonth') {
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      return {
+        start: monthStart.toISOString().split('T')[0],
+        end: today.toISOString().split('T')[0],
+      };
+    } else {
+      return { start: bankStartDate, end: bankEndDate };
+    }
+  }, [bankStartDate, bankEndDate]);
+
+  const fetchBankStats = useCallback(async () => {
+    try {
+      setBankLoading(true);
+      const dates = getDatesForFilter(bankFilterType);
+      const res = await axios.get(
+        `${api}/api/transactions?submissionStatus=approved&limit=500&startDate=${dates.start}&endDate=${dates.end}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      const txs = res.data.transactions || [];
+      const totals = {};
+      txs.forEach(tx => {
+        const bankName = tx.bank || 'Other';
+        if (!totals[bankName]) totals[bankName] = { amount: 0, count: 0 };
+        totals[bankName].amount += Number(tx.amount || 0);
+        totals[bankName].count += 1;
+      });
+      setBankTotals(totals);
+    } catch (err) {
+      console.error('Failed to fetch bank stats:', err);
+    } finally {
+      setBankLoading(false);
+    }
+  }, [api, token, bankFilterType, getDatesForFilter]);
+
+  useEffect(() => {
+    fetchBankStats();
+  }, [fetchBankStats]);
+
 
   useEffect(() => {
     const controller = new AbortController();
@@ -358,38 +426,147 @@ export default function AccountDashboardPage() {
         </div>
       </div>
 
-      {/* Status Overview */}
-      <div className="status-overview-section">
-        <h5 className="section-title">สถานะธุรกรรม</h5>
-        <div className="status-cards-grid">
-          <div className="status-card approved">
-            <div className="status-icon-wrapper">
-              <CheckCircle size={48} className="status-icon" />
+      {/* Status Overview + Bank Stats side-by-side */}
+      <div className="dashboard-summary-row">
+
+        {/* สถานะธุรกรรม */}
+        <div className="status-overview-section status-overview-card">
+          <h5 className="section-title">สถานะธุรกรรม</h5>
+          <div className="status-cards-grid">
+            <div className="status-card approved">
+              <div className="status-icon-wrapper">
+                <CheckCircle size={48} className="status-icon" />
+              </div>
+              <div className="status-info">
+                <div className="status-count">{approvedTransactions}</div>
+                <div className="status-label">อนุมัติแล้ว</div>
+              </div>
             </div>
-            <div className="status-info">
-              <div className="status-count">{approvedTransactions}</div>
-              <div className="status-label">อนุมัติแล้ว</div>
+            <div className="status-card pending">
+              <div className="status-icon-wrapper">
+                <Clock size={48} className="status-icon" />
+              </div>
+              <div className="status-info">
+                <div className="status-count">{pendingTransactions}</div>
+                <div className="status-label">รอดำเนินการ</div>
+              </div>
+            </div>
+            <div className="status-card rejected">
+              <div className="status-icon-wrapper">
+                <XCircle size={48} className="status-icon" />
+              </div>
+              <div className="status-info">
+                <div className="status-count">{rejectedTransactions}</div>
+                <div className="status-label">ปฏิเสธ</div>
+              </div>
             </div>
           </div>
-          <div className="status-card pending">
-            <div className="status-icon-wrapper">
-              <Clock size={48} className="status-icon" />
-            </div>
-            <div className="status-info">
-              <div className="status-count">{pendingTransactions}</div>
-              <div className="status-label">รอดำเนินการ</div>
-            </div>
-          </div>
-          <div className="status-card rejected">
-            <div className="status-icon-wrapper">
-              <XCircle size={48} className="status-icon" />
-            </div>
-            <div className="status-info">
-              <div className="status-count">{rejectedTransactions}</div>
-              <div className="status-label">ปฏิเสธ</div>
-            </div>
+          <div className="status-overview-footer">
+            รวมทั้งหมด {(approvedTransactions + pendingTransactions + rejectedTransactions).toLocaleString()} รายการ
           </div>
         </div>
+
+        {/* สรุปยอดโอนเข้าบัญชีธนาคาร */}
+        <div className="bank-summary-card">
+          {/* Header row */}
+          <div className="bank-summary-header">
+            <div className="bank-summary-title-wrap">
+              <div className="bank-summary-icon">
+                <Bank size={18} style={{ color: '#fff' }} />
+              </div>
+              <div>
+                <h5 className="bank-summary-title">สรุปยอดโอนเข้าบัญชีธนาคาร</h5>
+                <span className="bank-summary-subtitle">เฉพาะรายการที่อนุมัติแล้ว</span>
+              </div>
+            </div>
+
+            <select className="bank-filter-select" value={bankFilterType} onChange={(e) => setBankFilterType(e.target.value)}>
+              <option value="today">วันนี้</option>
+              <option value="yesterday">เมื่อวาน</option>
+              <option value="thisWeek">สัปดาห์นี้</option>
+              <option value="thisMonth">เดือนนี้</option>
+              <option value="custom">กำหนดช่วงเอง</option>
+            </select>
+          </div>
+
+          {/* Custom date picker */}
+          {bankFilterType === 'custom' && (
+            <div className="bank-custom-date-row">
+              <span className="bank-custom-date-label">ช่วงวันที่:</span>
+              <input
+                type="date" value={bankStartDate}
+                className="bank-date-input"
+                onChange={e => setBankStartDate(e.target.value)}
+              />
+              <span className="bank-custom-date-dash">-</span>
+              <input
+                type="date" value={bankEndDate}
+                className="bank-date-input"
+                onChange={e => setBankEndDate(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* Bank cards */}
+          <div className="bank-summary-content">
+            {bankLoading ? (
+              <div className="bank-loading-state">
+                <div className="bank-loading-icon">⏳</div>
+                กำลังโหลดข้อมูล...
+              </div>
+            ) : Object.keys(bankTotals).length === 0 ? (
+              <div className="bank-empty-state">
+                <div className="bank-empty-icon">🏦</div>
+                ไม่มีข้อมูลการโอนเงินในช่วงเวลาที่เลือก
+              </div>
+            ) : (
+              <>
+                <div className="bank-list-scrollable">
+                  {Object.entries(bankTotals).sort((a, b) => b[1].amount - a[1].amount).map(([bankName, stat]) => {
+                    const bankKey = bankName.includes('KBANK') ? 'kbank' :
+                      bankName.includes('SCB') ? 'scb' :
+                      bankName.includes('BBL') ? 'bbl' :
+                      bankName.includes('KTB') ? 'ktb' :
+                      bankName.includes('TTB') || bankName.includes('TMB') ? 'tmb' :
+                      bankName.includes('BAY') ? 'bay' : 'default';
+                    const bankColors = {
+                      kbank: { bg: '#e8f5e9', border: '#a5d6a7', text: '#1b5e20', badge: '#2e7d32' },
+                      scb: { bg: '#ede7f6', border: '#ce93d8', text: '#4a148c', badge: '#6a1b9a' },
+                      bbl: { bg: '#e3f2fd', border: '#90caf9', text: '#0d47a1', badge: '#1565c0' },
+                      ktb: { bg: '#e0f7fa', border: '#80deea', text: '#004d40', badge: '#00695c' },
+                      tmb: { bg: '#fce4ec', border: '#f48fb1', text: '#880e4f', badge: '#ad1457' },
+                      bay: { bg: '#fff3e0', border: '#ffcc02', text: '#e65100', badge: '#ef6c00' },
+                      default: { bg: '#f8fafc', border: '#e2e8f0', text: '#1e293b', badge: '#475569' },
+                    };
+                    const c = bankColors[bankKey];
+                    return (
+                      <div key={bankName} className="bank-list-item" style={{ background: c.bg, borderColor: c.border }}>
+                        <span className="bank-pill" style={{ background: c.badge }}>
+                          {bankName}
+                        </span>
+                        <span className="bank-amount-text" style={{ color: c.text }}>
+                          {new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(stat.amount || 0)}
+                        </span>
+                        <span className="bank-count-text">{(stat.count || 0).toLocaleString()} รายการ</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Total row */}
+                <div className="bank-total-footer">
+                  <span className="bank-total-label">ยอดรวมทั้งหมด</span>
+                  <span className="bank-total-value">
+                    {new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(
+                      Object.values(bankTotals).reduce((sum, item) => sum + (item.amount || 0), 0)
+                    )}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
       </div>
 
       {/* Charts Section */}
