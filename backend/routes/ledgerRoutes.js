@@ -286,7 +286,7 @@ router.patch('/ledger/:id', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-            const { cardNumber, cardTime, prepaid, coupon, invGG, invFB,
+            const { cardNumber, cardTime, cardDate, prepaid, coupon, invGG, invFB,
               fbToppedUp, fbTopupCardId, fbTopupAmount, fbClickAmount, amount,
               cardCharged, fbChargedDate, fbChargedAmount,
               wht3click, wht2svc, wht2click, wht3svc, vat36, vat30 } = req.body;
@@ -294,6 +294,7 @@ router.patch('/ledger/:id', async (req, res) => {
     
     if (cardNumber !== undefined) updateData.cardNumber = cardNumber;
     if (cardTime !== undefined) updateData.cardTime = cardTime;
+    if (cardDate !== undefined) updateData.cardDate = cardDate || null;
     if (prepaid !== undefined) updateData.prepaid = prepaid === '' ? null : Number(prepaid);
     if (coupon !== undefined) updateData.coupon = coupon === '' ? null : Number(coupon);
     if (invGG !== undefined) updateData.invGG = invGG === '' ? null : Number(invGG);

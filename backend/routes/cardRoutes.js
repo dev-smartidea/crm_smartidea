@@ -160,7 +160,7 @@ router.post('/cards/charge', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const { cardId, amount, channel, reference, note, chargeTime, serviceId, breakdowns, skipMarkCharged } = req.body;
+  const { cardId, amount, channel, reference, note, chargeTime, chargeDate, serviceId, breakdowns, skipMarkCharged } = req.body;
   const numericAmount = Number(amount || 0);
   if (!cardId || numericAmount <= 0) {
     return res.status(400).json({ error: 'Invalid cardId or amount' });
@@ -232,6 +232,7 @@ router.post('/cards/charge', async (req, res) => {
         note,
         breakdowns: Array.isArray(breakdowns) ? breakdowns : [],
         chargeTime,
+        chargeDate: chargeDate ? new Date(chargeDate) : undefined,
         serviceId: svcIdToStore,
         balanceAfter: card.balance,
         createdBy: user.id
@@ -248,7 +249,8 @@ router.post('/cards/charge', async (req, res) => {
           cardChargedBy: user.id,
           cardChargedCardId: cardId,
           cardNumber: card.last4 || card.displayName,
-          cardTime: chargeTime || ''
+          cardTime: chargeTime || '',
+          cardDate: chargeDate || ''
         }, { session });
       }
     });

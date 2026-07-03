@@ -34,6 +34,7 @@ const transactionSchema = new mongoose.Schema({
   cardChargedAt: { type: Date },
   cardChargedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   cardChargedCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' },
+  cardDate: { type: String },  // วันที่ตัดบัตรที่กรอกจากฟอร์ม (format: YYYY-MM-DD)
   // Facebook Ads flow
   fbToppedUp: { type: Boolean, default: false },       // เติมเงินเข้าบัตรแล้ว รอ FB ตัด
   fbTopupCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' }, // บัตรที่เติมเงิน

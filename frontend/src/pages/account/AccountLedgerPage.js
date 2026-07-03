@@ -82,6 +82,7 @@ export default function AccountLedgerPage() {
   const [chargeTime, setChargeTime] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargeNote, setChargeNote] = useState('');
+  const [chargeDate, setChargeDate] = useState('');
   const [chargeHistory, setChargeHistory] = useState(null);
 
   // Facebook Ads: topup modal
@@ -335,6 +336,10 @@ export default function AccountLedgerPage() {
       toast.warning('กรุณาเลือกบัตร');
       return;
     }
+    if (!chargeDate) {
+      toast.warning('กรุณาระบุวันที่ตัดบัตร');
+      return;
+    }
     if (!chargeTime) {
       toast.warning('กรุณาระบุเวลาที่ตัดเงิน');
       return;
@@ -352,6 +357,7 @@ export default function AccountLedgerPage() {
       `บริการ: ${chargeModal.serviceType || '-'}\n` +
       `จำนวนเงิน: ${formatNumber(numAmount)} บาท\n` +
       `บัตร: ${cardName}\n` +
+      `วันที่ตัด: ${chargeDate}\n` +
       `เวลาตัด: ${chargeTime}`
     );
     if (ok) handleCharge();
@@ -369,6 +375,7 @@ export default function AccountLedgerPage() {
         reference: item._id,
         note: chargeNote || `ตัดเงินจาก Ledger: ${item.accountName}`,
         chargeTime: chargeTime,
+        chargeDate: chargeDate,
         serviceId: item.serviceId,
         breakdowns: item.breakdowns || []
       }, {
@@ -377,6 +384,7 @@ export default function AccountLedgerPage() {
       toast.success('ตัดเงินจากบัตรสำเร็จ');
       setChargeModal(null);
       setChargeCardId('');
+      setChargeDate('');
       setChargeTime('');
       setChargeAmount('');
       setChargeNote('');
@@ -676,6 +684,7 @@ export default function AccountLedgerPage() {
                   <th className="col-amount" scope="col">ยอดเงินที่โอน</th>
                   <th className="col-status" scope="col">status</th>
                   <th className="col-card" scope="col">บัตรเลขที่</th>
+                  <th className="col-carddate" scope="col">วันที่ตัดบัตร</th>
                   <th className="col-cardtime" scope="col">เวลาที่ตัดบัตร</th>
                   <th className="col-gg" scope="col">ลูกค้าใหม่ GG</th>
                   <th className="col-gg" scope="col">ต่ออายุ GG</th>
@@ -725,6 +734,13 @@ export default function AccountLedgerPage() {
                         <input type="text" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
                       ) : (
                         <span className="editable-text">{item.cardNumber}</span>
+                      )}
+                    </td>
+                    <td className="col-carddate editable-cell" onClick={() => handleCellClick(item._id, 'cardDate', item.cardDate)}>
+                      {editingCell?.id === item._id && editingCell?.field === 'cardDate' ? (
+                        <input type="date" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
+                      ) : (
+                        <span className="editable-text">{item.cardDate ? formatDate(item.cardDate) : ''}</span>
                       )}
                     </td>
                     <td className="col-cardtime editable-cell" onClick={() => handleCellClick(item._id, 'cardTime', item.cardTime)}>
@@ -898,6 +914,7 @@ export default function AccountLedgerPage() {
                     <td className="col-amount" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.amount)}</td>
                     <td className="col-status"></td>
                     <td className="col-card"></td>
+                    <td className="col-carddate"></td>
                     <td className="col-cardtime"></td>
                     <td className="col-gg" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.newGG)}</td>
                     <td className="col-gg" style={{ padding: '8px 10px', color: '#3730a3' }}>{formatNumber(pageSummary.renewGG)}</td>
@@ -1112,19 +1129,30 @@ export default function AccountLedgerPage() {
                   step="0.01"
                 />
               </div>
-              <div className="charge-form-group">
-                <label>เวลาที่ตัดเงิน</label>
-                <input
-                  type="text"
-                  className="charge-time-input"
-                  placeholder="เช่น 14:30"
-                  value={chargeTime}
-                  onChange={e => {
-                    const v = e.target.value.replace(/[^0-9:]/g, '');
-                    setChargeTime(v);
-                  }}
-                  maxLength={5}
-                />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="charge-form-group" style={{ flex: 1 }}>
+                  <label>วันที่ตัดบัตร</label>
+                  <input
+                    type="date"
+                    className="charge-time-input"
+                    value={chargeDate}
+                    onChange={e => setChargeDate(e.target.value)}
+                  />
+                </div>
+                <div className="charge-form-group" style={{ flex: 1 }}>
+                  <label>เวลาที่ตัดเงิน</label>
+                  <input
+                    type="text"
+                    className="charge-time-input"
+                    placeholder="เช่น 14:30"
+                    value={chargeTime}
+                    onChange={e => {
+                      const v = e.target.value.replace(/[^0-9:]/g, '');
+                      setChargeTime(v);
+                    }}
+                    maxLength={5}
+                  />
+                </div>
               </div>
               <div className="charge-form-group">
                 <label>เลือกบัตร</label>
@@ -1166,7 +1194,7 @@ export default function AccountLedgerPage() {
             </div>
             <div className="charge-modal-footer">
               <button className="btn-charge-cancel" onClick={() => setChargeModal(null)}>ยกเลิก</button>
-              <button className="btn-charge-confirm" onClick={handleChargeConfirm} disabled={!chargeCardId || !chargeTime || !chargeAmount || chargingId}>
+              <button className="btn-charge-confirm" onClick={handleChargeConfirm} disabled={!chargeCardId || !chargeDate || !chargeTime || !chargeAmount || chargingId}>
                 {chargingId ? 'กำลังดำเนินการ...' : 'ยืนยันตัดเงิน'}
               </button>
             </div>

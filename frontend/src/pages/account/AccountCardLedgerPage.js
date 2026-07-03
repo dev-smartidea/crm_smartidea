@@ -36,7 +36,8 @@ export default function AccountCardLedgerPage() {
       if (filterChannel && entry.channel !== filterChannel) return false;
       if (dateFrom || dateTo) {
         // ใช้ local date (ไม่ใช่ UTC) เพื่อให้ตรงกับค่าจาก date input
-        const d = new Date(entry.createdAt);
+        const source = entry.chargeDate || entry.createdAt;
+        const d = new Date(source);
         const entryDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (dateFrom && entryDate < dateFrom) return false;
         if (dateTo && entryDate > dateTo) return false;
@@ -69,7 +70,7 @@ export default function AccountCardLedgerPage() {
     };
     const header = ['Date','Type','Direction','Amount','Channel','CID','Reference','Note','BalanceAfter','CreatedBy'];
     const rows = filteredLedger.map(l => [
-      new Date(l.createdAt).toISOString(),
+      new Date(l.chargeDate || l.createdAt).toISOString(),
       l.type || '',
       l.direction || '',
       l.amount || 0,
@@ -327,7 +328,7 @@ export default function AccountCardLedgerPage() {
                     const isFbTopup = entry.type === 'topup' && entry.direction === 'credit' && entry.channel === 'Facebook Ads';
                     return (
                     <tr key={entry._id} style={{ borderBottom: '1px solid #f0f0f0', background: isFbTopup ? '#fff8e1' : (i % 2 === 1 ? '#fafafa' : '#fff') }}>
-                      <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatDate(entry.createdAt)} {formatTime(entry.createdAt)}</td>
+                      <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatDate(entry.chargeDate || entry.createdAt)} {entry.chargeTime || formatTime(entry.createdAt)}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.type === 'topup' ? <span style={{ color: '#16a34a', fontWeight: 600 }}>เติมเงิน</span> : <span style={{ color: '#dc2626', fontWeight: 600 }}>ตัดยอด</span>}</td>
                       <td style={{ padding: '8px 10px', fontFamily: 'monospace', fontSize: 12 }}>{entry.serviceId?.cid || '-'}</td>
                       <td style={{ padding: '8px 10px' }}>{entry.channel || '-'}</td>
