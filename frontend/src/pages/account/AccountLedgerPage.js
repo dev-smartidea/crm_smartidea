@@ -124,7 +124,7 @@ export default function AccountLedgerPage() {
       setLoading(true);
       const params = new URLSearchParams();
       params.append('page', page);
-      params.append('limit', '50');
+      params.append('limit', '300');
       
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
@@ -247,7 +247,10 @@ export default function AccountLedgerPage() {
     
     try {
       // Prepare payload: numeric fields sent as numbers with 2 decimals
-      const numericFields = ['prepaid', 'coupon', 'invGG', 'invFB', 'amount', 'fbClickAmount'];
+      const numericFields = [
+        'prepaid', 'coupon', 'invGG', 'invFB', 'amount', 'fbClickAmount',
+        'wht3click', 'wht2svc', 'wht2click', 'wht3svc', 'vat36', 'vat30'
+      ];
       const payload = {};
       if (numericFields.includes(editingCell.field)) {
         const num = editValue === '' ? null : Number(parseFloat(editValue || 0).toFixed(2));
@@ -266,17 +269,52 @@ export default function AccountLedgerPage() {
       const newValue = (payload[editingCell.field] === null) ? null : payload[editingCell.field];
       setLedgerData(prev => prev.map(item => {
         if (item._id !== editingCell.id) return item;
-        // If updating fbClickAmount, update breakdowns array
-        if (editingCell.field === 'fbClickAmount') {
+        
+        // If updating breakdowns, map the corresponding code
+        const codeMap = {
+          fbClickAmount: '11',
+          wht3click: '7',
+          wht2svc: '8',
+          wht2click: '9',
+          wht3svc: '10',
+          vat36: '12'
+        };
+
+        if (codeMap[editingCell.field]) {
+          const code = codeMap[editingCell.field];
           const bd = Array.isArray(item.breakdowns) ? [...item.breakdowns] : [];
-          const idx = bd.findIndex(b => String(b.code) === '11');
+          const idx = bd.findIndex(b => String(b.code) === code);
           if (idx >= 0) {
-            bd[idx] = { ...bd[idx], amount: newValue || 0 };
-          } else {
-            bd.push({ code: '11', amount: newValue || 0, statusNote: 'ค่าคลิกที่ยังไม่ต้องเติม', isAutoVat: false });
+            if (newValue === null || newValue === 0) {
+              bd.splice(idx, 1);
+            } else {
+              bd[idx] = { ...bd[idx], amount: newValue };
+            }
+          } else if (newValue !== null && newValue !== 0) {
+            bd.push({ code, amount: newValue, statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
           }
           return { ...item, breakdowns: bd };
         }
+
+        // special handling for vat30 (which maps to 13, 17, or 19)
+        if (editingCell.field === 'vat30') {
+          const isFb = /facebook/i.test(item.serviceType || '');
+          const code = isFb ? '17' : '13'; // default fallback code
+          const bd = Array.isArray(item.breakdowns) ? [...item.breakdowns] : [];
+          // find any of 13, 17, 19
+          const idx = bd.findIndex(b => ['13', '17', '19'].includes(String(b.code)));
+          if (idx >= 0) {
+            if (newValue === null || newValue === 0) {
+              bd.splice(idx, 1);
+            } else {
+              bd[idx] = { ...bd[idx], amount: newValue };
+            }
+          } else if (newValue !== null && newValue !== 0) {
+            bd.push({ code, amount: newValue, statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
+          }
+          return { ...item, breakdowns: bd };
+        }
+
         // If updating amount, set item.amount
         if (editingCell.field === 'amount') {
           return { ...item, amount: newValue };
@@ -715,13 +753,37 @@ export default function AccountLedgerPage() {
                       )}
                     </td>
                     {/* หัก ณ ที่จ่าย 3% ค่าคลิก (code 7) */}
-                    <td className="col-wht3click">{formatNumber(getBreakdownAmount(item, 7))}</td>
+                    <td className="col-wht3click editable-cell" onClick={() => handleCellClick(item._id, 'wht3click', getBreakdownAmount(item, 7))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'wht3click' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 7))}</span>
+                      )}
+                    </td>
                     {/* หัก ณ ที่จ่าย 2% ค่าบริการ (code 8) */}
-                    <td className="col-wht2svc">{formatNumber(getBreakdownAmount(item, 8))}</td>
+                    <td className="col-wht2svc editable-cell" onClick={() => handleCellClick(item._id, 'wht2svc', getBreakdownAmount(item, 8))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'wht2svc' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 8))}</span>
+                      )}
+                    </td>
                     {/* หัก ณ ที่จ่าย 2% ค่าคลิก (code 9) */}
-                    <td className="col-wht2click">{formatNumber(getBreakdownAmount(item, 9))}</td>
+                    <td className="col-wht2click editable-cell" onClick={() => handleCellClick(item._id, 'wht2click', getBreakdownAmount(item, 9))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'wht2click' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 9))}</span>
+                      )}
+                    </td>
                     {/* หัก ณ ที่จ่าย 3% ค่าบริการ (code 10) */}
-                    <td className="col-wht3svc">{formatNumber(getBreakdownAmount(item, 10))}</td>
+                    <td className="col-wht3svc editable-cell" onClick={() => handleCellClick(item._id, 'wht3svc', getBreakdownAmount(item, 10))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'wht3svc' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 10))}</span>
+                      )}
+                    </td>
                     <td className="col-prepaid editable-cell" onClick={() => handleCellClick(item._id, 'prepaid', item.prepaid)}>
                       {editingCell?.id === item._id && editingCell?.field === 'prepaid' ? (
                         <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
@@ -751,9 +813,21 @@ export default function AccountLedgerPage() {
                       )}
                     </td>
                     {/* Vat 36 */}
-                    <td className="col-vat">{formatNumber(getBreakdownAmount(item, 12))}</td>
+                    <td className="col-vat editable-cell" onClick={() => handleCellClick(item._id, 'vat36', getBreakdownAmount(item, 12))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'vat36' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 12))}</span>
+                      )}
+                    </td>
                     {/* Vat 30: รวม 13, 17, 19 */}
-                    <td className="col-vat">{formatNumber(getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19))}</td>
+                    <td className="col-vat editable-cell" onClick={() => handleCellClick(item._id, 'vat30', getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'vat30' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19))}</span>
+                      )}
+                    </td>
                     <td className="col-charge">
                       {item.cardCharged ? (
                         <span className="charge-done">

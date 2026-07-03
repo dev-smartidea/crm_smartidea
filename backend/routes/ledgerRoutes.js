@@ -288,7 +288,8 @@ router.patch('/ledger/:id', async (req, res) => {
 
             const { cardNumber, cardTime, prepaid, coupon, invGG, invFB,
               fbToppedUp, fbTopupCardId, fbTopupAmount, fbClickAmount, amount,
-              cardCharged, fbChargedDate, fbChargedAmount } = req.body;
+              cardCharged, fbChargedDate, fbChargedAmount,
+              wht3click, wht2svc, wht2click, wht3svc, vat36, vat30 } = req.body;
     const updateData = {};
     
     if (cardNumber !== undefined) updateData.cardNumber = cardNumber;
@@ -337,6 +338,36 @@ router.patch('/ledger/:id', async (req, res) => {
       } else {
         transaction.breakdowns.push({ code: '11', amount: numeric, statusNote: 'ค่าคลิกที่ยังไม่ต้องเติม', isAutoVat: false });
       }
+    }
+
+    // Update WHT and VAT breakdowns if provided
+    const updateBreakdownForCode = (code, val, defaultStatusNote = 'รอบันทึกบัญชี') => {
+      if (val === undefined) return;
+      const numeric = Math.round((Number(val) || 0) * 100) / 100;
+      const idx = transaction.breakdowns.findIndex(b => String(b.code) === String(code));
+      if (idx >= 0) {
+        if (numeric === 0) {
+          // Remove if set to 0 or null
+          transaction.breakdowns.splice(idx, 1);
+        } else {
+          transaction.breakdowns[idx].amount = numeric;
+        }
+      } else if (numeric !== 0) {
+        transaction.breakdowns.push({ code: String(code), amount: numeric, statusNote: defaultStatusNote, isAutoVat: false });
+      }
+    };
+
+    updateBreakdownForCode('7', wht3click);
+    updateBreakdownForCode('8', wht2svc);
+    updateBreakdownForCode('9', wht2click);
+    updateBreakdownForCode('10', wht3svc);
+    updateBreakdownForCode('12', vat36);
+    
+    // For vat30 (which aggregates 13, 17, 19), determine which one is relevant based on serviceType, or default to 13 (Google) / 17 (Facebook)
+    if (vat30 !== undefined) {
+      const isFb = /facebook/i.test(transaction.serviceType || '');
+      const vat30Code = isFb ? '17' : '13';
+      updateBreakdownForCode(vat30Code, vat30);
     }
 
     // update transaction amount if provided
