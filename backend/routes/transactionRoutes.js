@@ -205,11 +205,12 @@ router.put('/transactions/:id/submit', async (req, res) => {
     });
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const isAdminRole = ['admin', 'google_manager', 'facebook_manager', 'account'].includes(user.role);
     const currentUser = await getCurrentUser(user);
     const ownsService = tx.serviceId ? isServiceOwner(user, tx.serviceId, currentUser) : false;
 
-    if (!isAdminRole && !ownsService) {
+    if (!isAdminRole && !ownsService && !isPanAdmin) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -555,25 +556,31 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     });
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
 
+    const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const isAdmin = ['admin', 'account'].includes(user.role);
     const currentUser = await getCurrentUser(user);
     const ownsService = tx.serviceId ? isServiceOwner(user, tx.serviceId, currentUser) : false;
 
-    if (!isAdmin && !ownsService) {
+    if (!isAdmin && !ownsService && !isPanAdmin) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-  const update = { ...(req.body || {}) };
+    const update = { ...(req.body || {}) };
     // ลบ field ที่ไม่อนุญาตให้แก้ไขผ่าน body (ป้องกัน mass assignment)
     delete update.userId;
     delete update.serviceId;
     delete update.customerId;
-    delete update.submissionStatus;
     delete update.submittedBy;
     delete update.submittedAt;
     delete update.cardCharged;
     delete update.cardChargedAt;
     delete update._id;
+
+    // ถ้าไม่ใช่การเซ็ตค่าเพื่อเคลียร์ submissionStatus (เช่น ตอนกดยกเลิกการส่ง) ให้ลบออก
+    if (update.submissionStatus !== null && update.submissionStatus !== 'none' && update.submissionStatus !== '') {
+      delete update.submissionStatus;
+    }
+
     if (update.transactionDate) update.transactionDate = new Date(update.transactionDate);
     // เก็บ transactionTime ถ้ามี
     if (update.transactionTime !== undefined) {
