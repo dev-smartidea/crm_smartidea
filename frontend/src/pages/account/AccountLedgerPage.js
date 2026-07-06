@@ -861,7 +861,7 @@ export default function AccountLedgerPage() {
                       {editingCell?.id === item._id && editingCell?.field === 'invGG' ? (
                         <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
                       ) : (
-                        <span className="editable-text">{formatNumber(item.invGG)}</span>
+                        <span className="editable-text">{item.invGG ? 'invoice' : '-'}</span>
                       )}
                     </td>
                     <td className="col-inv editable-cell" onClick={() => handleCellClick(item._id, 'invFB', item.invFB)}>
