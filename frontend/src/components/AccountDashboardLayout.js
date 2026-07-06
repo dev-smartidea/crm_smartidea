@@ -5,7 +5,7 @@ import ImpersonationBanner from './ImpersonationBanner';
 import axios from 'axios';
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Wallet, CheckCircleFill, XCircleFill, CreditCard, FileEarmarkSpreadsheet, Facebook, CalendarCheck } from 'react-bootstrap-icons';
+import { HouseDoor, PersonCircle, BoxArrowRight, Bell, Wallet, CheckCircleFill, XCircleFill, CreditCard, FileEarmarkSpreadsheet, Facebook, Google, CalendarCheck } from 'react-bootstrap-icons';
 
 export default function AccountDashboardLayout() {
   const navigate = useNavigate();
@@ -68,6 +68,7 @@ export default function AccountDashboardLayout() {
             <li><NavLink to="rejected"><XCircleFill /> รายการที่ปฏิเสธ</NavLink></li>
             <li><NavLink to="ledger"><FileEarmarkSpreadsheet /> ยอดเดินบัญชี</NavLink></li>
             <li><NavLink to="facebook"><Facebook style={{ color: '#1877f2' }} /> บริการ Facebook</NavLink></li>
+            <li><NavLink to="google"><Google style={{ color: '#DB4437' }} /> บริการ Google</NavLink></li>
             <li><NavLink to="cards"><CreditCard /> บัตร</NavLink></li>
             <li>
               <NavLink to="notifications" className="notification-link">

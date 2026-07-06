@@ -3,17 +3,19 @@ import axios from 'axios';
 import toast from '../../utils/toast';
 import {
   Search, ChevronDown, ChevronRight,
-  CheckCircleFill, Clock, Facebook, X, ArrowRepeat, Trash, PencilSquare
+  CheckCircleFill, Clock, Google, X, ArrowRepeat, Trash
 } from 'react-bootstrap-icons';
+import { PencilSquare } from 'react-bootstrap-icons';
 import './AccountLedgerPage.css';
 
 const fmt = (n) =>
   (n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function AccountFacebookPage() {
+export default function AccountGooglePage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [cards, setCards] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
   const [expandedLimit, setExpandedLimit] = useState({});
   const EXPAND_DEFAULT = 20;
@@ -36,15 +38,15 @@ export default function AccountFacebookPage() {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/ledger?serviceType=Facebook+Ads&limit=500`,
+        `${process.env.REACT_APP_API_URL}/api/ledger?serviceType=Google+Ads&limit=500`,
         { headers: { Authorization: `Bearer ${token}` }, signal }
       );
       const allItems = res.data.items || [];
-      const toppedUpOnly = allItems.filter(item => item.fbToppedUp === true);
-      setItems(toppedUpOnly);
+      const invoiceOnly = allItems.filter(item => item.invGG && item.invGG > 0);
+      setItems(invoiceOnly);
     } catch (err) {
       if (axios.isCancel(err)) return;
-      console.error('AccountFacebookPage fetch error:', err);
+      console.error('AccountGooglePage fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -74,7 +76,7 @@ export default function AccountFacebookPage() {
           transferStatus: item.serviceTransferStatus || 'active',
           transactions: [],
           totalTopup: 0,
-          fbCharged: 0,
+          googleCharged: 0,
           pending: 0,
         });
       }
@@ -82,11 +84,11 @@ export default function AccountFacebookPage() {
       g.transactions.push(item);
       const clickAmt = item.clickCost || 0;
       g.totalTopup += clickAmt;
-      if (item.cardCharged) g.fbCharged += clickAmt;
+      if (item.cardCharged) g.googleCharged += clickAmt;
       else g.pending += clickAmt;
     }
     return Array.from(map.values())
-      .map(g => ({ ...g, remaining: g.totalTopup - g.fbCharged }))
+      .map(g => ({ ...g, remaining: g.totalTopup - g.googleCharged }))
       .sort((a, b) => b.remaining - a.remaining);
   }, [items, dateFilter]);
 
@@ -103,7 +105,7 @@ export default function AccountFacebookPage() {
   const total = useMemo(() =>
     filtered.reduce((acc, g) => ({
       topup: acc.topup + g.totalTopup,
-      charged: acc.charged + g.fbCharged,
+      charged: acc.charged + g.googleCharged,
       pending: acc.pending + g.pending,
       remaining: acc.remaining + g.remaining,
     }), { topup: 0, charged: 0, pending: 0, remaining: 0 }),
@@ -176,13 +178,40 @@ export default function AccountFacebookPage() {
     } finally { setTransferLoading(false); }
   };
 
-  // Facebook Ads: record modal state
-  const [fbRecordModal, setFbRecordModal] = useState(null);
-  const [fbRecordCardId, setFbRecordCardId] = useState('');
-  const [fbRecordDate, setFbRecordDate] = useState('');
-  const [fbRecordTime, setFbRecordTime] = useState('');
-  const [fbRecordLoading, setFbRecordLoading] = useState(false);
-  const [cards, setCards] = useState([]);
+  // Google: record invoice (Inv.Gg) modal state
+  const [ggRecordModal, setGgRecordModal] = useState(null);
+  const [ggRecordCardId, setGgRecordCardId] = useState('');
+  const [ggRecordDate, setGgRecordDate] = useState('');
+  const [ggRecordTime, setGgRecordTime] = useState('');
+  const [ggRecordLoading, setGgRecordLoading] = useState(false);
+
+  const openGgRecordModal = (tx, e) => {
+    if (e) e.stopPropagation();
+    setGgRecordModal(tx);
+    setGgRecordCardId('');
+    setGgRecordDate(new Date().toISOString().split('T')[0]);
+    setGgRecordTime('');
+  };
+
+  const handleCancelInvoice = async (tx, e) => {
+    if (e) e.stopPropagation();
+    const ok = window.confirm(`คุณต้องการยกเลิก Invoice สำหรับรายการนี้ใช่หรือไม่?`);
+    if (!ok) return;
+    const ok2 = window.confirm(`ยืนยันการยกเลิกอีกครั้ง! คุณแน่ใจใช่หรือไม่ที่จะเปลี่ยนสถานะรายการนี้กลับไปเป็นรอการตัดเงิน?`);
+    if (!ok2) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(
+        `${process.env.REACT_APP_API_URL}/api/ledger/${tx._id}`,
+        { invGG: null },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('ยกเลิก Invoice สำเร็จ');
+      fetchData(new AbortController().signal);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'ยกเลิกไม่สำเร็จ');
+    }
+  };
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -194,34 +223,6 @@ export default function AccountFacebookPage() {
     };
     fetchCards();
   }, []);
-
-  const openFbRecordModal = (tx, e) => {
-    if (e) e.stopPropagation();
-    setFbRecordModal(tx);
-    setFbRecordCardId(tx.fbTopupCardId || '');
-    setFbRecordDate(new Date().toISOString().split('T')[0]);
-    setFbRecordTime('');
-  };
-
-  const handleCancelTopup = async (tx, e) => {
-    if (e) e.stopPropagation();
-    const ok = window.confirm(`คุณต้องการยกเลิกการเติมเงินสำหรับรายการนี้ใช่หรือไม่?`);
-    if (!ok) return;
-    const ok2 = window.confirm(`ยืนยันการยกเลิกอีกครั้ง! คุณแน่ใจใช่หรือไม่ที่จะเปลี่ยนสถานะรายการนี้กลับไปเป็นรอการเติมเงิน?`);
-    if (!ok2) return;
-    try {
-      const token = localStorage.getItem('token');
-      await axios.patch(
-        `${process.env.REACT_APP_API_URL}/api/ledger/${tx._id}`,
-        { fbToppedUp: false, fbTopupCardId: null, fbTopupAmount: null },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('ยกเลิกการเติมเงินสำเร็จ');
-      fetchData(new AbortController().signal);
-    } catch (err) {
-      toast.error(err?.response?.data?.error || 'ยกเลิกไม่สำเร็จ');
-    }
-  };
 
   const getLimit = (key) => expandedLimit[key] || EXPAND_DEFAULT;
   const loadMore = (key) => {
@@ -252,16 +253,16 @@ export default function AccountFacebookPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 38, height: 38, borderRadius: 8,
-            background: '#1877f2', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#DB4437', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Facebook size={20} color="#fff" />
+            <Google size={20} color="#fff" />
           </div>
           <div>
             <h4 style={{ margin: 0, fontWeight: 700, color: '#212529', lineHeight: 1.2 }}>
-              บริการ Facebook Ads
+              บริการ Google Ads
             </h4>
             <div style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>
-              ติดตามสถานะการตัดเงินของ Facebook
+              ติดตามสถานะการตัดเงินของ Google
             </div>
           </div>
         </div>
@@ -295,7 +296,7 @@ export default function AccountFacebookPage() {
         }}>
           <Clock size={18} color="#fd7e14" style={{ flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: 11, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.05em' }}>รอ FB ตัด</div>
+            <div style={{ fontSize: 11, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.05em' }}>รอ Google ตัด</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#fd7e14', lineHeight: 1.2 }}>{fmt(total.pending)}</div>
           </div>
           <div style={{ fontSize: 12, color: '#fca96a', alignSelf: 'flex-end', marginBottom: 2 }}>บาท</div>
@@ -352,12 +353,12 @@ export default function AccountFacebookPage() {
           <thead>
             <tr style={{ background: '#f1f3f5', borderBottom: '2px solid #dee2e6' }}>
               <th style={{ width: 36, padding: '10px 8px' }}></th>
-              <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#495057' }}>ชื่อบัญชี / หน้า FB</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#495057' }}>ชื่อบัญชี / หน้า</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#495057' }}>รหัสลูกค้า</th>
               <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 600, color: '#495057' }}>รายการ</th>
               <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#495057' }}>ยอดเติมเงิน</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#198754' }}>FB ตัดแล้ว</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#fd7e14' }}>รอ FB ตัด</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#198754' }}>Google ตัดแล้ว</th>
+              <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#fd7e14' }}>รอ Google ตัด</th>
               <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#495057' }}>ยอดคงเหลือในบัญชี</th>
             </tr>
           </thead>
@@ -383,7 +384,7 @@ export default function AccountFacebookPage() {
                     {expanded.has(g.key) ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <span style={{ fontWeight: 600, color: '#1877f2' }}>{g.accountName}</span>
+                    <span style={{ fontWeight: 600, color: '#DB4437' }}>{g.accountName}</span>
                     {g.customerName && g.customerName !== g.accountName && (
                       <div style={{ fontSize: 11.5, color: '#6c757d', marginTop: 1 }}>{g.customerName}</div>
                     )}
@@ -401,8 +402,8 @@ export default function AccountFacebookPage() {
                     {fmt(g.totalTopup)}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#198754', fontWeight: 600 }}>
-                    {g.fbCharged > 0
-                      ? <><CheckCircleFill size={10} style={{ marginRight: 3 }} />{fmt(g.fbCharged)}</>
+                    {g.googleCharged > 0
+                      ? <><CheckCircleFill size={10} style={{ marginRight: 3 }} />{fmt(g.googleCharged)}</>
                       : <span style={{ color: '#dee2e6' }}>—</span>
                     }
                   </td>
@@ -453,7 +454,7 @@ export default function AccountFacebookPage() {
                       {visible.map(tx => (
                     <tr key={tx._id} style={{
                       background: '#f5f8ff', fontSize: 12.5,
-                      borderLeft: '3px solid #1877f2', borderBottom: '1px solid #e8edf8',
+                      borderLeft: '3px solid #DB4437', borderBottom: '1px solid #e8edf8',
                     }}>
                       <td></td>
                       <td colSpan={2} style={{ padding: '8px 12px 8px 24px', color: '#495057' }}>
@@ -476,14 +477,14 @@ export default function AccountFacebookPage() {
                         {tx.cardCharged ? (
                           <span style={{ color: '#198754', fontSize: 12 }}>
                             <CheckCircleFill size={10} style={{ marginRight: 3 }} />
-                            FB ตัดแล้ว{tx.cardNumber && tx.cardNumber !== '-' ? ` (${tx.cardNumber})` : ''}
+                            Google ตัดแล้ว{tx.cardNumber && tx.cardNumber !== '-' ? ` (${tx.cardNumber})` : ''}
                           </span>
-                        ) : tx.fbToppedUp ? (
+                        ) : tx.invGG ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                            <span style={{ background: '#fff8e1', color: '#b45309', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700 }}>รอ FB ตัด</span>
+                            <span style={{ background: '#fff8f0', color: '#a63d00', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700 }}>Inv.Gg</span>
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
                               <button
-                                onClick={(e) => openFbRecordModal(tx, e)}
+                                onClick={(e) => openGgRecordModal(tx, e)}
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
@@ -504,7 +505,7 @@ export default function AccountFacebookPage() {
                                 <PencilSquare size={12} /> บันทึกการตัด
                               </button>
                               <button
-                                onClick={(e) => handleCancelTopup(tx, e)}
+                                onClick={(e) => handleCancelInvoice(tx, e)}
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
@@ -520,7 +521,7 @@ export default function AccountFacebookPage() {
                                   whiteSpace: 'nowrap',
                                   transition: 'all 0.2s'
                                 }}
-                                title="ยกเลิกเติมเงิน"
+                                title="ยกเลิก Invoice"
                               >
                                 <Trash size={12} /> ยกเลิก
                               </button>
@@ -528,7 +529,7 @@ export default function AccountFacebookPage() {
                           </div>
                         ) : (
                           <span style={{ color: '#fd7e14', fontSize: 12 }}>
-                            <Clock size={10} style={{ marginRight: 3 }} />รอ FB ตัด
+                            <Clock size={10} style={{ marginRight: 3 }} />รอ Google ตัด
                           </span>
                         )}
                       </td>
@@ -543,14 +544,14 @@ export default function AccountFacebookPage() {
                     </tr>
                       ))}
                       {(canLoadMore || canCollapse) && (
-                        <tr style={{ background: '#eef4ff', borderLeft: '3px solid #1877f2', borderBottom: '1px solid #e8edf8' }}>
+                        <tr style={{ background: '#eef4ff', borderLeft: '3px solid #DB4437', borderBottom: '1px solid #e8edf8' }}>
                           <td colSpan={8} style={{ padding: '6px 12px', textAlign: 'center', display: 'flex', gap: 12, justifyContent: 'center' }}>
                             {canLoadMore && (
                               <button
                                 onClick={e => { e.stopPropagation(); loadMore(g.key); }}
                                 style={{
                                   background: 'none', border: 'none', cursor: 'pointer',
-                                  color: '#1877f2', fontSize: 12, fontWeight: 600,
+                                  color: '#DB4437', fontSize: 12, fontWeight: 600,
                                 }}
                               >
                                 ▼ แสดงเพิ่มอีก {Math.min(LOAD_MORE_STEP, remaining)} รายการ ({remaining} คงเหลือ)
@@ -631,6 +632,65 @@ export default function AccountFacebookPage() {
         </div>
       )}
     </div>
+    
+      {/* ══ Modal: Google Ads — บันทึกการตัดสำหรับรายการที่เป็น Inv.Gg ══ */}
+      {ggRecordModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setGgRecordModal(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 20, width: 480, maxWidth: '95vw' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: '#212529' }}><PencilSquare size={15} style={{ marginRight: 8, color: '#DB4437' }} />บันทึกการตัด — Invoice Google</div>
+                <div style={{ fontSize: 12, color: '#6c757d' }}>{ggRecordModal.accountName}</div>
+              </div>
+              <button onClick={() => setGgRecordModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6c757d' }}><X size={20} /></button>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>บัตรที่ Google ตัด</label>
+                  <select value={ggRecordCardId} onChange={e => setGgRecordCardId(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }}>
+                    <option value="">— เลือกบัตร —</option>
+                    {cards.map(c => <option key={c._id} value={c._id}>{c.displayName} (ท้าย {c.last4})</option>)}
+                  </select>
+                </div>
+                <div style={{ width: 140 }}>
+                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>วันที่ตัด</label>
+                  <input type="date" value={ggRecordDate} onChange={e => setGgRecordDate(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ width: 140 }}>
+                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>เวลาที่ตัด</label>
+                  <input type="text" placeholder="08:00" maxLength={5} value={ggRecordTime} onChange={e => setGgRecordTime(e.target.value.replace(/[^0-9:]/g, ''))} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>ยอด Invoice</label>
+                  <div style={{ padding: '8px', borderRadius: 6, border: '1px solid #eee', background: '#fff8f0', color: '#a63d00' }}>{fmt(ggRecordModal.invGG || (ggRecordModal.clickCost || 0) + (ggRecordModal.newCustomerGG || ggRecordModal.renewGG || 0))} บาท</div>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setGgRecordModal(null)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #dee2e6', background: '#fff' }}>ยกเลิก</button>
+              <button onClick={async () => {
+                if (!ggRecordCardId || !ggRecordDate || !ggRecordTime) { toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+                try {
+                  setGgRecordLoading(true);
+                  const token = localStorage.getItem('token');
+                  const selectedCard = cards.find(c => c._id === ggRecordCardId);
+                  const amount = Number(ggRecordModal.invGG || (ggRecordModal.clickCost || 0) + (ggRecordModal.newCustomerGG || ggRecordModal.renewGG || 0) || 0);
+                  await axios.post(`${process.env.REACT_APP_API_URL}/api/cards/charge`, { cardId: ggRecordCardId, amount, channel: 'Google Ads', note: `Invoice Google ตัดเงิน: ${ggRecordModal.accountName}`, serviceId: ggRecordModal.serviceId }, { headers: { Authorization: `Bearer ${token}` } });
+                  await axios.patch(`${process.env.REACT_APP_API_URL}/api/ledger/${ggRecordModal._id}`, { cardCharged: true, cardNumber: selectedCard?.last4 || '', cardTime: ggRecordTime, cardDate: ggRecordDate }, { headers: { Authorization: `Bearer ${token}` } });
+                  toast.success('บันทึกการตัดของ Google สำเร็จ');
+                  setGgRecordModal(null);
+                  fetchData(new AbortController().signal);
+                } catch (err) {
+                  toast.error(err?.response?.data?.error || 'บันทึกไม่สำเร็จ');
+                } finally { setGgRecordLoading(false); }
+              }} style={{ padding: '8px 16px', borderRadius: 6, background: '#DB4437', color: '#fff', border: 'none' }} disabled={ggRecordLoading}>{ggRecordLoading ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Transfer Modal */}
       {transferModal && (
@@ -654,8 +714,8 @@ export default function AccountFacebookPage() {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 16, color: '#212529' }}>
-                  <ArrowRepeat size={15} style={{ marginRight: 6, color: '#1877f2' }} />
-                  โอนบัญชี Facebook Ads
+                  <ArrowRepeat size={15} style={{ marginRight: 6, color: '#DB4437' }} />
+                  โอนบัญชี Google Ads
                 </div>
                 <div style={{ fontSize: 12, color: '#6c757d', marginTop: 3 }}>
                   {transferModal.accountName}
@@ -702,7 +762,7 @@ export default function AccountFacebookPage() {
                         padding: '9px 14px', cursor: 'pointer', fontSize: 13,
                         background: transferSelected?._id === c._id ? '#eef4ff' : '#fff',
                         borderBottom: '1px solid #f0f0f0',
-                        borderLeft: transferSelected?._id === c._id ? '3px solid #1877f2' : '3px solid transparent',
+                        borderLeft: transferSelected?._id === c._id ? '3px solid #DB4437' : '3px solid transparent',
                       }}
                     >
                       <span style={{ fontWeight: 600, color: '#212529' }}>{c.name}</span>
@@ -757,70 +817,12 @@ export default function AccountFacebookPage() {
                 disabled={transferLoading || !transferSelected}
                 style={{
                   padding: '8px 22px', borderRadius: 7, border: 'none',
-                  background: transferSelected ? '#1877f2' : '#dee2e6',
+                  background: transferSelected ? '#DB4437' : '#dee2e6',
                   color: '#fff', fontWeight: 600, fontSize: 13, cursor: transferSelected ? 'pointer' : 'not-allowed',
                 }}
               >
                 {transferLoading ? 'กำลังโอน...' : 'ยืนยันโอนบัญชี'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* ══ Modal: Facebook Ads — บันทึกการตัดสำหรับรายการที่เป็น fbToppedUp ══ */}
-      {fbRecordModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setFbRecordModal(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 20, width: 480, maxWidth: '95vw' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: '#212529' }}><PencilSquare size={15} style={{ marginRight: 8, color: '#1877f2' }} />บันทึกการตัด — Facebook Ads</div>
-                <div style={{ fontSize: 12, color: '#6c757d' }}>{fbRecordModal.accountName}</div>
-              </div>
-              <button onClick={() => setFbRecordModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6c757d' }}><X size={20} /></button>
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>บัตรที่ Facebook ตัด</label>
-                  <select value={fbRecordCardId} onChange={e => setFbRecordCardId(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }}>
-                    <option value="">— เลือกบัตร —</option>
-                    {cards.map(c => <option key={c._id} value={c._id}>{c.displayName} (ท้าย {c.last4})</option>)}
-                  </select>
-                </div>
-                <div style={{ width: 140 }}>
-                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>วันที่ตัด</label>
-                  <input type="date" value={fbRecordDate} onChange={e => setFbRecordDate(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                <div style={{ width: 140 }}>
-                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>เวลาที่ตัด</label>
-                  <input type="text" placeholder="08:00" maxLength={5} value={fbRecordTime} onChange={e => setFbRecordTime(e.target.value.replace(/[^0-9:]/g, ''))} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>ยอดเติมเงิน</label>
-                  <div style={{ padding: '8px', borderRadius: 6, border: '1px solid #eee', background: '#e8f0fe', color: '#1877f2' }}>{fmt(fbRecordModal.fbTopupAmount || fbRecordModal.clickCost || 0)} บาท</div>
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setFbRecordModal(null)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #dee2e6', background: '#fff' }}>ยกเลิก</button>
-              <button onClick={async () => {
-                if (!fbRecordCardId || !fbRecordDate || !fbRecordTime) { toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
-                try {
-                  setFbRecordLoading(true);
-                  const token = localStorage.getItem('token');
-                  const selectedCard = cards.find(c => c._id === fbRecordCardId);
-                  const amount = Number(fbRecordModal.fbTopupAmount || fbRecordModal.clickCost || 0);
-                  await axios.post(`${process.env.REACT_APP_API_URL}/api/cards/charge`, { cardId: fbRecordCardId, amount, channel: 'Facebook Ads', note: `FB ตัดเงิน: ${fbRecordModal.accountName}`, serviceId: fbRecordModal.serviceId }, { headers: { Authorization: `Bearer ${token}` } });
-                  await axios.patch(`${process.env.REACT_APP_API_URL}/api/ledger/${fbRecordModal._id}`, { cardCharged: true, cardNumber: selectedCard?.last4 || '', cardTime: fbRecordTime, fbChargedDate: fbRecordDate, fbChargedAmount: amount }, { headers: { Authorization: `Bearer ${token}` } });
-                  toast.success('บันทึกการตัดของ Facebook สำเร็จ');
-                  setFbRecordModal(null);
-                  fetchData(new AbortController().signal);
-                } catch (err) {
-                  toast.error(err?.response?.data?.error || 'บันทึกไม่สำเร็จ');
-                } finally { setFbRecordLoading(false); }
-              }} style={{ padding: '8px 16px', borderRadius: 6, background: '#1877f2', color: '#fff', border: 'none' }} disabled={fbRecordLoading}>{fbRecordLoading ? 'กำลังบันทึก...' : 'บันทึก'}</button>
             </div>
           </div>
         </div>

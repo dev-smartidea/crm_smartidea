@@ -28,6 +28,7 @@ import AccountCardDailySummaryPage from './pages/account/AccountCardDailySummary
 import AccountNotificationPage from './pages/account/AccountNotificationPage';
 import AccountLedgerPage from './pages/account/AccountLedgerPage';
 import AccountFacebookPage from './pages/account/AccountFacebookPage';
+import AccountGooglePage from './pages/account/AccountGooglePage';
 import UserDetailPage from './pages/user/UserDetailPage';
 import ProfilePage from './pages/user/ProfilePage';
 import NotificationPage from './pages/shared/NotificationPage';
@@ -142,6 +143,7 @@ function App() {
           <Route path="cards/:cardId/ledger" element={<AccountCardLedgerPage />} />
           <Route path="ledger" element={<AccountLedgerPage />} />
           <Route path="facebook" element={<AccountFacebookPage />} />
+          <Route path="google" element={<AccountGooglePage />} />
           <Route path="alltransactions" element={<AccountTransactionsPage />} />
           <Route path="rejected" element={<RejectedTransactionsPage />} />
           <Route path="approved" element={<ApprovedTransactionsPage />} />

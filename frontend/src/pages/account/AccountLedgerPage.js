@@ -54,7 +54,6 @@ const getBreakdownAmount = (item, code) => {
 
 export default function AccountLedgerPage() {
   const [ledgerData, setLedgerData] = useState([]);
-  const firstTxMap = useMemo(() => buildFirstTxMap(ledgerData), [ledgerData]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -70,6 +69,24 @@ export default function AccountLedgerPage() {
     search: ''
   });
 
+  const firstTxMap = useMemo(() => buildFirstTxMap(ledgerData), [ledgerData]);
+  const pageSummary = useMemo(() => {
+    const hasActiveFilters = filters.startDate || filters.endDate || filters.bank || filters.serviceType || filters.search;
+    if (!ledgerData.length || !hasActiveFilters) return null;
+    return ledgerData.reduce((acc, item) => ({
+      amount:     acc.amount     + (item.amount || 0),
+      newGG:      acc.newGG      + getFirstTransactionAmount(item, 14, firstTxMap),
+      renewGG:    acc.renewGG    + getRenewTransactionAmount(item, 14, firstTxMap),
+      newFB:      acc.newFB      + getFirstTransactionAmount(item, 18, firstTxMap),
+      renewFB:    acc.renewFB    + getRenewTransactionAmount(item, 18, firstTxMap),
+      hosting:    acc.hosting    + getBreakdownAmount(item, 20),
+      click:      acc.click      + getBreakdownAmount(item, 11),
+      vat36:      acc.vat36      + getBreakdownAmount(item, 12),
+      vat30:      acc.vat30      + getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19),
+    }), { amount: 0, newGG: 0, renewGG: 0, newFB: 0, renewFB: 0, hosting: 0, click: 0, vat36: 0, vat30: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledgerData, firstTxMap, filters.startDate, filters.endDate, filters.bank, filters.serviceType, filters.search]);
+
   // Inline editing
   const [editingCell, setEditingCell] = useState(null); // { id, field }
   const [editValue, setEditValue] = useState('');
@@ -77,6 +94,7 @@ export default function AccountLedgerPage() {
   // Card charging
   const [cards, setCards] = useState([]);
   const [chargingId, setChargingId] = useState(null);
+  const [chargeAsInvGG, setChargeAsInvGG] = useState(false);
   const [chargeModal, setChargeModal] = useState(null); // item to charge
   const [chargeCardId, setChargeCardId] = useState('');
   const [chargeTime, setChargeTime] = useState('');
@@ -100,25 +118,41 @@ export default function AccountLedgerPage() {
   const [fbRecordNote, setFbRecordNote] = useState('');
   const [fbRecordLoading, setFbRecordLoading] = useState(false);
 
-  const pageSummary = useMemo(() => {
-    const hasActiveFilters = filters.startDate || filters.endDate || filters.bank || filters.serviceType || filters.search;
-    if (!ledgerData.length || !hasActiveFilters) return null;
-    return ledgerData.reduce((acc, item) => ({
-      amount:     acc.amount     + (item.amount || 0),
-      newGG:      acc.newGG      + getFirstTransactionAmount(item, 14, firstTxMap),
-      renewGG:    acc.renewGG    + getRenewTransactionAmount(item, 14, firstTxMap),
-      newFB:      acc.newFB      + getFirstTransactionAmount(item, 18, firstTxMap),
-      renewFB:    acc.renewFB    + getRenewTransactionAmount(item, 18, firstTxMap),
-      hosting:    acc.hosting    + getBreakdownAmount(item, 20),
-      click:      acc.click      + getBreakdownAmount(item, 11),
-      vat36:      acc.vat36      + getBreakdownAmount(item, 12),
-      vat30:      acc.vat30      + getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19),
-    }), { amount: 0, newGG: 0, renewGG: 0, newFB: 0, renewFB: 0, hosting: 0, click: 0, vat36: 0, vat30: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ledgerData, firstTxMap, filters.startDate, filters.endDate, filters.bank, filters.serviceType, filters.search]);
+  // ── Google Ads: เปิด record modal สำหรับรายการที่ติด invoice (Inv.Gg) ──
+  const [ggRecordModal, setGgRecordModal] = useState(null);
+  const [ggRecordCardId, setGgRecordCardId] = useState('');
+  const [ggRecordDate, setGgRecordDate] = useState('');
+  const [ggRecordTime, setGgRecordTime] = useState('');
+  const [ggRecordLoading, setGgRecordLoading] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const openGgRecordModal = (item) => {
+    setGgRecordModal(item);
+    setGgRecordCardId('');
+    setGgRecordDate(new Date().toISOString().split('T')[0]);
+    setGgRecordTime('');
+  };
   const api = process.env.REACT_APP_API_URL;
+  const token = localStorage.getItem('token');
+
+  // สร้าง/บันทึก Invoice Google (ไม่ตัดบัตร)
+  const handleCreateInvGG = async (amount) => {
+    const item = chargeModal;
+    if (!item) return;
+    try {
+      setChargingId(item._id);
+      await axios.patch(`${api}/api/ledger/${item._id}`, {
+        invGG: Number(amount || 0)
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('บันทึก Invoice สำเร็จ');
+      setChargeModal(null);
+      setChargeAsInvGG(false);
+      fetchLedger(currentPage);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'บันทึกไม่สำเร็จ');
+    } finally {
+      setChargingId(null);
+    }
+  };
 
   const fetchLedger = useCallback(async (page = 1, signal) => {
     try {
@@ -330,8 +364,17 @@ export default function AccountLedgerPage() {
     setEditValue('');
   };
 
-  // ตัดเงินจากบัตร
+  // ตัดเงินจากบัตร (หรือบันทึกเป็น Invoice Google ถ้าเลือก)
   const handleChargeConfirm = () => {
+    if (chargeAsInvGG) {
+      const item = chargeModal;
+      if (!item) { toast.warning('ไม่มีรายการที่เลือก'); return; }
+      const totalGG = (getBreakdownAmount(item, 14) || 0) + (getBreakdownAmount(item, 11) || 0);
+      const ok = window.confirm(`จะบันทึกเป็น Invoice (Inv.Gg) จำนวน ${formatNumber(totalGG)} บาท ?`);
+      if (ok) handleCreateInvGG(totalGG);
+      return;
+    }
+
     if (!chargeCardId) {
       toast.warning('กรุณาเลือกบัตร');
       return;
@@ -894,14 +937,30 @@ export default function AccountLedgerPage() {
                           </div>
                         )
                       ) : getBreakdownAmount(item, 11) > 0 ? (
-                        // Google Ads — ตัดเงินเอง
-                        <button
-                          className="btn-charge"
-                          onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(getBreakdownAmount(item, 11) || '')); setChargeNote(''); }}
-                          disabled={chargingId === item._id}
-                        >
-                          {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}
-                        </button>
+                        // Google Ads — ตัดเงินเอง หรือ บันทึกเป็น Invoice (invGG)
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                          {item.invGG ? (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexDirection: 'column' }}>
+                              <span style={{ background: '#fff8f0', color: '#a63d00', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 700 }}>
+                                Inv.Gg
+                              </span>
+                              <button
+                                onClick={() => openGgRecordModal(item)}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 4, background: '#fff', color: '#198754', border: '1px solid #198754', cursor: 'pointer' }}
+                              >
+                                <PencilSquare size={12} /> บันทึกการตัด
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn-charge"
+                              onClick={() => { setChargeModal(item); setChargeCardId(''); setChargeTime(''); setChargeAmount(String(getBreakdownAmount(item, 11) || '')); setChargeNote(''); setChargeAsInvGG(false); }}
+                              disabled={chargingId === item._id}
+                            >
+                              {chargingId === item._id ? '...' : <><CreditCard2Back size={12} /> ตัดเงิน</>}
+                            </button>
+                          )}
+                        </div>
                       ) : null}
                     </td>
                   </tr>
@@ -1079,6 +1138,88 @@ export default function AccountLedgerPage() {
           </div>
         </div>
       )}
+      {/* ══ Modal: Google Ads — บันทึกการตัดสำหรับรายการที่เป็น Inv.Gg ══ */}
+      {ggRecordModal && (
+        <div className="charge-modal-backdrop" onClick={() => setGgRecordModal(null)}>
+          <div className="charge-modal" onClick={e => e.stopPropagation()}>
+            <div className="charge-modal-header" style={{ borderBottom: '3px solid #DB4437' }}>
+              <h3 style={{ color: '#DB4437' }}>
+                <PencilSquare size={14} style={{ marginRight: 6 }} />
+                บันทึกการตัดเงิน — Invoice Google
+              </h3>
+              <button className="charge-modal-close" onClick={() => setGgRecordModal(null)}><X size={18} /></button>
+            </div>
+            <div className="charge-modal-body">
+              <div className="charge-info-row"><span className="charge-info-label">บัญชี</span><span className="charge-info-value">{ggRecordModal.accountName}</span></div>
+              <div className="charge-info-row"><span className="charge-info-label">CID</span><span className="charge-info-value">{ggRecordModal.customerCode}</span></div>
+              <div className="charge-info-row">
+                <span className="charge-info-label">ยอด Invoice</span>
+                <span className="charge-info-value"><strong style={{ color: '#DB4437' }}>{formatNumber(ggRecordModal.invGG || (getBreakdownAmount(ggRecordModal, 14) + getBreakdownAmount(ggRecordModal, 11)))} บาท</strong></span>
+              </div>
+              <div style={{ marginTop: 10, padding: '10px 12px', background: '#fff8f0', borderRadius: 4, fontSize: '0.78rem', color: '#6d4c00', lineHeight: 1.6 }}>
+                📋 รายการนี้ถูกบันทึกเป็น Invoice แล้ว — บันทึกการตัดเพื่อระบุว่าบริษัทได้ตัดบัตรเรียบร้อย
+              </div>
+              <div className="charge-form-group">
+                <label>บัตรที่ Google ตัด</label>
+                <select value={ggRecordCardId} onChange={e => setGgRecordCardId(e.target.value)}>
+                  <option value="">— เลือกบัตร —</option>
+                  {cards.map(c => (
+                    <option key={c._id} value={c._id}>{c.displayName} (ท้าย {c.last4})</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div className="charge-form-group" style={{ flex: 1 }}>
+                  <label>วันที่ Google ตัด</label>
+                  <input type="date" className="charge-time-input" value={ggRecordDate} onChange={e => setGgRecordDate(e.target.value)} />
+                </div>
+                <div className="charge-form-group" style={{ flex: 1 }}>
+                  <label>เวลาที่ตัด</label>
+                  <input type="text" className="charge-time-input" placeholder="เช่น 08:00" value={ggRecordTime}
+                    onChange={e => setGgRecordTime(e.target.value.replace(/[^0-9:]/g, ''))} maxLength={5} />
+                </div>
+              </div>
+            </div>
+            <div className="charge-modal-footer">
+              <button className="btn-charge-cancel" onClick={() => setGgRecordModal(null)}>ยกเลิก</button>
+              <button
+                style={{ padding: '8px 20px', border: 'none', borderRadius: 4, color: '#fff', fontSize: '0.85rem', fontWeight: 600, cursor: (!ggRecordCardId || !ggRecordDate || !ggRecordTime || ggRecordLoading) ? 'not-allowed' : 'pointer', background: (!ggRecordCardId || !ggRecordDate || !ggRecordTime || ggRecordLoading) ? '#bdbdbd' : '#DB4437' }}
+                onClick={async () => {
+                  if (!ggRecordCardId || !ggRecordDate || !ggRecordTime) { toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+                  try {
+                    setGgRecordLoading(true);
+                    const selectedCard = cards.find(c => c._id === ggRecordCardId);
+                    const amount = Number(ggRecordModal.invGG || getBreakdownAmount(ggRecordModal, 14) + getBreakdownAmount(ggRecordModal, 11) || 0);
+                    // 1. สร้าง Card charge record
+                    await axios.post(`${api}/api/cards/charge`, {
+                      cardId: ggRecordCardId,
+                      amount: amount,
+                      channel: 'Google Ads',
+                      note: `Invoice Google ตัดเงิน: ${ggRecordModal.accountName}`,
+                      serviceId: ggRecordModal.serviceId,
+                    }, { headers: { Authorization: `Bearer ${token}` } });
+                    // 2. อัพเดต Transaction ว่าเป็น cardCharged
+                    await axios.patch(`${api}/api/ledger/${ggRecordModal._id}`, {
+                      cardCharged: true,
+                      cardNumber: selectedCard?.last4 || '',
+                      cardTime: ggRecordTime,
+                      cardDate: ggRecordDate,
+                    }, { headers: { Authorization: `Bearer ${token}` } });
+                    toast.success('บันทึกการตัดของ Google สำเร็จ');
+                    setGgRecordModal(null);
+                    fetchLedger(currentPage);
+                  } catch (err) {
+                    toast.error(err?.response?.data?.error || 'บันทึกไม่สำเร็จ');
+                  } finally { setGgRecordLoading(false); }
+                }}
+                disabled={!ggRecordCardId || !ggRecordDate || !ggRecordTime || ggRecordLoading}
+              >
+                {ggRecordLoading ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charge Modal */}
       {chargeModal && (
@@ -1128,6 +1269,12 @@ export default function AccountLedgerPage() {
                   min="0"
                   step="0.01"
                 />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={chargeAsInvGG} onChange={e => setChargeAsInvGG(e.target.checked)} />
+                  <span style={{ fontSize: 13 }}>inv.Gg (บันทึกเป็น Invoice แทนการตัดบัตร)</span>
+                </label>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <div className="charge-form-group" style={{ flex: 1 }}>
