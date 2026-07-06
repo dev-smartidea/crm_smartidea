@@ -715,14 +715,14 @@ export default function AccountLedgerPage() {
             <table className="ledger-table">
               <thead>
                 <tr>
-                  <th className="col-index" scope="col">#</th>
-                  <th className="col-txid" scope="col">Transaction ID</th>
-                  <th className="col-account" scope="col">บัญชี</th>
-                  <th className="col-customer" scope="col">ชื่อลูกค้า</th>
-                  <th className="col-service" scope="col">บริการ</th>
-                  <th className="col-code" scope="col">รหัส cid</th>
-                  <th className="col-bank" scope="col">ธนาคาร</th>
-                  <th className="col-date" scope="col">วันที่โอน</th>
+                  <th className="col-index sticky-col sticky-col-1" scope="col">#</th>
+                  <th className="col-txid sticky-col sticky-col-2" scope="col">Transaction ID</th>
+                  <th className="col-account sticky-col sticky-col-3" scope="col">บัญชี</th>
+                  <th className="col-customer sticky-col sticky-col-4" scope="col">ชื่อลูกค้า</th>
+                  <th className="col-service sticky-col sticky-col-5" scope="col">บริการ</th>
+                  <th className="col-code sticky-col sticky-col-6" scope="col">รหัส cid</th>
+                  <th className="col-bank sticky-col sticky-col-7" scope="col">ธนาคาร</th>
+                  <th className="col-date sticky-col sticky-col-8" scope="col">วันที่โอน</th>
                   <th className="col-time" scope="col">เวลาโอน</th>
                   <th className="col-amount" scope="col">ยอดเงินที่โอน</th>
                   <th className="col-status" scope="col">status</th>
@@ -751,18 +751,18 @@ export default function AccountLedgerPage() {
               <tbody>
                 {ledgerData.map((item) => (
                   <tr key={item._id} data-service={item.serviceType}>
-                    <td className="col-index">{item.index}</td>
-                    <td className="col-txid">{item._id}</td>
-                    <td className="col-account" title={item.accountName}>{item.accountName}</td>
-                    <td className="col-customer" title={item.customerName}>{item.customerName}</td>
-                    <td className="col-service">
+                    <td className="col-index sticky-col sticky-col-1">{item.index}</td>
+                    <td className="col-txid sticky-col sticky-col-2">{item._id}</td>
+                    <td className="col-account sticky-col sticky-col-3" title={item.accountName}>{item.accountName}</td>
+                    <td className="col-customer sticky-col sticky-col-4" title={item.customerName}>{item.customerName}</td>
+                    <td className="col-service sticky-col sticky-col-5">
                       {item.serviceType === 'Google Ads' && <span className="service-tag google">Google</span>}
                       {item.serviceType === 'Facebook Ads' && <span className="service-tag facebook">Facebook</span>}
                       {item.serviceType !== 'Google Ads' && item.serviceType !== 'Facebook Ads' && <span className="service-tag">{item.serviceType || '-'}</span>}
                     </td>
-                    <td className="col-code">{item.customerCode}</td>
-                    <td className="col-bank">{item.bank}</td>
-                    <td className="col-date">{formatDate(item.transactionDate)}</td>
+                    <td className="col-code sticky-col sticky-col-6">{item.customerCode}</td>
+                    <td className="col-bank sticky-col sticky-col-7">{item.bank}</td>
+                    <td className="col-date sticky-col sticky-col-8">{formatDate(item.transactionDate)}</td>
                     <td className="col-time">{item.transactionTime}</td>
                     <td className="col-amount editable-cell" onClick={() => handleCellClick(item._id, 'amount', item.amount)}>
                       {editingCell?.id === item._id && editingCell?.field === 'amount' ? (
