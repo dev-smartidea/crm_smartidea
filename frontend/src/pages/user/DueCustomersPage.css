@@ -353,6 +353,12 @@
 .due-table tbody tr.row-renewed td { background-color: #f0fdf4; }
 .due-table tbody tr.row-renewed:hover td { background-color: #dcfce7; }
 
+/* Cancelled / No renew row */
+.due-table tbody tr.row-cancelled td { background-color: #fcfcfc; color: #9ca3af; }
+.due-table tbody tr.row-cancelled .cust-name,
+.due-table tbody tr.row-cancelled .price-cell { color: #9ca3af; }
+.due-table tbody tr.row-cancelled:hover td { background-color: #f3f4f6; }
+
 /* ---- Cell styles ---- */
 .row-num {
   font-size: 0.78rem;
@@ -457,10 +463,7 @@
 .svc-default  { background: #f3f4f6; color: #374151; }
 
 .notes-cell {
-  max-width: 130px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 180px;
   color: #6b7280;
   font-size: 0.82rem;
 }

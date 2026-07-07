@@ -44,7 +44,7 @@ const serviceSchema = new mongoose.Schema({
     type: String,
     enum: [
       // ใหม่
-      'อยู่ระหว่างบริการ', 'เกินกำหนดมากกว่า 30 วัน', 'ครบกำหนด',
+      'อยู่ระหว่างบริการ', 'เกินกำหนดมากกว่า 30 วัน', 'ครบกำหนด', 'ไม่ต่ออายุ',
       // อังกฤษเดิม
       'active', 'paused', 'completed',
       // ไทยเดิม
@@ -70,6 +70,9 @@ const serviceSchema = new mongoose.Schema({
 
 function statusTransform(doc, ret) {
   try {
+    if (ret && ret.status === 'ไม่ต่ออายุ') {
+      return ret;
+    }
     if (ret && ret.dueDate) {
       const now = new Date();
       const due = new Date(ret.dueDate);

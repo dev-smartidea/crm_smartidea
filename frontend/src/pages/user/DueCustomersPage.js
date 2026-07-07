@@ -92,6 +92,23 @@ export default function DueCustomersPage() {
 
   useEffect(() => { fetchDue(); }, [fetchDue]);
 
+  const handleUpdateStatus = async (serviceId, newStatus) => {
+    if (newStatus === 'ไม่ต่ออายุ') {
+      const confirmOk = window.confirm('คุณแน่ใจหรือไม่ว่าต้องการตั้งค่าบริการนี้เป็น "ไม่ต่ออายุ"?');
+      if (!confirmOk) return;
+    }
+    try {
+      await axios.put(`${api}/api/services/${serviceId}`, 
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchDue();
+    } catch (err) {
+      console.error(err);
+      alert('ไม่สามารถอัปเดตสถานะได้');
+    }
+  };
+
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear(y => y - 1); }
     else setMonth(m => m - 1);
@@ -151,19 +168,20 @@ export default function DueCustomersPage() {
       return true;
     });
 
-  const totalCount      = filteredServices.length;
-  const paidCount       = filteredServices.filter(s => s.lastTransaction).length;
+  const activeFilteredServices = filteredServices.filter(s => s.status !== 'ไม่ต่ออายุ');
+  const totalCount      = activeFilteredServices.length;
+  const paidCount       = activeFilteredServices.filter(s => s.lastTransaction).length;
   const unpaidCount     = totalCount - paidCount;
   const collectRate     = totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0;
 
-  const totalPages    = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const totalPages    = Math.max(1, Math.ceil(filteredServices.length / PAGE_SIZE));
   const pagedServices = filteredServices.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // คำนวณเปอร์เซ็นต์เก็บค่าบริการแยกตามผู้ดูแล
   const caretakerStats = useMemo(() => {
     if (!isAdmin) return [];
     const statsMap = {};
-    roleFilteredServices.forEach(s => {
+    roleFilteredServices.filter(s => s.status !== 'ไม่ต่ออายุ').forEach(s => {
       const owner = s.ownerName || 'ไม่มีผู้ดูแล';
       if (!statsMap[owner]) {
         statsMap[owner] = {
@@ -384,7 +402,7 @@ export default function DueCustomersPage() {
                   // ระยะเวลา #2 = ระยะเวลาของการต่ออายุ (durationMonths ปัจจุบัน หลังต่ออายุ)
                   const dur2    = durationLabel(svc.durationMonths);
                   return (
-                    <tr key={svc._id} className={renewed ? 'row-renewed' : ''}>
+                    <tr key={svc._id} className={`${renewed ? 'row-renewed' : ''} ${svc.status === 'ไม่ต่ออายุ' ? 'row-cancelled' : ''}`}>
                       <td className="col-center row-num">{globalIdx + 1}</td>
 
                       {/* ผู้ดูแล — แสดงเฉพาะ admin */}
@@ -470,8 +488,42 @@ export default function DueCustomersPage() {
                       </td>
 
                       {/* หมายเหตุ -1 — notes */}
-                      <td className="notes-cell" title={svc.notes || ''}>
-                        {svc.notes || ''}
+                      <td className="notes-cell">
+                        <div className="notes-content-wrap" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                          <span title={svc.notes || ''} style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '130px' }}>
+                            {svc.notes || '-'}
+                          </span>
+                          {svc.status === 'ไม่ต่ออายุ' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span className="badge" style={{ fontSize: '0.72rem', padding: '2px 6px', color: '#fff', backgroundColor: '#dc3545', borderRadius: '4px', fontWeight: 'bold' }}>ไม่ต่ออายุ</span>
+                              <button 
+                                className="btn-undo-renew" 
+                                style={{ padding: 0, fontSize: '0.72rem', color: '#1a73e8', border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                onClick={() => handleUpdateStatus(svc._id, 'ครบกำหนด')}
+                              >
+                                ดึงกลับ
+                              </button>
+                            </div>
+                          ) : (
+                            !tx && (
+                              <button 
+                                className="btn-no-renew" 
+                                style={{ 
+                                  fontSize: '0.7rem',
+                                  padding: '2px 6px',
+                                  color: '#dc3545',
+                                  border: '1px solid #dc3545',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'transparent',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => handleUpdateStatus(svc._id, 'ไม่ต่ออายุ')}
+                              >
+                                ไม่ต่ออายุ
+                              </button>
+                            )
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
