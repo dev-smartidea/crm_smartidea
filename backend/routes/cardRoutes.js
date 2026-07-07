@@ -114,7 +114,7 @@ router.post('/cards/topup', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { cardId, amount, note } = req.body;
+    const { cardId, amount, note, topupDate } = req.body;
     const numericAmount = Number(amount || 0);
     if (!cardId || numericAmount <= 0) {
       return res.status(400).json({ error: 'Invalid cardId or amount' });
@@ -140,6 +140,7 @@ router.post('/cards/topup', async (req, res) => {
       channel: 'Other',
       reference: 'manual-topup',
       note,
+      topupDate: topupDate ? new Date(topupDate) : undefined,
       balanceAfter: card.balance,
       createdBy: user.id
     });

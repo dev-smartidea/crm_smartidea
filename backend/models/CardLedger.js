@@ -12,6 +12,7 @@ const cardLedgerSchema = new mongoose.Schema({
   breakdowns: [{ code: String, label: String, amount: Number }],
   chargeTime: { type: String }, // เวลาที่ตัดเงิน (เช่น "14:30")
   chargeDate: { type: Date }, // วันที่ที่ผู้ใช้ระบุให้ตัดบัตร (optional)
+  topupDate: { type: Date }, // วันที่ที่ผู้ใช้ระบุสำหรับการเติมเงิน (optional)
   balanceAfter: { type: Number },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });

@@ -27,6 +27,7 @@ export default function AccountCardsPage() {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [formNote, setFormNote] = useState('');
   const [formChargeTime, setFormChargeTime] = useState('');
+  const [formTopupDate, setFormTopupDate] = useState('');
   const [serviceOptions, setServiceOptions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
@@ -141,6 +142,7 @@ export default function AccountCardsPage() {
     setShowServiceDropdown(false);
     setFormNote('');
     setFormChargeTime('');
+    setFormTopupDate(new Date().toISOString().slice(0, 10));
     setError('');
   };
 
@@ -155,7 +157,7 @@ export default function AccountCardsPage() {
     setSubmitting(true);
     try {
       if (actionCard.type === 'topup') {
-        await axios.post(`${api}/api/cards/topup`, { cardId: actionCard.cardId, amount: amountNum }, {
+        await axios.post(`${api}/api/cards/topup`, { cardId: actionCard.cardId, amount: amountNum, note: formNote, topupDate: formTopupDate || undefined }, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
@@ -633,6 +635,18 @@ export default function AccountCardsPage() {
                   onChange={e => setFormAmount(e.target.value)}
                 />
               </label>
+
+              {actionCard.type === 'topup' && (
+                <label className="field">
+                  <span className="field-label">วันที่เติมเงิน</span>
+                  <input
+                    type="date"
+                    className="field-input"
+                    value={formTopupDate}
+                    onChange={e => setFormTopupDate(e.target.value)}
+                  />
+                </label>
+              )}
 
               {actionCard.type === 'charge' && (
                 <>
