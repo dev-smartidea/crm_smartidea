@@ -184,12 +184,12 @@ export default function DueCustomersPage() {
     });
 
     return Object.values(statsMap).map(stat => {
-      const amountRate = stat.totalAmount > 0 ? Math.round((stat.paidAmount / stat.totalAmount) * 100) : 0;
+      const rate = stat.totalCount > 0 ? Math.round((stat.paidCount / stat.totalCount) * 100) : 0;
       return {
         ...stat,
-        amountRate
+        rate
       };
-    }).sort((a, b) => b.amountRate - a.amountRate);
+    }).sort((a, b) => b.rate - a.rate);
   }, [roleFilteredServices, isAdmin]);
 
   return (
@@ -312,12 +312,12 @@ export default function DueCustomersPage() {
                 <div className="caretaker-stat-item" key={stat.ownerName}>
                   <div className="caretaker-stat-header">
                     <span className="caretaker-name">{stat.ownerName}</span>
-                    <span className="caretaker-rate">{stat.amountRate}%</span>
+                    <span className="caretaker-rate">{stat.rate}%</span>
                   </div>
                   <div className="caretaker-progress-bar-bg">
                     <div 
-                      className={`caretaker-progress-bar ${stat.amountRate >= 80 ? 'high' : stat.amountRate >= 50 ? 'medium' : 'low'}`} 
-                      style={{ width: `${stat.amountRate}%` }}
+                      className={`caretaker-progress-bar ${stat.rate >= 80 ? 'high' : stat.rate >= 50 ? 'medium' : 'low'}`} 
+                      style={{ width: `${stat.rate}%` }}
                     />
                   </div>
                   <div className="caretaker-stat-details">
