@@ -801,7 +801,7 @@ export default function AccountLedgerPage() {
                     </td>
                     <td className="col-cardtime editable-cell" onClick={() => handleCellClick(item._id, 'cardTime', item.cardTime)}>
                       {editingCell?.id === item._id && editingCell?.field === 'cardTime' ? (
-                        <input type="text" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus maxLength={5} placeholder="00:00" />
+                        <input type="text" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value.replace(/[^0-9:.]/g, '').replace(/\./g, ':'))} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus maxLength={5} placeholder="00:00" />
                       ) : (
                         <span className="editable-text">{item.cardTime}</span>
                       )}
@@ -1142,7 +1142,7 @@ export default function AccountLedgerPage() {
                 <div className="charge-form-group" style={{ flex: 1 }}>
                   <label>เวลาที่ตัด</label>
                   <input type="text" className="charge-time-input" placeholder="เช่น 08:00" value={fbRecordTime}
-                    onChange={e => setFbRecordTime(e.target.value.replace(/[^0-9:]/g, ''))} maxLength={5} />
+                    onChange={e => setFbRecordTime(e.target.value.replace(/[^0-9:.]/g, '').replace(/\./g, ':'))} maxLength={5} />
                 </div>
               </div>
               <div className="charge-form-group">
@@ -1207,7 +1207,7 @@ export default function AccountLedgerPage() {
                 <div className="charge-form-group" style={{ flex: 1 }}>
                   <label>เวลาที่ตัด</label>
                   <input type="text" className="charge-time-input" placeholder="เช่น 08:00" value={ggRecordTime}
-                    onChange={e => setGgRecordTime(e.target.value.replace(/[^0-9:]/g, ''))} maxLength={5} />
+                    onChange={e => setGgRecordTime(e.target.value.replace(/[^0-9:.]/g, '').replace(/\./g, ':'))} maxLength={5} />
                 </div>
               </div>
             </div>
@@ -1325,7 +1325,7 @@ export default function AccountLedgerPage() {
                     placeholder="เช่น 14:30"
                     value={chargeTime}
                     onChange={e => {
-                      const v = e.target.value.replace(/[^0-9:]/g, '');
+                      const v = e.target.value.replace(/[^0-9:.]/g, '').replace(/\./g, ':');
                       setChargeTime(v);
                     }}
                     maxLength={5}
