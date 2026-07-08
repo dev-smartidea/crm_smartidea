@@ -29,6 +29,7 @@ export default function ApprovedTransactionsPage() {
   const [customerQuery, setCustomerQuery] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [submitterQuery, setSubmitterQuery] = useState('');
+  const [cidQuery, setCidQuery] = useState('');
   
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -127,15 +128,22 @@ export default function ApprovedTransactionsPage() {
       result = result.filter(tx => tx.submittedBy?.name?.toLowerCase().includes(q));
     }
     
+    // กรองตาม cid
+    if (cidQuery.trim()) {
+      const q = cidQuery.trim().toLowerCase();
+      result = result.filter(tx => tx.serviceCid?.toLowerCase().includes(q));
+    }
+    
     setFilteredTransactions(result);
     setCurrentPage(1);
-  }, [transactions, selectedCustomerId, submitterQuery]);
+  }, [transactions, selectedCustomerId, submitterQuery, cidQuery]);
 
   // ฟังก์ชันล้างค่าการค้นหา
   const handleClearFilters = () => {
     setSelectedCustomerId('');
     setCustomerQuery('');
     setSubmitterQuery('');
+    setCidQuery('');
   };
 
   // ยกเลิกรายการ (เปลี่ยนสถานะเป็น rejected)
@@ -331,8 +339,23 @@ export default function ApprovedTransactionsPage() {
               />
             </div>
 
+            {/* ค้นหาตามรหัส cid */}
+            <div className="filter-group">
+              <label className="filter-label">
+                <Search size={16} />
+                ค้นหาตามรหัส cid
+              </label>
+              <input
+                type="text"
+                className="combobox-input"
+                placeholder="พิมพ์รหัส cid..."
+                value={cidQuery}
+                onChange={(e) => setCidQuery(e.target.value)}
+              />
+            </div>
+
             {/* ปุ่มล้างค่าการค้นหา */}
-            {(selectedCustomerId || submitterQuery) && (
+            {(selectedCustomerId || submitterQuery || cidQuery) && (
               <div className="filter-group" style={{ alignSelf: 'flex-end' }}>
                 <button
                   className="btn-clear-filters"
