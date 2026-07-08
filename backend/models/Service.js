@@ -62,6 +62,7 @@ const serviceSchema = new mongoose.Schema({
   transferredTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
   transferredFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
   transferDate: { type: Date },
+  fbBalanceOffset: { type: Number, default: 0 },
 }, {
   timestamps: true,
   toJSON: { virtuals: true, transform: statusTransform },

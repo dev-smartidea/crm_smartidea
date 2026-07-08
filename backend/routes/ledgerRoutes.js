@@ -227,6 +227,7 @@ router.get('/ledger', async (req, res) => {
         serviceType: service.serviceType || '-',
         servicePrice: service.price || 0,
         serviceTransferStatus: service.transferStatus || 'active',
+        serviceFbBalanceOffset: service.fbBalanceOffset || 0,
         // สถานะตัดบัตร (สำหรับ Facebook Ads)
         cardCharged: t.cardCharged || false,
         cardChargedAt: t.cardChargedAt || null,

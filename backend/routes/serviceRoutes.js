@@ -479,7 +479,8 @@ router.put('/services/:id', async (req, res) => {
     const ALLOWED_SERVICE_UPDATE_FIELDS = [
       'serviceType', 'name', 'status', 'notes', 'pageUrl',
       'startDate', 'dueDate', 'price', 'cid', 'customerIdField',
-      'acquisitionRole', 'acquisitionPerson', 'ownership', 'domain', 'hosting', 'userId', 'caretaker'
+      'acquisitionRole', 'acquisitionPerson', 'ownership', 'domain', 'hosting', 'userId', 'caretaker',
+      'fbBalanceOffset'
     ];
     const update = {};
     for (const key of ALLOWED_SERVICE_UPDATE_FIELDS) {
