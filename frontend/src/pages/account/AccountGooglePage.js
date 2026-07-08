@@ -24,6 +24,10 @@ export default function AccountGooglePage() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
 
+  // Edit remaining balance state
+  const [editingRemainingId, setEditingRemainingId] = useState(null);
+  const [editRemainingValue, setEditRemainingValue] = useState('');
+
   // Transfer modal state
   const [transferModal, setTransferModal] = useState(null); // { serviceId, accountName }
   const [transferSearch, setTransferSearch] = useState('');
@@ -78,6 +82,7 @@ export default function AccountGooglePage() {
           totalTopup: 0,
           googleCharged: 0,
           pending: 0,
+          ggBalanceOffset: item.serviceGgBalanceOffset || 0,
         });
       }
       const g = map.get(key);
@@ -88,7 +93,7 @@ export default function AccountGooglePage() {
       else g.pending += clickAmt;
     }
     return Array.from(map.values())
-      .map(g => ({ ...g, remaining: g.totalTopup - g.googleCharged }))
+      .map(g => ({ ...g, remaining: (g.ggBalanceOffset || 0) + g.totalTopup - g.googleCharged }))
       .sort((a, b) => b.remaining - a.remaining);
   }, [items, dateFilter]);
 
@@ -210,6 +215,44 @@ export default function AccountGooglePage() {
       fetchData(new AbortController().signal);
     } catch (err) {
       toast.error(err?.response?.data?.error || 'ยกเลิกไม่สำเร็จ');
+    }
+  };
+
+  const handleEditRemainingClick = (e, serviceId, remaining) => {
+    e.stopPropagation();
+    setEditingRemainingId(serviceId);
+    setEditRemainingValue(String(remaining));
+  };
+
+  const handleEditRemainingBlur = async (serviceId, totalTopup, googleCharged) => {
+    if (!editingRemainingId) return;
+    const newRemaining = Number(editRemainingValue);
+    if (isNaN(newRemaining)) {
+      setEditingRemainingId(null);
+      return;
+    }
+
+    const newOffset = newRemaining - (totalTopup - googleCharged);
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/services/${serviceId}`,
+        { ggBalanceOffset: newOffset },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setItems(prev => prev.map(item => {
+        if (item.serviceId === serviceId) {
+          return { ...item, serviceGgBalanceOffset: newOffset };
+        }
+        return item;
+      }));
+      toast.success('อัพเดตยอดคงเหลือสำเร็จ');
+    } catch (err) {
+      toast.error('อัพเดตยอดคงเหลือไม่สำเร็จ');
+    } finally {
+      setEditingRemainingId(null);
     }
   };
 
@@ -413,12 +456,35 @@ export default function AccountGooglePage() {
                       : <span style={{ color: '#dee2e6' }}>—</span>
                     }
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <span style={{ fontWeight: 700, fontSize: 14,
-                      color: g.remaining > 0 ? '#0d6efd' : g.remaining < 0 ? '#dc3545' : '#adb5bd',
-                    }}>
-                      {fmt(g.remaining)}
-                    </span>
+                  <td
+                    style={{ padding: '10px 12px', textAlign: 'right', cursor: 'pointer' }}
+                    onClick={(e) => handleEditRemainingClick(e, g.key, g.remaining)}
+                  >
+                    {editingRemainingId === g.key ? (
+                      <input
+                        type="number"
+                        style={{ width: '100px', textAlign: 'right', padding: '2px 4px', fontSize: 13, border: '1px solid #DB4437', borderRadius: 4 }}
+                        value={editRemainingValue}
+                        onChange={(e) => setEditRemainingValue(e.target.value)}
+                        onBlur={() => handleEditRemainingBlur(g.key, g.totalTopup, g.googleCharged)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleEditRemainingBlur(g.key, g.totalTopup, g.googleCharged);
+                          } else if (e.key === 'Escape') {
+                            setEditingRemainingId(null);
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        autoFocus
+                        step="0.01"
+                      />
+                    ) : (
+                      <span style={{ fontWeight: 700, fontSize: 14,
+                        color: g.remaining > 0 ? '#0d6efd' : g.remaining < 0 ? '#dc3545' : '#adb5bd',
+                      }}>
+                        {fmt(g.remaining)}
+                      </span>
+                    )}
                     {g.transferStatus !== 'transferred' && (
                       <button
                         onClick={e => openTransferModal(g, e)}
