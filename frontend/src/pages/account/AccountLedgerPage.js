@@ -107,6 +107,7 @@ export default function AccountLedgerPage() {
   const [topupModal, setTopupModal] = useState(null);
   const [topupCardId, setTopupCardId] = useState('');
   const [topupAmount, setTopupAmount] = useState('');
+  const [topupDate, setTopupDate] = useState('');
   const [topupLoading, setTopupLoading] = useState(false);
 
   // Facebook Ads: record modal
@@ -135,13 +136,14 @@ export default function AccountLedgerPage() {
   const token = localStorage.getItem('token');
 
   // สร้าง/บันทึก Invoice Google (ไม่ตัดบัตร)
-  const handleCreateInvGG = async (amount) => {
+  const handleCreateInvGG = async (amount, date) => {
     const item = chargeModal;
     if (!item) return;
     try {
       setChargingId(item._id);
       await axios.patch(`${api}/api/ledger/${item._id}`, {
-        invGG: Number(amount || 0)
+        invGG: Number(amount || 0),
+        invGGDate: date || null
       }, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('บันทึก Invoice สำเร็จ');
       setChargeModal(null);
@@ -271,8 +273,16 @@ export default function AccountLedgerPage() {
     setEditingCell({ id, field });
     // normalize currentValue: if number -> format with 2 decimals, if null/undefined or '-' -> empty
     let v = '';
+    // date fields: normalize to YYYY-MM-DD for date input
+    const dateFields = ['cardDate', 'fbTopupDate', 'invGGDate', 'fbChargedDate'];
     if (currentValue === '-' || currentValue === null || currentValue === undefined) v = '';
-    else if (typeof currentValue === 'number') v = currentValue.toFixed(2);
+    else if (dateFields.includes(field)) {
+      try {
+        v = new Date(currentValue).toISOString().split('T')[0];
+      } catch (e) {
+        v = '';
+      }
+    } else if (typeof currentValue === 'number') v = currentValue.toFixed(2);
     else v = String(currentValue);
     setEditValue(v);
   };
@@ -371,7 +381,7 @@ export default function AccountLedgerPage() {
       if (!item) { toast.warning('ไม่มีรายการที่เลือก'); return; }
       const totalGG = (getBreakdownAmount(item, 14) || 0) + (getBreakdownAmount(item, 11) || 0);
       const ok = window.confirm(`จะบันทึกเป็น Invoice (Inv.Gg) จำนวน ${formatNumber(totalGG)} บาท ?`);
-      if (ok) handleCreateInvGG(totalGG);
+      if (ok) handleCreateInvGG(totalGG, chargeDate);
       return;
     }
 
@@ -454,6 +464,7 @@ export default function AccountLedgerPage() {
     setTopupModal(item);
     setTopupCardId('');
     setTopupAmount(String(getBreakdownAmount(item, 11) || ''));
+    setTopupDate(new Date().toISOString().split('T')[0]);
   };
 
   // ── Facebook Ads: เปิด record modal ──
@@ -478,7 +489,8 @@ export default function AccountLedgerPage() {
       await axios.patch(`${api}/api/ledger/${topupModal._id}`, {
         fbToppedUp: true,
         fbTopupCardId: topupCardId,
-        fbTopupAmount: Number(topupAmount || 0)
+        fbTopupAmount: Number(topupAmount || 0),
+        fbTopupDate: topupDate || null
       }, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('บันทึกการเติมเงินสำเร็จ');
       setTopupModal(null);
@@ -745,6 +757,7 @@ export default function AccountLedgerPage() {
                   <th className="col-inv" scope="col">Inv. Fb</th>
                   <th className="col-vat" scope="col">Vat 36</th>
                   <th className="col-vat" scope="col">Vat 30</th>
+                  <th className="col-topupDate" scope="col">วันที่เติม/Inv</th>
                   <th className="col-charge" scope="col">ตัดเงิน</th>
                 </tr>
               </thead>
@@ -885,6 +898,20 @@ export default function AccountLedgerPage() {
                         <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
                       ) : (
                         <span className="editable-text">{formatNumber(getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19))}</span>
+                      )}
+                    </td>
+                    <td className="col-topupDate editable-cell" onClick={() => {
+                      if (item.serviceType === 'Facebook Ads') return handleCellClick(item._id, 'fbTopupDate', item.fbTopupDate);
+                      return handleCellClick(item._id, 'invGGDate', item.invGGDate);
+                    }}>
+                      {editingCell?.id === item._id && (editingCell?.field === 'fbTopupDate' || editingCell?.field === 'invGGDate') ? (
+                        <input type="date" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
+                      ) : (
+                        item.serviceType === 'Facebook Ads' ? (
+                          item.fbChargedDate ? formatDate(item.fbChargedDate) : (item.fbTopupDate ? formatDate(item.fbTopupDate) : (item.fbToppedUp || item.cardCharged ? formatDate(item.transactionDate) : '-'))
+                        ) : (
+                          item.invGG ? (item.cardDate ? formatDate(item.cardDate) : (item.invGGDate ? formatDate(item.invGGDate) : formatDate(item.transactionDate))) : '-'
+                        )
                       )}
                     </td>
                     <td className="col-charge">
@@ -1052,6 +1079,10 @@ export default function AccountLedgerPage() {
                     <option key={c._id} value={c._id}>{c.displayName} ({c.last4}) — เหลือ {c.balance?.toLocaleString()} ฿</option>
                   ))}
                 </select>
+              </div>
+              <div className="charge-form-group">
+                <label>วันที่เติมเงิน</label>
+                <input type="date" className="charge-time-input" value={topupDate} onChange={e => setTopupDate(e.target.value)} />
               </div>
               <div className="charge-form-group">
                 <label>จำนวนเงินที่เติม (บาท)</label>

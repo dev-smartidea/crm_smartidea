@@ -233,7 +233,12 @@ router.get('/ledger', async (req, res) => {
         // Facebook Ads flow
         fbToppedUp: t.fbToppedUp || false,
         fbTopupCardId: t.fbTopupCardId?._id?.toString() || null,
+        // Fallback order for display: explicit fbTopupDate -> fbChargedDate -> cardDate
+        fbTopupDate: t.fbTopupDate || t.fbChargedDate || (t.cardDate ? new Date(t.cardDate) : null) || null,
         fbChargedDate: t.fbChargedDate || null,
+        // For Google invoice date: prefer explicit invGGDate, else cardDate or cardChargedAt
+        invGGDate: t.invGGDate || (t.cardDate ? new Date(t.cardDate) : null) || t.cardChargedAt || null,
+        cardDate: t.cardDate || null,
         fbChargedAmount: t.fbChargedAmount || null,
         // หมายเหตุ
         notes: t.notes || '-',
@@ -287,7 +292,8 @@ router.patch('/ledger/:id', async (req, res) => {
     }
 
             const { cardNumber, cardTime, cardDate, prepaid, coupon, invGG, invFB,
-              fbToppedUp, fbTopupCardId, fbTopupAmount, fbClickAmount, amount,
+              invGGDate,
+              fbToppedUp, fbTopupCardId, fbTopupAmount, fbTopupDate, fbClickAmount, amount,
               cardCharged, fbChargedDate, fbChargedAmount,
               wht3click, wht2svc, wht2click, wht3svc, vat36, vat30 } = req.body;
     const updateData = {};
@@ -302,6 +308,8 @@ router.patch('/ledger/:id', async (req, res) => {
     // Facebook Ads flow fields
     if (fbToppedUp !== undefined) updateData.fbToppedUp = Boolean(fbToppedUp);
     if (fbTopupCardId !== undefined) updateData.fbTopupCardId = fbTopupCardId || null;
+    if (fbTopupDate !== undefined) updateData.fbTopupDate = fbTopupDate ? new Date(fbTopupDate) : null;
+    if (invGGDate !== undefined) updateData.invGGDate = invGGDate ? new Date(invGGDate) : null;
     if (cardCharged !== undefined) {
       updateData.cardCharged = Boolean(cardCharged);
       // ถ้าเพิ่งตั้งเป็น true และยังไม่มี cardChargedAt ให้ set เวลาปัจจุบัน

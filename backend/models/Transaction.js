@@ -14,6 +14,7 @@ const transactionSchema = new mongoose.Schema({
   prepaid: { type: Number }, // สำรอง (override)
   coupon: { type: Number }, // คูปอง (override)
   invGG: { type: Number }, // Inv. Gg (override)
+  invGGDate: { type: Date }, // วันที่บันทึก Invoice Google
   invFB: { type: Number }, // Inv. Fb (override)
   slipImage: { type: String }, // URL ของรูปสลิป/หลักฐาน (Cloudinary หรือ local path)
   cloudinaryId: { type: String }, // Cloudinary public_id สำหรับลบภายหลัง
@@ -38,6 +39,7 @@ const transactionSchema = new mongoose.Schema({
   // Facebook Ads flow
   fbToppedUp: { type: Boolean, default: false },       // เติมเงินเข้าบัตรแล้ว รอ FB ตัด
   fbTopupCardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Card' }, // บัตรที่เติมเงิน
+  fbTopupDate: { type: Date },                         // วันที่เติมเงินเข้า (จากฟอร์มเติมเงิน)
   fbChargedDate: { type: Date },                        // วันที่ FB ตัดเงิน
   fbChargedAmount: { type: Number }                     // ยอดที่ FB ตัดจริง
 }, { timestamps: true });
