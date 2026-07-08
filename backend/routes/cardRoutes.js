@@ -244,7 +244,8 @@ router.post('/cards/charge', async (req, res) => {
       // ถ้า step นี้ล้มเหลว MongoDB จะ rollback [1] และ [2] ทั้งคู่อัตโนมัติ
       // skipMarkCharged=true: ใช้สำหรับ Facebook Ads ตอนเติมเงิน (ยังไม่ตัดจริง)
       if (reference && !skipMarkCharged) {
-        await Transaction.findByIdAndUpdate(reference, {
+        // Update transaction: mark charged and sync breakdowns if breakdowns provided
+        const txUpdate = {
           cardCharged: true,
           cardChargedAt: new Date(),
           cardChargedBy: user.id,
@@ -252,7 +253,41 @@ router.post('/cards/charge', async (req, res) => {
           cardNumber: card.last4 || card.displayName,
           cardTime: chargeTime || '',
           cardDate: chargeDate || ''
-        }, { session });
+        };
+        await Transaction.findByIdAndUpdate(reference, txUpdate, { session });
+
+        // If breakdowns provided in request, update transaction.breakdowns accordingly (upsert amounts)
+        if (Array.isArray(breakdowns) && breakdowns.length > 0) {
+          const trx = await Transaction.findById(reference).session(session);
+          if (trx) {
+            if (!Array.isArray(trx.breakdowns)) trx.breakdowns = [];
+            for (const bd of breakdowns) {
+              const code = String(bd.code);
+              const numeric = Math.round((Number(bd.amount) || 0) * 100) / 100;
+              const idx = trx.breakdowns.findIndex(b => String(b.code) === code);
+              if (idx >= 0) {
+                trx.breakdowns[idx].amount = numeric;
+              } else if (numeric !== 0) {
+                trx.breakdowns.push({ code, amount: numeric, statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
+              }
+            }
+            await trx.save({ session });
+          }
+        } else if (String(channel).toLowerCase() === 'facebook ads') {
+          // If no breakdowns provided but it's a Facebook charge, set code '11' (ค่าคลิก) to charged amount
+          const trx = await Transaction.findById(reference).session(session);
+          if (trx) {
+            if (!Array.isArray(trx.breakdowns)) trx.breakdowns = [];
+            const idx = trx.breakdowns.findIndex(b => String(b.code) === '11');
+            const numeric = Math.round((Number(numericAmount) || 0) * 100) / 100;
+            if (idx >= 0) {
+              trx.breakdowns[idx].amount = numeric;
+            } else if (numeric !== 0) {
+              trx.breakdowns.push({ code: '11', amount: numeric, statusNote: 'รอบันทึกบัญชี', isAutoVat: false });
+            }
+            await trx.save({ session });
+          }
+        }
       }
     });
   } catch (err) {
