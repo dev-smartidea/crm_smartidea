@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircleFill, Google, Facebook, Search, CashCoin, Wallet, Eye, Upload, XCircle } from 'react-bootstrap-icons';
+import { CheckCircleFill, Google, Facebook, Search, CashCoin, Wallet, Eye, Upload, XCircle, PencilFill, XCircleFill } from 'react-bootstrap-icons';
 import toast from '../../utils/toast';
 import { formatCurrency, formatDate, formatNumber, getBankBadgeClass, getBreakdownLabel, TRANSACTION_PAGE_SIZE, TRANSACTION_API_LIMIT, MAX_SLIP_FILE_SIZE } from '../../utils/transactionHelpers';
 import './ApprovedTransactionsPage.css';
@@ -14,6 +15,10 @@ export default function ApprovedTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [viewSlip, setViewSlip] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  const [processingId, setProcessingId] = useState(null);
+  const [editTx, setEditTx] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [savingEdit, setSavingEdit] = useState(false);
   
   // Pagination
   const pageSize = TRANSACTION_PAGE_SIZE;
@@ -23,10 +28,11 @@ export default function ApprovedTransactionsPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [transactionIdQuery, setTransactionIdQuery] = useState('');
+  const [submitterQuery, setSubmitterQuery] = useState('');
   
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
+  const navigate = useNavigate();
 
   const triggerUploadFor = (txId) => {
     const el = document.getElementById(`slip-input-${txId}`);
@@ -115,21 +121,78 @@ export default function ApprovedTransactionsPage() {
       result = result.filter(tx => tx.serviceId?.customerId?._id === selectedCustomerId);
     }
     
-    // กรองตาม Transaction ID
-    if (transactionIdQuery.trim()) {
-      const q = transactionIdQuery.trim().toLowerCase();
-      result = result.filter(tx => tx._id?.toLowerCase().includes(q));
+    // กรองตาม user ที่ส่ง
+    if (submitterQuery.trim()) {
+      const q = submitterQuery.trim().toLowerCase();
+      result = result.filter(tx => tx.submittedBy?.name?.toLowerCase().includes(q));
     }
     
     setFilteredTransactions(result);
     setCurrentPage(1);
-  }, [transactions, selectedCustomerId, transactionIdQuery]);
+  }, [transactions, selectedCustomerId, submitterQuery]);
 
   // ฟังก์ชันล้างค่าการค้นหา
   const handleClearFilters = () => {
     setSelectedCustomerId('');
     setCustomerQuery('');
-    setTransactionIdQuery('');
+    setSubmitterQuery('');
+  };
+
+  // ยกเลิกรายการ (เปลี่ยนสถานะเป็น rejected)
+  const handleReject = async (txId) => {
+    if (!window.confirm('ยืนยันยกเลิกรายการนี้?\nรายการจะถูกเปลี่ยนสถานะเป็น "ปฏิเสธ" และหายออกจากหน้านี้')) return;
+    try {
+      setProcessingId(txId);
+      await axios.put(`${api}/api/transactions/${txId}/reject`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('ยกเลิกรายการสำเร็จ');
+      navigate('../alltransactions');
+    } catch (e) {
+      const msg = e?.response?.data?.error || 'ยกเลิกรายการไม่สำเร็จ';
+      toast.error(msg);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // เปิด Modal แก้ไข
+  const handleEditOpen = (tx) => {
+    setEditTx(tx);
+    setEditForm({
+      amount: tx.amount ?? '',
+      transactionDate: tx.transactionDate ? tx.transactionDate.split('T')[0] : '',
+      transactionTime: tx.transactionTime || '',
+      bank: tx.bank || '',
+      notes: tx.notes || ''
+    });
+  };
+
+  // บันทึกการแก้ไข
+  const handleEditSave = async () => {
+    if (!editTx) return;
+    if (!editForm.amount || Number(editForm.amount) <= 0) {
+      toast.warning('กรุณากรอกจำนวนเงินที่ถูกต้อง');
+      return;
+    }
+    try {
+      setSavingEdit(true);
+      await axios.put(`${api}/api/transactions/${editTx._id}`, {
+        amount: Number(editForm.amount),
+        transactionDate: editForm.transactionDate,
+        transactionTime: editForm.transactionTime,
+        bank: editForm.bank,
+        notes: editForm.notes
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('แก้ไขรายการสำเร็จ');
+      setEditTx(null);
+      fetchAllData();
+    } catch (e) {
+      const msg = e?.response?.data?.error || e?.response?.data?.detail || 'แก้ไขรายการไม่สำเร็จ';
+      toast.error(msg);
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   useEffect(() => {
@@ -253,23 +316,23 @@ export default function ApprovedTransactionsPage() {
               </div>
             </div>
 
-            {/* ค้นหาตาม Transaction ID */}
+            {/* ค้นหาตาม user ที่ส่ง */}
             <div className="filter-group">
               <label className="filter-label">
                 <Search size={16} />
-                ค้นหาตาม Transaction ID
+                ค้นหาตาม user ที่ส่ง
               </label>
               <input
                 type="text"
                 className="combobox-input"
-                placeholder="พิมพ์ Transaction ID..."
-                value={transactionIdQuery}
-                onChange={(e) => setTransactionIdQuery(e.target.value)}
+                placeholder="พิมพ์ชื่อ user ที่ส่ง..."
+                value={submitterQuery}
+                onChange={(e) => setSubmitterQuery(e.target.value)}
               />
             </div>
 
             {/* ปุ่มล้างค่าการค้นหา */}
-            {(selectedCustomerId || transactionIdQuery) && (
+            {(selectedCustomerId || submitterQuery) && (
               <div className="filter-group" style={{ alignSelf: 'flex-end' }}>
                 <button
                   className="btn-clear-filters"
@@ -300,7 +363,7 @@ export default function ApprovedTransactionsPage() {
           <div className="empty-state" style={{ textAlign: 'center', padding: '64px 24px' }}>
             <CheckCircleFill size={64} color="var(--color-border-hover)" />
             <p style={{ fontSize: '1.1rem', fontWeight: '600', color: 'var(--color-text-secondary)', marginTop: '16px' }}>ไม่พบรายการที่อนุมัติ</p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-placeholder)' }}>{(selectedCustomerId || transactionIdQuery) ? 'ลองเปลี่ยนเงื่อนไขการค้นหา หรือล้างตัวกรอง' : 'รายการที่ผ่านการอนุมัติจะแสดงที่นี่'}</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-placeholder)' }}>{(selectedCustomerId || submitterQuery) ? 'ลองเปลี่ยนเงื่อนไขการค้นหา หรือล้างตัวกรอง' : 'รายการที่ผ่านการอนุมัติจะแสดงที่นี่'}</p>
           </div>
         ) : (
           <>
@@ -439,7 +502,7 @@ export default function ApprovedTransactionsPage() {
                   </div>
 
                   {/* Status Badge */}
-                  <div style={{ textAlign: 'center' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '12px' }}>
                     <span style={{
                       display: 'inline-block',
                       padding: '8px 16px',
@@ -452,6 +515,62 @@ export default function ApprovedTransactionsPage() {
                     }}>
                       ✓ อนุมัติแล้ว
                     </span>
+                  </div>
+
+                  {/* Edit & Cancel Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={() => handleEditOpen(tx)}
+                      disabled={processingId === tx._id}
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '8px 0',
+                        background: 'var(--color-primary)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'opacity 0.2s',
+                        opacity: processingId === tx._id ? 0.6 : 1
+                      }}
+                      onMouseOver={e => e.currentTarget.style.opacity = '0.85'}
+                      onMouseOut={e => e.currentTarget.style.opacity = '1'}
+                    >
+                      <PencilFill size={13} /> แก้ไข
+                    </button>
+                    <button
+                      onClick={() => handleReject(tx._id)}
+                      disabled={processingId === tx._id}
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '8px 0',
+                        background: processingId === tx._id ? 'var(--color-text-muted)' : 'var(--color-danger)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        cursor: processingId === tx._id ? 'not-allowed' : 'pointer',
+                        transition: 'opacity 0.2s',
+                        opacity: processingId === tx._id ? 0.6 : 1
+                      }}
+                      onMouseOver={e => { if (processingId !== tx._id) e.currentTarget.style.opacity = '0.85'; }}
+                      onMouseOut={e => e.currentTarget.style.opacity = '1'}
+                    >
+                      {processingId === tx._id
+                        ? <><span className="spinner" style={{ width: '12px', height: '12px' }} /> กำลังดำเนินการ...</>
+                        : <><XCircleFill size={13} /> ยกเลิก</>}
+                    </button>
                   </div>
                 </div>
               ))}
@@ -505,6 +624,166 @@ export default function ApprovedTransactionsPage() {
           </>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editTx && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', zIndex: 10001
+          }}
+          onClick={() => setEditTx(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--color-bg-card, white)',
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '90%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '18px 22px', borderBottom: '1px solid var(--color-border)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <PencilFill size={18} color="var(--color-primary)" />
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700' }}>แก้ไขรายการ</h3>
+              </div>
+              <button onClick={() => setEditTx(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '1.4rem', lineHeight: 1 }}>
+                <XCircle />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+              {/* Amount */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: '6px' }}>จำนวนเงิน (บาท)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editForm.amount}
+                  onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px',
+                    border: '1px solid var(--color-border)', fontSize: '1rem',
+                    background: 'var(--color-bg-input, white)', color: 'var(--color-text-primary)',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Date & Time */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: '6px' }}>วันที่โอน</label>
+                  <input
+                    type="date"
+                    value={editForm.transactionDate}
+                    onChange={e => setEditForm(f => ({ ...f, transactionDate: e.target.value }))}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid var(--color-border)', fontSize: '0.9rem',
+                      background: 'var(--color-bg-input, white)', color: 'var(--color-text-primary)',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: '6px' }}>เวลาที่โอน</label>
+                  <input
+                    type="time"
+                    value={editForm.transactionTime}
+                    onChange={e => setEditForm(f => ({ ...f, transactionTime: e.target.value }))}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid var(--color-border)', fontSize: '0.9rem',
+                      background: 'var(--color-bg-input, white)', color: 'var(--color-text-primary)',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Bank */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: '6px' }}>ธนาคาร</label>
+                <select
+                  value={editForm.bank}
+                  onChange={e => setEditForm(f => ({ ...f, bank: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px',
+                    border: '1px solid var(--color-border)', fontSize: '0.9rem',
+                    background: 'var(--color-bg-input, white)', color: 'var(--color-text-primary)',
+                    boxSizing: 'border-box', cursor: 'pointer'
+                  }}
+                >
+                  {['KBANK', 'SCB', 'BBL', 'KTB', 'TTB', 'BAY', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'].map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: '6px' }}>หมายเหตุ</label>
+                <textarea
+                  rows={3}
+                  value={editForm.notes}
+                  onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="หมายเหตุ (ถ้ามี)"
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '8px',
+                    border: '1px solid var(--color-border)', fontSize: '0.9rem',
+                    background: 'var(--color-bg-input, white)', color: 'var(--color-text-primary)',
+                    boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              display: 'flex', gap: '10px', padding: '16px 22px',
+              borderTop: '1px solid var(--color-border)', justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => setEditTx(null)}
+                disabled={savingEdit}
+                style={{
+                  padding: '10px 20px', borderRadius: '8px',
+                  border: '1px solid var(--color-border)', background: 'transparent',
+                  color: 'var(--color-text-secondary)', fontWeight: '600',
+                  cursor: 'pointer', fontSize: '0.9rem'
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={savingEdit}
+                style={{
+                  padding: '10px 24px', borderRadius: '8px', border: 'none',
+                  background: savingEdit ? 'var(--color-text-muted)' : 'var(--color-primary)',
+                  color: 'white', fontWeight: '600', cursor: savingEdit ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px'
+                }}
+              >
+                {savingEdit ? <><span className="spinner" style={{ width: '14px', height: '14px' }} /> กำลังบันทึก...</> : 'บันทึก'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Slip Modal - อยู่นอก container เพื่อให้ z-index ทำงานถูกต้อง */}
       {viewSlip && (
