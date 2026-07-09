@@ -861,7 +861,7 @@ export default function AccountFacebookPage() {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
                 <div style={{ width: 140 }}>
                   <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>เวลาที่ตัด</label>
-                  <input type="text" placeholder="08:00" maxLength={5} value={fbRecordTime} onChange={e => setFbRecordTime(e.target.value.replace(/[^0-9:]/g, ''))} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
+                  <input type="text" placeholder="08:00" maxLength={5} value={fbRecordTime} onChange={e => setFbRecordTime(e.target.value.replace(/\./g, ':').replace(/[^0-9:]/g, ''))} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>ยอดเติมเงิน</label>
