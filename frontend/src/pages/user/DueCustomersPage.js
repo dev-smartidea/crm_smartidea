@@ -168,7 +168,8 @@ export default function DueCustomersPage() {
       return true;
     });
 
-  const activeFilteredServices = filteredServices.filter(s => s.status !== 'ไม่ต่ออายุ');
+  const inactiveStatuses = ['ไม่ต่ออายุ', 'หยุดโฆษณา'];
+  const activeFilteredServices = filteredServices.filter(s => !inactiveStatuses.includes(s.status));
   const totalCount      = activeFilteredServices.length;
   const paidCount       = activeFilteredServices.filter(s => s.lastTransaction).length;
   const unpaidCount     = totalCount - paidCount;
@@ -401,8 +402,9 @@ export default function DueCustomersPage() {
                   );
                   // ระยะเวลา #2 = ระยะเวลาของการต่ออายุ (durationMonths ปัจจุบัน หลังต่ออายุ)
                   const dur2    = durationLabel(svc.durationMonths);
+                  const isStopped = svc.status === 'หยุดโฆษณา';
                   return (
-                    <tr key={svc._id} className={`${renewed ? 'row-renewed' : ''} ${svc.status === 'ไม่ต่ออายุ' ? 'row-cancelled' : ''}`}>
+                    <tr key={svc._id} className={`${renewed ? 'row-renewed' : ''} ${svc.status === 'ไม่ต่ออายุ' ? 'row-cancelled' : ''} ${isStopped ? 'row-stopped' : ''}`}>
                       <td className="col-center row-num">{globalIdx + 1}</td>
 
                       {/* ผู้ดูแล — แสดงเฉพาะ admin */}
@@ -493,9 +495,9 @@ export default function DueCustomersPage() {
                           <span title={svc.notes || ''} style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '130px' }}>
                             {svc.notes || '-'}
                           </span>
-                          {svc.status === 'ไม่ต่ออายุ' ? (
+                          {svc.status === 'ไม่ต่ออายุ' || svc.status === 'หยุดโฆษณา' ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span className="badge" style={{ fontSize: '0.72rem', padding: '2px 6px', color: '#fff', backgroundColor: '#dc3545', borderRadius: '4px', fontWeight: 'bold' }}>ไม่ต่ออายุ</span>
+                              <span className="badge" style={{ fontSize: '0.72rem', padding: '2px 6px', color: '#fff', backgroundColor: isStopped ? '#6c757d' : '#dc3545', borderRadius: '4px', fontWeight: 'bold' }}>{svc.status}</span>
                               <button 
                                 className="btn-undo-renew" 
                                 style={{ padding: 0, fontSize: '0.72rem', color: '#1a73e8', border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'underline' }}
@@ -506,21 +508,42 @@ export default function DueCustomersPage() {
                             </div>
                           ) : (
                             !tx && (
-                              <button 
-                                className="btn-no-renew" 
-                                style={{ 
-                                  fontSize: '0.7rem',
-                                  padding: '2px 6px',
-                                  color: '#dc3545',
-                                  border: '1px solid #dc3545',
-                                  borderRadius: '4px',
-                                  backgroundColor: 'transparent',
-                                  cursor: 'pointer'
-                                }}
-                                onClick={() => handleUpdateStatus(svc._id, 'ไม่ต่ออายุ')}
-                              >
-                                ไม่ต่ออายุ
-                              </button>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button 
+                                  className="btn-no-renew" 
+                                  style={{ 
+                                    fontSize: '0.7rem',
+                                    padding: '2px 6px',
+                                    color: '#dc3545',
+                                    border: '1px solid #dc3545',
+                                    borderRadius: '4px',
+                                    backgroundColor: 'transparent',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => handleUpdateStatus(svc._id, 'ไม่ต่ออายุ')}
+                                >
+                                  ไม่ต่ออายุ
+                                </button>
+
+                                <button
+                                  className="btn-stop-ads"
+                                  style={{
+                                    fontSize: '0.7rem',
+                                    padding: '2px 6px',
+                                    color: '#fff',
+                                    border: '1px solid #28a745',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#28a745',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => {
+                                    const ok = window.confirm('คุณแน่ใจหรือไม่ว่าต้องการหยุดโฆษณาสำหรับบริการนี้?');
+                                    if (ok) handleUpdateStatus(svc._id, 'หยุดโฆษณา');
+                                  }}
+                                >
+                                  หยุดโฆษณา
+                                </button>
+                              </div>
                             )
                           )}
                         </div>
