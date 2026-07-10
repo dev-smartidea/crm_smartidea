@@ -169,7 +169,26 @@ export default function AccountDashboardPage() {
         const dashboardData = dashboardRes.data;
         
         const cards = cardsRes.data || [];
-        const totalCardBalance = cards.reduce((sum, c) => sum + (c.balance || 0), 0);
+        // Deduplicate shared cards (1000 / 1018 / 1026) so their balance counts only once
+        const sharedBalanceCards = ['1000', '1018', '1026'];
+        const masterCard = cards.find(c => c.last4 === '1000');
+        let totalCardBalance = 0;
+        if (masterCard) {
+          const seenShared = new Set();
+          for (const c of cards) {
+            if (sharedBalanceCards.includes(c.last4)) {
+              if (!seenShared.has('shared-1000')) {
+                totalCardBalance += Number(masterCard.balance || 0);
+                seenShared.add('shared-1000');
+              }
+            } else {
+              totalCardBalance += Number(c.balance || 0);
+            }
+          }
+        } else {
+          totalCardBalance = cards.reduce((sum, c) => sum + Number(c.balance || 0), 0);
+        }
+
         const activeCardCount = cards.filter(c => c.status === 'active').length;
         
         setTotalCards(cards.length);

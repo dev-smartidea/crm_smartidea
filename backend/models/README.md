@@ -303,4 +303,4 @@ Collection: `auditlogs`
 **ค่า action ที่รองรับ:**
 `login`, `logout`, `create_user`, `delete_user`, `reset_password`, `change_role`, `create_customer`, `delete_customer`, `reassign_customer`, `create_service`, `update_service`, `delete_service`, `create_transaction`, `update_transaction`, `delete_transaction`, `approve_transaction`, `reject_transaction`, `impersonate`, `backup`
 
-แก้ไข md / เพิ่มลูกค้าหน้า ledgar / เพิ่ม invGg / แก้ acc ledgar ให้ fix column / แก้ไข acc หน้า approve ให้ ปุ่มแก้ไขได้ / เพิ่มช่องค้นหาตาม cid หน้า approve acc / ทำให้สามารถใส่ . แทน  : / / ทำให้สามารถใส่ . แทน  : หน้า AccountFacebookPage.js และ AccountGooglePage.js
+แก้ไข md / เพิ่มลูกค้าหน้า ledgar / เพิ่ม invGg / แก้ acc ledgar ให้ fix column / แก้ไข acc หน้า approve ให้ ปุ่มแก้ไขได้ / เพิ่มช่องค้นหาตาม cid หน้า approve acc / ทำให้สามารถใส่ . แทน  : / / ทำให้สามารถใส่ . แทน  : หน้า AccountFacebookPage.js และ AccountGooglePage.js / แก้ไขยอดเงินในบัตรคงเหลือรวม
