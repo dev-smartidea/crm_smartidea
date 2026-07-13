@@ -18,6 +18,9 @@ const transactionSchema = new mongoose.Schema({
   invFB: { type: Number }, // Inv. Fb (override)
   slipImage: { type: String }, // URL ของรูปสลิป/หลักฐาน (Cloudinary หรือ local path)
   cloudinaryId: { type: String }, // Cloudinary public_id สำหรับลบภายหลัง
+  // รองรับสลิปที่สอง (สำรอง/เพิ่มเติม)
+  slipImage2: { type: String },
+  cloudinaryId2: { type: String },
   bank: { type: String, enum: ['KBANK', 'SCB', 'BBL', 'KTB', 'TTB', 'BAY', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'], required: true }, // บัญชีธนาคาร
   // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
   breakdowns: [{

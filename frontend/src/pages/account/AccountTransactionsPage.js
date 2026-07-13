@@ -304,15 +304,15 @@ export default function AccountTransactionsPage() {
                       <div>
                         ส่งโดย: <strong style={{ color: '#64748b' }}>{tx.submittedBy?.name || '-'}</strong>
                       </div>
-                      {tx.slipImage ? (
-                        <button
-                          className="btn-slip-view"
-                          onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
-                          style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-                        >
-                          <Eye size={12} /> ดูสลิป
-                        </button>
-                      ) : (
+                                      {tx.slipImage || tx.slipImage2 ? (
+                                        <button
+                                          className="btn-slip-view"
+                                          onClick={() => setViewSlip({ id: tx._id, urls: [tx.slipImage, tx.slipImage2].filter(Boolean) })}
+                                          style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                                        >
+                                          <Eye size={12} /> ดูสลิป
+                                        </button>
+                                      ) : (
                         <>
                           <button
                             className="btn-slip-upload"
@@ -397,10 +397,23 @@ export default function AccountTransactionsPage() {
               </button>
             </div>
             <div className="modal-body slip-modal-body">
-              <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+              {viewSlip?.urls?.map((u, idx) => (
+                <img key={idx} src={getImageUrl(u, api)} alt={`สลิปโอนเงิน ${idx + 1}`} style={{ width: '100%', height: 'auto', display: 'block', marginBottom: '8px' }} />
+              ))}
             </div>
             <div className="modal-footer slip-modal-footer">
               <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} aria-label="เลือกไฟล์สลิปใหม่" />
+              <input id="modal-slip2-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && viewSlip?.id) {
+                  // upload as second slip (PUT supports two files)
+                  const formData = new FormData();
+                  formData.append('slipImage2', file);
+                  axios.put(`${api}/api/transactions/${viewSlip.id}`, formData, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+                    .then(() => fetchSubmitted())
+                    .catch(() => toast.error('อัปโหลดสลิปไม่สำเร็จ'));
+                }
+              }} />
               <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()}>
                 <Upload /> อัปโหลดภาพใหม่
               </button>

@@ -43,8 +43,10 @@ export default function AllTransactionPage() {
     notes: '',
     bank: 'KBANK',
     slipImage: null,
+    slipImage2: null,
   });
   const [slipPreview, setSlipPreview] = useState(null);
+  const [slipPreview2, setSlipPreview2] = useState(null);
   // searchable customer combobox in create form
   const [formCustomerQuery, setFormCustomerQuery] = useState('');
   const [showFormCustomerDropdown, setShowFormCustomerDropdown] = useState(false);
@@ -407,6 +409,8 @@ export default function AllTransactionPage() {
 
     let sharedSlipUrl = null;
     let sharedCloudinaryId = null;
+    let sharedSlipUrl2 = null;
+    let sharedCloudinaryId2 = null;
     const errors = [];
     let successCount = 0;
 
@@ -420,11 +424,15 @@ export default function AllTransactionPage() {
         formData.append('notes', form.notes || '');
         formData.append('bank', form.bank);
 
-        if (i === 0 && form.slipImage) {
-          formData.append('slipImage', form.slipImage);
+        // attach up to two slip files for the first entry; otherwise reuse shared URLs
+        if (i === 0) {
+          if (form.slipImage) formData.append('slipImage', form.slipImage);
+          if (form.slipImage2) formData.append('slipImage2', form.slipImage2);
         } else if (sharedSlipUrl) {
           formData.append('slipImageUrl', sharedSlipUrl);
           if (sharedCloudinaryId) formData.append('slipCloudinaryId', sharedCloudinaryId);
+          if (sharedSlipUrl2) formData.append('slipImageUrl2', sharedSlipUrl2);
+          if (sharedCloudinaryId2) formData.append('slipCloudinaryId2', sharedCloudinaryId2);
         }
 
         const cleaned = (entry.breakdowns || [])
@@ -441,9 +449,15 @@ export default function AllTransactionPage() {
             { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
           );
 
-          if (i === 0 && res.data?.slipImage) {
-            sharedSlipUrl = res.data.slipImage;
-            sharedCloudinaryId = res.data.cloudinaryId || null;
+          if (i === 0) {
+            if (res.data?.slipImage) {
+              sharedSlipUrl = res.data.slipImage;
+              sharedCloudinaryId = res.data.cloudinaryId || null;
+            }
+            if (res.data?.slipImage2) {
+              sharedSlipUrl2 = res.data.slipImage2;
+              sharedCloudinaryId2 = res.data.cloudinaryId2 || null;
+            }
           }
           successCount++;
         } catch (entryErr) {
@@ -498,6 +512,7 @@ export default function AllTransactionPage() {
       notes: '',
       bank: 'KBANK',
       slipImage: null,
+      slipImage2: null,
     });
     setSlipPreview(null);
     setFormCustomerQuery('');
@@ -510,6 +525,16 @@ export default function AllTransactionPage() {
       setForm({ ...form, slipImage: file });
       const reader = new FileReader();
       reader.onloadend = () => setSlipPreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSlip2Change = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setForm({ ...form, slipImage2: file });
+      const reader = new FileReader();
+      reader.onloadend = () => setSlipPreview2(reader.result);
       reader.readAsDataURL(file);
     }
   };
@@ -675,12 +700,27 @@ export default function AllTransactionPage() {
           </button>
         </div>
         <div className="modal-body slip-modal-body">
-          <img src={getImageUrl(viewSlip?.url, api)} alt="สลิปโอนเงิน" style={{ width: '100%', height: 'auto', display: 'block' }} />
+          {viewSlip?.urls?.map((u, idx) => (
+            <img key={idx} src={getImageUrl(u, api)} alt={`สลิปโอนเงิน ${idx + 1}`} style={{ width: '100%', height: 'auto', display: 'block', marginBottom: '8px' }} />
+          ))}
         </div>
         <div className="modal-footer slip-modal-footer">
           <input id="modal-slip-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleModalUploadChange} />
+          <input id="modal-slip2-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && viewSlip?.id) {
+              const formData = new FormData();
+              formData.append('slipImage2', file);
+              axios.put(`${api}/api/transactions/${viewSlip.id}`, formData, { headers: { Authorization: `Bearer ${token}` } })
+                .then(() => fetchAllData())
+                .catch(() => alert('อัปโหลดสลิปไม่สำเร็จ'));
+            }
+          }} />
           <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip-input').click()}>
             <Upload /> อัปโหลดภาพใหม่
+          </button>
+          <button className="btn-action-upload" onClick={() => document.getElementById('modal-slip2-input').click()}>
+            <Upload /> อัปโหลดภาพ (รูปที่ 2)
           </button>
           <button className="btn-action-delete" onClick={handleDeleteSlip}>
             ลบสลิป
@@ -1035,10 +1075,10 @@ export default function AllTransactionPage() {
                         </span>
                       </td>
                       <td>
-                        {tx.slipImage ? (
+                        {tx.slipImage || tx.slipImage2 ? (
                           <button
                             className="btn-slip-view"
-                            onClick={() => setViewSlip({ id: tx._id, url: tx.slipImage })}
+                            onClick={() => setViewSlip({ id: tx._id, urls: [tx.slipImage, tx.slipImage2].filter(Boolean) })}
                             title="ดูรายละเอียดสลิปโอนเงิน"
                           >
                             <Eye /> ดูสลิป
@@ -1506,23 +1546,48 @@ export default function AllTransactionPage() {
                   onDragLeave={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#fafafa'; }}
                   onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) { setForm({ ...form, slipImage: file }); const reader = new FileReader(); reader.onloadend = () => setSlipPreview(reader.result); reader.readAsDataURL(file); } }}>
                   <input type="file" accept="image/*" onChange={handleSlipChange} style={{ display: 'none' }} id="slip-upload-input" />
+                  <input type="file" accept="image/*" onChange={handleSlip2Change} style={{ display: 'none' }} id="slip-upload2-input" />
                   <label htmlFor="slip-upload-input" style={{ cursor: 'pointer', display: 'block' }}>
                     <Upload size={28} style={{ color: '#94a3b8', marginBottom: '8px' }} />
                     <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '500' }}>คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</p>
                     <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>รองรับไฟล์ JPG, PNG, GIF, WEBP (สูงสุด 5MB)</p>
                   </label>
+                  <div style={{ marginTop: '8px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button type="button" onClick={() => document.getElementById('slip-upload-input').click()} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer' }}>
+                      <Upload style={{ verticalAlign: 'middle', marginRight: '6px' }} /> เลือกสลิปหลัก
+                    </button>
+                    <button type="button" onClick={() => document.getElementById('slip-upload2-input').click()} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer' }}>
+                      <Upload style={{ verticalAlign: 'middle', marginRight: '6px' }} /> เพิ่มรูปสลิป (รูปที่ 2)
+                    </button>
+                  </div>
                 </div>
                 
-                {slipPreview && (
-                  <div style={{ marginTop: '12px', position: 'relative', display: 'inline-block' }}>
-                    <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '220px', maxHeight: '220px', borderRadius: '10px', border: '3px solid #3b82f6', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                    <button type="button" onClick={removeSlipPreview}
-                      style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '16px', boxShadow: '0 2px 8px rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      ×
-                    </button>
-                    <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(59,130,246,0.9)', color: '#fff', padding: '2px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
-                      สลิปที่เลือก
-                    </div>
+                {(slipPreview || slipPreview2) && (
+                  <div style={{ marginTop: '12px', display: 'flex', gap: '12px' }}>
+                    {slipPreview && (
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <img src={slipPreview} alt="ตัวอย่างสลิป" style={{ maxWidth: '220px', maxHeight: '220px', borderRadius: '10px', border: '3px solid #3b82f6', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                        <button type="button" onClick={removeSlipPreview}
+                          style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '16px', boxShadow: '0 2px 8px rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          ×
+                        </button>
+                        <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(59,130,246,0.9)', color: '#fff', padding: '2px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
+                          สลิปที่เลือก
+                        </div>
+                      </div>
+                    )}
+                    {slipPreview2 && (
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <img src={slipPreview2} alt="ตัวอย่างสลิป2" style={{ maxWidth: '220px', maxHeight: '220px', borderRadius: '10px', border: '3px solid #3b82f6', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                        <button type="button" onClick={() => { setForm({ ...form, slipImage2: null }); setSlipPreview2(null); }}
+                          style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '16px', boxShadow: '0 2px 8px rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          ×
+                        </button>
+                        <div style={{ position: 'absolute', bottom: '8px', left: '8px', background: 'rgba(59,130,246,0.9)', color: '#fff', padding: '2px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
+                          สลิปที่ 2
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

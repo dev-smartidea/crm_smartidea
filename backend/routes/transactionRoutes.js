@@ -381,6 +381,13 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
           needsSave = true;
         }
       }
+      if (tx.slipImage2 && !tx.slipImage2.startsWith('http')) {
+        const fullPath2 = path.join(__dirname, '..', tx.slipImage2);
+        if (!fileExists(fullPath2)) {
+          tx.slipImage2 = null;
+          needsSave = true;
+        }
+      }
     }
 
     // บันทึกการเปลี่ยนแปลงถ้ามี
@@ -454,16 +461,22 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       return res.status(400).json({ error: 'Amount must be a positive number' });
     }
 
-  // ถ้ามีการอัปโหลดสลิป อัปโหลดไปยัง Cloudinary
-  const uploadedFile = (req.file || (Array.isArray(req.files) ? req.files[0] : null));
+  // ถ้ามีการอัปโหลดสลิป อัปโหลดไปยัง Cloudinary (รองรับ 2 ไฟล์)
+  const uploadedFiles = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
+  const fileMap = {};
+  uploadedFiles.forEach(f => { if (f && f.fieldname) fileMap[f.fieldname] = f; });
+  const uploadedFile1 = fileMap['slipImage'] || null;
+  const uploadedFile2 = fileMap['slipImage2'] || null;
   let slipImage = null;
   let cloudinaryId = null;
+  let slipImage2 = null;
+  let cloudinaryId2 = null;
 
-  if (uploadedFile) {
+  if (uploadedFile1) {
     try {
-      const cloudinaryResult = await uploadToCloudinary(uploadedFile.buffer, {
+      const cloudinaryResult = await uploadToCloudinary(uploadedFile1.buffer, {
         folder: 'crm_smartidea/slips',
-        original_filename: uploadedFile.originalname
+        original_filename: uploadedFile1.originalname
       });
       slipImage = cloudinaryResult.secure_url;
       cloudinaryId = cloudinaryResult.public_id;
@@ -472,9 +485,25 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       return res.status(500).json({ error: 'Failed to upload slip image', detail: cloudinaryError.message });
     }
   } else if (req.body.slipImageUrl) {
-    // ใช้ URL ของสลิปที่อัปโหลดแล้วจากรายการก่อนหน้า (กรณีสลิปเดียวหลายบริการ)
     slipImage = req.body.slipImageUrl;
     cloudinaryId = req.body.slipCloudinaryId || null;
+  }
+
+  if (uploadedFile2) {
+    try {
+      const cloudinaryResult2 = await uploadToCloudinary(uploadedFile2.buffer, {
+        folder: 'crm_smartidea/slips',
+        original_filename: uploadedFile2.originalname
+      });
+      slipImage2 = cloudinaryResult2.secure_url;
+      cloudinaryId2 = cloudinaryResult2.public_id;
+    } catch (cloudinaryError) {
+      console.error('Cloudinary upload error (2):', cloudinaryError);
+      return res.status(500).json({ error: 'Failed to upload second slip image', detail: cloudinaryError.message });
+    }
+  } else if (req.body.slipImageUrl2) {
+    slipImage2 = req.body.slipImageUrl2;
+    cloudinaryId2 = req.body.slipCloudinaryId2 || null;
   }
 
     const transaction = new Transaction({
@@ -487,6 +516,8 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       notes: notes || '',
       slipImage,
       cloudinaryId,
+      slipImage2,
+      cloudinaryId2,
       bank,
       breakdowns: breakdowns && breakdowns.length ? breakdowns : undefined
     });
@@ -514,21 +545,37 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
 
     // ถ้ามีสลิป -> เพิ่มรายการเข้าคลังรูปภาพด้วย
     try {
-      if (slipImage) {
-        // หา customer name
+      if (slipImage || slipImage2) {
         const customer = await Customer.findById(service.customerId).select('name');
         const svcNameRaw = service.serviceType || service.name || '';
-        // map ให้ตรง enum ของคลังรูปภาพ
         const svcName = /facebook/i.test(svcNameRaw) ? 'Facebook Ads' : 'Google Ads';
         const amountFormatted = parseFloat(amount).toLocaleString('th-TH', { minimumFractionDigits: 2 });
-        await Image.create({
-          customerName: customer?.name || 'Unknown',
-          service: svcName,
-          imageUrl: slipImage,
-          cloudinaryId: cloudinaryId,
-          description: `สลิปโอนเงิน จำนวน ${amountFormatted} บาท (${new Date(transactionDate).toLocaleDateString('th-TH')})`,
-          userId: user.id
-        });
+
+        if (slipImage) {
+          await Image.create({
+            customerName: customer?.name || 'Unknown',
+            service: svcName,
+            imageUrl: slipImage,
+            cloudinaryId: cloudinaryId,
+            description: `สลิปโอนเงิน จำนวน ${amountFormatted} บาท (${new Date(transactionDate).toLocaleDateString('th-TH')})`,
+            userId: user.id
+          });
+        }
+
+        if (slipImage2) {
+          try {
+            await Image.create({
+              customerName: customer?.name || 'Unknown',
+              service: svcName,
+              imageUrl: slipImage2,
+              cloudinaryId: cloudinaryId2,
+              description: `สลิปโอนเงิน (รูป2) จำนวน ${amountFormatted} บาท (${new Date(transactionDate).toLocaleDateString('th-TH')})`,
+              userId: user.id
+            });
+          } catch (e) {
+            console.error('Create gallery image for slipImage2 failed:', e.message);
+          }
+        }
       }
     } catch (e) {
       console.error('Create gallery image from slip failed:', e.message);
@@ -611,40 +658,58 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
       }
     }
 
-    // ถ้ามีการอัปโหลดสลิปใหม่
-    const uploadedFile = (req.file || (Array.isArray(req.files) ? req.files[0] : null));
-    if (uploadedFile) {
-      // ลบสลิปเก่าจาก Cloudinary (ถ้ามี)
+    // ถ้ามีการอัปโหลดสลิปใหม่ (รองรับ fieldname 'slipImage' และ 'slipImage2')
+    const uploadedFiles = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
+    const fileMap = {};
+    uploadedFiles.forEach(f => { if (f && f.fieldname) fileMap[f.fieldname] = f; });
+    const uploadedFile1 = fileMap['slipImage'] || null;
+    const uploadedFile2 = fileMap['slipImage2'] || null;
+    if (uploadedFile1 || uploadedFile2) {
+      // ลบสลิปเก่าจาก Cloudinary (ถ้ามี) - ทั้งสองช่อง
       if (tx.cloudinaryId) {
-        try {
-          await deleteFromCloudinary(tx.cloudinaryId);
-        } catch (e) {
-          console.warn('Delete old Cloudinary slip failed:', e.message);
-        }
+        try { await deleteFromCloudinary(tx.cloudinaryId); } catch (e) { console.warn('Delete old Cloudinary slip failed:', e.message); }
       }
       if (tx.slipImage) {
-        // ลบรูปเก่าจากคลังรูปภาพ
+        try { await Image.deleteMany({ imageUrl: tx.slipImage }); } catch (e) { console.warn('Delete old gallery image failed:', e.message); }
+      }
+      if (tx.cloudinaryId2) {
+        try { await deleteFromCloudinary(tx.cloudinaryId2); } catch (e) { console.warn('Delete old Cloudinary slip2 failed:', e.message); }
+      }
+      if (tx.slipImage2) {
+        try { await Image.deleteMany({ imageUrl: tx.slipImage2 }); } catch (e) { console.warn('Delete old gallery image2 failed:', e.message); }
+      }
+
+      // อัปโหลดสลิปใหม่ตัวแรก (ถ้ามี)
+      if (uploadedFile1) {
         try {
-          await Image.deleteMany({ imageUrl: tx.slipImage });
-        } catch (e) {
-          console.warn('Delete old gallery image failed:', e.message);
+          const cloudinaryResult = await uploadToCloudinary(uploadedFile1.buffer, {
+            folder: 'crm_smartidea/slips',
+            original_filename: uploadedFile1.originalname
+          });
+          update.slipImage = cloudinaryResult.secure_url;
+          update.cloudinaryId = cloudinaryResult.public_id;
+        } catch (cloudinaryError) {
+          console.error('Cloudinary upload error on update (1):', cloudinaryError);
+          return res.status(500).json({ error: 'Failed to upload slip image', detail: cloudinaryError.message });
         }
       }
 
-      // อัปโหลดสลิปใหม่ไปยัง Cloudinary
-      try {
-        const cloudinaryResult = await uploadToCloudinary(uploadedFile.buffer, {
-          folder: 'crm_smartidea/slips',
-          original_filename: uploadedFile.originalname
-        });
-        update.slipImage = cloudinaryResult.secure_url;
-        update.cloudinaryId = cloudinaryResult.public_id;
-      } catch (cloudinaryError) {
-        console.error('Cloudinary upload error on update:', cloudinaryError);
-        return res.status(500).json({ error: 'Failed to upload slip image', detail: cloudinaryError.message });
+      // ถ้ามีไฟล์ตัวที่สอง ให้ upload ด้วย
+      if (uploadedFile2) {
+        try {
+          const cloudinaryResult2 = await uploadToCloudinary(uploadedFile2.buffer, {
+            folder: 'crm_smartidea/slips',
+            original_filename: uploadedFile2.originalname
+          });
+          update.slipImage2 = cloudinaryResult2.secure_url;
+          update.cloudinaryId2 = cloudinaryResult2.public_id;
+        } catch (cloudinaryError) {
+          console.error('Cloudinary upload error on update (2):', cloudinaryError);
+          return res.status(500).json({ error: 'Failed to upload second slip image', detail: cloudinaryError.message });
+        }
       }
 
-      // เพิ่มรูปใหม่เข้าคลังรูปภาพ
+      // เพิ่มรูปใหม่เข้าคลังรูปภาพ (ทั้งสองรูปถ้ามี)
       try {
         const svcDoc = await Service.findById(tx.serviceId);
         if (svcDoc) {
@@ -652,14 +717,12 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
           const svcName = /facebook/i.test(svcDoc.serviceType || svcDoc.name || '') ? 'Facebook Ads' : 'Google Ads';
           const txAmount = update.amount || tx.amount;
           const amountFormatted = parseFloat(txAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 });
-          await Image.create({
-            customerName: customer?.name || 'Unknown',
-            service: svcName,
-            imageUrl: update.slipImage,
-            cloudinaryId: update.cloudinaryId,
-            description: `สลิปโอนเงิน จำนวน ${amountFormatted} บาท`,
-            userId: user.id
-          });
+          if (update.slipImage) {
+            await Image.create({ customerName: customer?.name || 'Unknown', service: svcName, imageUrl: update.slipImage, cloudinaryId: update.cloudinaryId, description: `สลิปโอนเงิน จำนวน ${amountFormatted} บาท`, userId: user.id });
+          }
+          if (update.slipImage2) {
+            await Image.create({ customerName: customer?.name || 'Unknown', service: svcName, imageUrl: update.slipImage2, cloudinaryId: update.cloudinaryId2, description: `สลิปโอนเงิน (รูป2) จำนวน ${amountFormatted} บาท`, userId: user.id });
+          }
         }
       } catch (e) {
         console.error('Upsert gallery image from updated slip failed:', e.message);
@@ -710,17 +773,20 @@ router.delete('/transactions/:id/slip', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // ลบทั้งสองสลิปจาก Cloudinary และคลังรูปภาพ (ถ้ามี)
     if (tx.slipImage) {
-      // ลบจาก Cloudinary (ถ้ามี)
-      if (tx.cloudinaryId) {
-        try { await deleteFromCloudinary(tx.cloudinaryId); } catch (e) { console.warn('delete cloudinary slip failed:', e.message); }
-      }
-      // ลบจากคลังรูปภาพด้วย
+      if (tx.cloudinaryId) { try { await deleteFromCloudinary(tx.cloudinaryId); } catch (e) { console.warn('delete cloudinary slip failed:', e.message); } }
       try { await Image.deleteMany({ imageUrl: tx.slipImage }); } catch (e) { console.warn('delete gallery slip failed:', e.message); }
+    }
+    if (tx.slipImage2) {
+      if (tx.cloudinaryId2) { try { await deleteFromCloudinary(tx.cloudinaryId2); } catch (e) { console.warn('delete cloudinary slip2 failed:', e.message); } }
+      try { await Image.deleteMany({ imageUrl: tx.slipImage2 }); } catch (e) { console.warn('delete gallery slip2 failed:', e.message); }
     }
 
     tx.slipImage = null;
     tx.cloudinaryId = null;
+    tx.slipImage2 = null;
+    tx.cloudinaryId2 = null;
     await tx.save();
     res.json({ success: true, transaction: tx });
   } catch (err) {
