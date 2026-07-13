@@ -8,6 +8,7 @@ import './AccountCardsPage.css';
 export default function AccountCardDailySummaryPage() {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedRange, setSelectedRange] = useState(null); // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
   const [charges, setCharges] = useState([]);
   const [topups, setTopups] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -17,24 +18,54 @@ export default function AccountCardDailySummaryPage() {
   const api = process.env.REACT_APP_API_URL;
   const token = localStorage.getItem('token');
 
+  // helper: get array of YYYY-MM-DD between two dates inclusive
+  const getDatesBetween = (startDate, endDate) => {
+    const res = [];
+    const cur = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    while (cur <= end) {
+      res.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate() + 1);
+    }
+    return res;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${api}/api/cards/daily-summary`, {
-          params: { date: selectedDate },
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setCharges(res.data.charges || []);
-        setTopups(res.data.topups || []);
+        if (selectedRange && selectedRange.start && selectedRange.end) {
+          const dates = getDatesBetween(selectedRange.start, selectedRange.end);
+          const requests = dates.map(d => axios.get(`${api}/api/cards/daily-summary`, {
+            params: { date: d }, headers: { Authorization: `Bearer ${token}` }
+          }));
+          const results = await Promise.all(requests);
+          let allCharges = [];
+          let allTopups = [];
+          results.forEach(r => {
+            allCharges = allCharges.concat(r.data.charges || []);
+            allTopups = allTopups.concat(r.data.topups || []);
+          });
+          setCharges(allCharges);
+          setTopups(allTopups);
+        } else {
+          const res = await axios.get(`${api}/api/cards/daily-summary`, {
+            params: { date: selectedDate },
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setCharges(res.data.charges || []);
+          setTopups(res.data.topups || []);
+        }
       } catch (err) {
         // error handled by empty state UI
+        setCharges([]);
+        setTopups([]);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [api, token, selectedDate]);
+  }, [api, token, selectedDate, selectedRange]);
 
   const totalCharge = charges.reduce((sum, c) => sum + c.amount, 0);
   const totalTopup = topups.reduce((sum, t) => sum + t.amount, 0);
@@ -65,11 +96,43 @@ export default function AccountCardDailySummaryPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, selectedDate]);
+  }, [activeTab, selectedDate, selectedRange]);
+
+  // quick filters: single date or range ({start,end})
+  const todayStr = new Date().toISOString().split('T')[0];
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  // week: start = Monday
+  const getWeekStart = (d) => {
+    const date = new Date(d);
+    const day = date.getDay(); // 0 Sun .. 6 Sat
+    const diff = (day === 0 ? -6 : 1 - day); // adjust so Monday is start
+    date.setDate(date.getDate() + diff);
+    return date.toISOString().split('T')[0];
+  };
+  const getWeekEnd = (d) => {
+    const start = new Date(getWeekStart(d));
+    start.setDate(start.getDate() + 6);
+    return start.toISOString().split('T')[0];
+  };
+  const getMonthStart = (d) => {
+    const date = new Date(d);
+    date.setDate(1);
+    return date.toISOString().split('T')[0];
+  };
+  const getMonthEnd = (d) => {
+    const date = new Date(d);
+    date.setMonth(date.getMonth() + 1);
+    date.setDate(0);
+    return date.toISOString().split('T')[0];
+  };
 
   const quickDates = [
-    { label: 'วันนี้', value: new Date().toISOString().split('T')[0] },
-    { label: 'เมื่อวาน', value: new Date(Date.now() - 86400000).toISOString().split('T')[0] },
+    { label: 'วันนี้', value: todayStr },
+    { label: 'เมื่อวาน', value: yesterdayStr },
+    { label: 'สัปดาห์นี้', range: { start: getWeekStart(todayStr), end: getWeekEnd(todayStr) } },
+    { label: 'สัปดาห์ที่แล้ว', range: (() => { const d = new Date(); d.setDate(d.getDate() - 7); const s = getWeekStart(d.toISOString().split('T')[0]); return { start: s, end: getWeekEnd(s) }; })() },
+    { label: 'เดือนนี้', range: { start: getMonthStart(todayStr), end: getMonthEnd(todayStr) } },
+    { label: 'เดือนที่แล้ว', range: (() => { const d = new Date(); d.setMonth(d.getMonth() - 1); const s = getMonthStart(d.toISOString().split('T')[0]); return { start: s, end: getMonthEnd(s) }; })() }
   ];
 
   return (
@@ -105,28 +168,42 @@ export default function AccountCardDailySummaryPage() {
         }}>
           <Calendar3 size={16} style={{ color: '#737373' }} />
           <span style={{ fontSize: '14px', fontWeight: '600' }}>วันที่:</span>
-          {quickDates.map(d => (
-            <button
-              key={d.value}
-              onClick={() => setSelectedDate(d.value)}
-              style={{
-                padding: '4px 12px',
-                borderRadius: '4px',
-                border: selectedDate === d.value ? '1px solid #171717' : '1px solid #e5e5e5',
-                background: selectedDate === d.value ? '#171717' : '#fff',
-                color: selectedDate === d.value ? '#fff' : '#525252',
-                fontSize: '13px',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}
-            >
-              {d.label}
-            </button>
-          ))}
+          {quickDates.map((d, idx) => {
+            const isRange = !!d.range;
+            const isActive = isRange
+              ? (selectedRange && selectedRange.start === d.range.start && selectedRange.end === d.range.end)
+              : selectedDate === d.value && !selectedRange;
+            return (
+              <button
+                key={d.label + idx}
+                onClick={() => {
+                  if (isRange) {
+                    setSelectedRange(d.range);
+                    setSelectedDate(d.range.start);
+                  } else {
+                    setSelectedRange(null);
+                    setSelectedDate(d.value);
+                  }
+                }}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '4px',
+                  border: isActive ? '1px solid #171717' : '1px solid #e5e5e5',
+                  background: isActive ? '#171717' : '#fff',
+                  color: isActive ? '#fff' : '#525252',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                {d.label}
+              </button>
+            );
+          })}
           <input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => { setSelectedRange(null); setSelectedDate(e.target.value); }}
             style={{
               padding: '5px 10px',
               border: '1px solid #e5e5e5',
