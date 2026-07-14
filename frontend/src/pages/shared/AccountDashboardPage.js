@@ -201,7 +201,7 @@ export default function AccountDashboardPage() {
         
         const [ledgerResult, transactionResult] = await Promise.allSettled([
           axios.get(`${api}/api/cards/ledger/all`, authHeaders),
-          axios.get(`${api}/api/transactions`, authHeaders)
+          axios.get(`${api}/api/transactions?limit=1000`, authHeaders)
         ]);
 
         if (ledgerResult.status === 'fulfilled') {
