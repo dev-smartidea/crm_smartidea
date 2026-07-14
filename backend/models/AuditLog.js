@@ -31,7 +31,7 @@ const auditLogSchema = new mongoose.Schema(
     },
     target: { type: String, default: '' },   // ชื่อ/id object ที่ถูกกระทำ
     detail: { type: String, default: '' },   // รายละเอียดเพิ่มเติม
-    ip:     { type: String, default: '' },
+    ip: { type: String, default: '' },
   },
   { timestamps: true }
 );

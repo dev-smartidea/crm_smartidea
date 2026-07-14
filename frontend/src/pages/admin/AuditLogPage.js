@@ -1,17 +1,32 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FaArrowLeft, FaSearch, FaFilter } from 'react-icons/fa';
+import { FaArrowLeft, FaSearch, FaFilter, FaUndo } from 'react-icons/fa';
+import toast from '../../utils/toast';
 import './AuditLogPage.css';
 
 const ACTION_LABELS = {
-  login:              { label: 'เข้าสู่ระบบ',    color: '#16a34a' },
-  create_user:        { label: 'สร้างผู้ใช้',     color: '#2563eb' },
-  delete_user:        { label: 'ลบผู้ใช้',        color: '#dc2626' },
-  reset_password:     { label: 'รีเซ็ตรหัสผ่าน', color: '#d97706' },
-  create_customer:    { label: 'เพิ่มลูกค้า',    color: '#0891b2' },
-  delete_customer:    { label: 'ลบลูกค้า',       color: '#dc2626' },
-  reassign_customer:  { label: 'โยกลูกค้า',      color: '#7c3aed' },
+  login:              { label: 'เข้าสู่ระบบ',           color: '#16a34a' },
+  logout:             { label: 'ออกจากระบบ',             color: '#6b7280' },
+  create_user:        { label: 'สร้างผู้ใช้',             color: '#2563eb' },
+  delete_user:        { label: 'ลบผู้ใช้',               color: '#dc2626' },
+  reset_password:     { label: 'รีเซ็ตรหัสผ่าน',         color: '#d97706' },
+  change_role:        { label: 'เปลี่ยน Role',            color: '#7c3aed' },
+  create_customer:    { label: 'เพิ่มลูกค้า',            color: '#0891b2' },
+  delete_customer:    { label: 'ลบลูกค้า',               color: '#dc2626' },
+  reassign_customer:  { label: 'โยกลูกค้า',              color: '#7c3aed' },
+  create_service:     { label: 'สร้างบริการ',             color: '#2563eb' },
+  update_service:     { label: 'แก้ไขบริการ',             color: '#d97706' },
+  delete_service:     { label: 'ลบบริการ',               color: '#dc2626' },
+  create_transaction: { label: 'สร้างรายการโอน',          color: '#0891b2' },
+  update_transaction: { label: 'แก้ไขรายการโอน',          color: '#d97706' },
+  delete_transaction: { label: 'ลบรายการโอน',            color: '#dc2626' },
+  approve_transaction:{ label: 'อนุมัติรายการ',           color: '#16a34a' },
+  reject_transaction: { label: 'ปฏิเสธรายการ',           color: '#dc2626' },
+  bulk_approve:       { label: 'อนุมัติหลายรายการ',       color: '#10b981' },
+  rollback_approve:   { label: 'ย้อนคืนการอนุมัติกลุ่ม', color: '#ef4444' },
+  impersonate:        { label: 'เข้าสู่ระบบแทนผู้ใช้',   color: '#f59e0b' },
+  backup:             { label: 'สำรองข้อมูล',             color: '#8b5cf6' },
 };
 
 const PAGE_SIZE = 20;
@@ -26,6 +41,7 @@ function AuditLogPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rollbackingId, setRollbackingId] = useState(null);
 
   // Filters
   const [filterUsername, setFilterUsername] = useState('');
@@ -66,12 +82,46 @@ function AuditLogPage() {
     fetchLogs(1);
   };
 
+  const handleRollback = async (log) => {
+    // parse id count from detail
+    let count = 0;
+    try {
+      const parsed = JSON.parse(log.detail);
+      count = (parsed.ids || []).length;
+    } catch {}
+    if (!window.confirm(
+      `ยืนยันย้อนกลับ (Rollback) การอนุมัติกลุ่มนี้?\n\nรายการ ${count} รายการ จะถูกเปลี่ยนกลับเป็น "รออนุมัติ" และจะกลับไปแสดงที่หน้ารายการที่ส่งมาบัญชี\n\nดำเนินการนี้ไม่สามารถยกเลิกได้`
+    )) return;
+    try {
+      setRollbackingId(log._id);
+      const res = await axios.post(`${api}/api/audit/${log._id}/rollback`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(`Rollback สำเร็จ: ย้อนคืน ${res.data.revertedCount} รายการ กลับเป็น "รออนุมัติ" เรียบร้อยแล้ว`);
+      fetchLogs(page);
+    } catch (err) {
+      const msg = err?.response?.data?.error || 'Rollback ไม่สำเร็จ';
+      toast.error(msg);
+    } finally {
+      setRollbackingId(null);
+    }
+  };
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const formatDate = (iso) => {
     const d = new Date(iso);
     return d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })
       + ' ' + d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
+  const getCountFromDetail = (detail) => {
+    try {
+      const parsed = JSON.parse(detail);
+      return (parsed.ids || []).length;
+    } catch {
+      return null;
+    }
   };
 
   return (
@@ -133,15 +183,18 @@ function AuditLogPage() {
               <th>เป้าหมาย</th>
               <th>รายละเอียด</th>
               <th>IP</th>
+              <th>จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="audit-empty">กำลังโหลด...</td></tr>
+              <tr><td colSpan={7} className="audit-empty">กำลังโหลด...</td></tr>
             ) : logs.length === 0 ? (
-              <tr><td colSpan={6} className="audit-empty">ไม่มีข้อมูล</td></tr>
+              <tr><td colSpan={7} className="audit-empty">ไม่มีข้อมูล</td></tr>
             ) : logs.map(log => {
               const act = ACTION_LABELS[log.action] || { label: log.action, color: '#6b7280' };
+              const isBulkApprove = log.action === 'bulk_approve';
+              const txCount = isBulkApprove ? getCountFromDetail(log.detail) : null;
               return (
                 <tr key={log._id}>
                   <td className="audit-td-date">{formatDate(log.createdAt)}</td>
@@ -152,8 +205,31 @@ function AuditLogPage() {
                     </span>
                   </td>
                   <td>{log.target || '–'}</td>
-                  <td className="audit-td-detail">{log.detail || '–'}</td>
+                  <td className="audit-td-detail">
+                    {isBulkApprove && txCount !== null
+                      ? <span style={{ color: '#10b981', fontWeight: 600 }}>อนุมัติ {txCount} รายการพร้อมกัน</span>
+                      : log.action === 'rollback_approve'
+                        ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{log.detail ? (() => { try { const p = JSON.parse(log.detail); return `ย้อนคืน ${p.revertedCount} รายการ`; } catch { return log.detail; } })() : '–'}</span>
+                        : (log.detail || '–')
+                    }
+                  </td>
                   <td className="audit-td-ip">{log.ip || '–'}</td>
+                  <td>
+                    {isBulkApprove && (
+                      <button
+                        className="audit-rollback-btn"
+                        onClick={() => handleRollback(log)}
+                        disabled={rollbackingId === log._id}
+                        title="ย้อนคืนรายการทั้งหมดในกลุ่มนี้กลับเป็น รออนุมัติ"
+                      >
+                        {rollbackingId === log._id
+                          ? <span className="audit-spinner" />
+                          : <FaUndo />
+                        }
+                        {rollbackingId === log._id ? ' กำลัง...' : ' Rollback'}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               );
             })}
@@ -174,3 +250,4 @@ function AuditLogPage() {
 }
 
 export default AuditLogPage;
+

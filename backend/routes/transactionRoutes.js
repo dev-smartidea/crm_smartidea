@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const Transaction = require('../models/Transaction');
 const Service = require('../models/Service');
-const Customer = require('../models/Customer'); 
+const Customer = require('../models/Customer');
 const Image = require('../models/Image');
 const Notification = require('../models/Notification');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
@@ -105,7 +105,7 @@ router.get('/transactions', async (req, res) => {
     const funded = req.query.funded;
 
     let query;
-    
+
     const isPanAdmin = user.email === 'pan@smartidea.co.th' || user.email === 'maill@mail.com' || user.id === '6a2b7767e3ea12ab437922ad';
     const SPECIAL_CUSTOMER_AASA1 = '6a2bab3dc553037ec104a5a1';
 
@@ -226,11 +226,11 @@ router.put('/transactions/:id/submit', async (req, res) => {
       const Notification = require('../models/Notification');
       const Service = require('../models/Service');
       const Customer = require('../models/Customer');
-      
+
       const accountUsers = await User.find({ role: { $in: ['account', 'admin'] } });
       const service = await Service.findById(tx.serviceId);
       const customer = service ? await Customer.findById(service.customerId).select('name') : null;
-      
+
       for (const accountUser of accountUsers) {
         await Notification.create({
           userId: accountUser._id,
@@ -336,10 +336,10 @@ router.put('/transactions/:id/reject', async (req, res) => {
       const Notification = require('../models/Notification');
       const Service = require('../models/Service');
       const Customer = require('../models/Customer');
-      
+
       const service = await Service.findById(tx.serviceId);
       const customer = service ? await Customer.findById(service.customerId).select('name') : null;
-      
+
       if (tx.submittedBy) {
         await Notification.create({
           userId: tx.submittedBy,
@@ -389,7 +389,7 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
     const currentUser = await getCurrentUser(user);
     const ownsService = isServiceOwner(user, service, currentUser);
     const ownsCustomer = service.customerId && service.customerId.userIds.includes(user.id);
-    
+
     if (!isAdmin && !isGoogleAdmin && !isFacebookAdmin && !isSpecialCustomerAccess && !ownsService && !ownsCustomer) {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -432,7 +432,7 @@ router.get('/services/:serviceId/transactions', async (req, res) => {
 // POST /api/services/:serviceId/transactions - เพิ่มรายการโอนเงินใหม่ (พร้อมอัปโหลดสลิป)
 router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req, res) => {
   try {
-    
+
     const user = getUserFromReq(req);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -453,32 +453,32 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-  const { amount, transactionDate, transactionTime, notes, bank } = req.body || {};
-  // แปลง breakdowns จาก string -> array (ถ้ามี)
-  let breakdowns = [];
-  if (req.body && typeof req.body.breakdowns !== 'undefined') {
-    try {
-      const raw = typeof req.body.breakdowns === 'string' ? JSON.parse(req.body.breakdowns) : req.body.breakdowns;
-      if (Array.isArray(raw)) {
-        breakdowns = raw
-          .map(it => ({
-            code: String(it.code || '').trim(),
-            amount: Number(it.amount),
-            statusNote: String(it.statusNote || '').trim(),
-            isAutoVat: Boolean(it.isAutoVat)
-          }))
-          .filter(it => ALLOWED_BREAKDOWN_CODES.includes(it.code) &&
-                        !Number.isNaN(it.amount) && it.amount !== null &&
-                        ALLOWED_STATUS_NOTES.includes(it.statusNote));
+    const { amount, transactionDate, transactionTime, notes, bank } = req.body || {};
+    // แปลง breakdowns จาก string -> array (ถ้ามี)
+    let breakdowns = [];
+    if (req.body && typeof req.body.breakdowns !== 'undefined') {
+      try {
+        const raw = typeof req.body.breakdowns === 'string' ? JSON.parse(req.body.breakdowns) : req.body.breakdowns;
+        if (Array.isArray(raw)) {
+          breakdowns = raw
+            .map(it => ({
+              code: String(it.code || '').trim(),
+              amount: Number(it.amount),
+              statusNote: String(it.statusNote || '').trim(),
+              isAutoVat: Boolean(it.isAutoVat)
+            }))
+            .filter(it => ALLOWED_BREAKDOWN_CODES.includes(it.code) &&
+              !Number.isNaN(it.amount) && it.amount !== null &&
+              ALLOWED_STATUS_NOTES.includes(it.statusNote));
+        }
+      } catch (e) {
+        // ถ้า parse ไม่ได้ ให้ข้ามโดยไม่บล็อคการสร้างหลัก
+        console.warn('Invalid breakdowns payload (ignored):', e.message);
       }
-    } catch (e) {
-      // ถ้า parse ไม่ได้ ให้ข้ามโดยไม่บล็อคการสร้างหลัก
-      console.warn('Invalid breakdowns payload (ignored):', e.message);
     }
-  }
-    
+
     if (!amount || !transactionDate) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Amount and transaction date are required'
       });
     }
@@ -488,50 +488,50 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       return res.status(400).json({ error: 'Amount must be a positive number' });
     }
 
-  // ถ้ามีการอัปโหลดสลิป อัปโหลดไปยัง Cloudinary (รองรับ 2 ไฟล์)
-  const uploadedFiles = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
-  const fileMap = {};
-  uploadedFiles.forEach(f => { if (f && f.fieldname) fileMap[f.fieldname] = f; });
-  const uploadedFile1 = fileMap['slipImage'] || null;
-  const uploadedFile2 = fileMap['slipImage2'] || null;
-  let slipImage = null;
-  let cloudinaryId = null;
-  let slipImage2 = null;
-  let cloudinaryId2 = null;
+    // ถ้ามีการอัปโหลดสลิป อัปโหลดไปยัง Cloudinary (รองรับ 2 ไฟล์)
+    const uploadedFiles = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
+    const fileMap = {};
+    uploadedFiles.forEach(f => { if (f && f.fieldname) fileMap[f.fieldname] = f; });
+    const uploadedFile1 = fileMap['slipImage'] || null;
+    const uploadedFile2 = fileMap['slipImage2'] || null;
+    let slipImage = null;
+    let cloudinaryId = null;
+    let slipImage2 = null;
+    let cloudinaryId2 = null;
 
-  if (uploadedFile1) {
-    try {
-      const cloudinaryResult = await uploadToCloudinary(uploadedFile1.buffer, {
-        folder: 'crm_smartidea/slips',
-        original_filename: uploadedFile1.originalname
-      });
-      slipImage = cloudinaryResult.secure_url;
-      cloudinaryId = cloudinaryResult.public_id;
-    } catch (cloudinaryError) {
-      console.error('Cloudinary upload error:', cloudinaryError);
-      return res.status(500).json({ error: 'Failed to upload slip image', detail: cloudinaryError.message });
+    if (uploadedFile1) {
+      try {
+        const cloudinaryResult = await uploadToCloudinary(uploadedFile1.buffer, {
+          folder: 'crm_smartidea/slips',
+          original_filename: uploadedFile1.originalname
+        });
+        slipImage = cloudinaryResult.secure_url;
+        cloudinaryId = cloudinaryResult.public_id;
+      } catch (cloudinaryError) {
+        console.error('Cloudinary upload error:', cloudinaryError);
+        return res.status(500).json({ error: 'Failed to upload slip image', detail: cloudinaryError.message });
+      }
+    } else if (req.body.slipImageUrl) {
+      slipImage = req.body.slipImageUrl;
+      cloudinaryId = req.body.slipCloudinaryId || null;
     }
-  } else if (req.body.slipImageUrl) {
-    slipImage = req.body.slipImageUrl;
-    cloudinaryId = req.body.slipCloudinaryId || null;
-  }
 
-  if (uploadedFile2) {
-    try {
-      const cloudinaryResult2 = await uploadToCloudinary(uploadedFile2.buffer, {
-        folder: 'crm_smartidea/slips',
-        original_filename: uploadedFile2.originalname
-      });
-      slipImage2 = cloudinaryResult2.secure_url;
-      cloudinaryId2 = cloudinaryResult2.public_id;
-    } catch (cloudinaryError) {
-      console.error('Cloudinary upload error (2):', cloudinaryError);
-      return res.status(500).json({ error: 'Failed to upload second slip image', detail: cloudinaryError.message });
+    if (uploadedFile2) {
+      try {
+        const cloudinaryResult2 = await uploadToCloudinary(uploadedFile2.buffer, {
+          folder: 'crm_smartidea/slips',
+          original_filename: uploadedFile2.originalname
+        });
+        slipImage2 = cloudinaryResult2.secure_url;
+        cloudinaryId2 = cloudinaryResult2.public_id;
+      } catch (cloudinaryError) {
+        console.error('Cloudinary upload error (2):', cloudinaryError);
+        return res.status(500).json({ error: 'Failed to upload second slip image', detail: cloudinaryError.message });
+      }
+    } else if (req.body.slipImageUrl2) {
+      slipImage2 = req.body.slipImageUrl2;
+      cloudinaryId2 = req.body.slipCloudinaryId2 || null;
     }
-  } else if (req.body.slipImageUrl2) {
-    slipImage2 = req.body.slipImageUrl2;
-    cloudinaryId2 = req.body.slipCloudinaryId2 || null;
-  }
 
     const transaction = new Transaction({
       serviceId: service._id,
@@ -674,8 +674,8 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
               isAutoVat: Boolean(it.isAutoVat)
             }))
             .filter(it => ALLOWED_BREAKDOWN_CODES.includes(it.code) &&
-                          !Number.isNaN(it.amount) && it.amount !== null &&
-                          ALLOWED_STATUS_NOTES.includes(it.statusNote));
+              !Number.isNaN(it.amount) && it.amount !== null &&
+              ALLOWED_STATUS_NOTES.includes(it.statusNote));
         } else {
           delete update.breakdowns; // invalid payload -> ignore
         }
@@ -757,21 +757,21 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     }
 
     const transaction = await Transaction.findByIdAndUpdate(req.params.id, update, { new: true })
-        .populate({
-          path: 'serviceId',
-          select: 'name customerId',
-          populate: { path: 'customerId', select: 'name' }
-        });
+      .populate({
+        path: 'serviceId',
+        select: 'name customerId',
+        populate: { path: 'customerId', select: 'name' }
+      });
 
     if (!transaction) return res.status(404).json({ error: 'Transaction not found' });
-    
+
     // จัดรูปแบบข้อมูลให้ตรงกับที่ frontend ต้องการ
     const formatted = {
       ...transaction.toObject(),
       customerName: transaction.serviceId?.customerId?.name || '-',
       serviceName: transaction.serviceId?.name || '-'
     };
-    
+
     res.json(formatted);
   } catch (err) {
     console.error('Update transaction error:', err);

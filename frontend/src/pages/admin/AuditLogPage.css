@@ -213,3 +213,53 @@
   .audit-filter-bar { flex-direction: column; align-items: stretch; }
   .audit-filter-group { width: 100%; }
 }
+
+/* Rollback Button */
+.audit-rollback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.audit-rollback-btn:hover:not(:disabled) {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.25);
+}
+
+.audit-rollback-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.audit-rollback-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Inline Spinner for rollback button */
+.audit-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fca5a5;
+  border-top-color: #dc2626;
+  border-radius: 50%;
+  animation: audit-spin 0.7s linear infinite;
+}
+
+@keyframes audit-spin {
+  to { transform: rotate(360deg); }
+}
+
