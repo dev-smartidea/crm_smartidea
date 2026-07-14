@@ -971,3 +971,43 @@ input[type="time"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Bulk Approve Button */
+.btn-bulk-approve {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-bulk-approve:hover:not(:disabled) {
+  background: #ffffff;
+  color: #10b981;
+  border-color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15), 0 0 12px rgba(255, 255, 255, 0.4);
+}
+
+.btn-bulk-approve:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-bulk-approve:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.15);
+  cursor: not-allowed;
+  box-shadow: none;
+}

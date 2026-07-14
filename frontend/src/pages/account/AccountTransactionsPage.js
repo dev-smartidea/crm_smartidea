@@ -71,6 +71,30 @@ export default function AccountTransactionsPage() {
     }
   };
 
+  const handleBulkApprove = async () => {
+    const approvableItems = items.filter(tx => tx.slipImage);
+    if (approvableItems.length === 0) {
+      toast.warning('ไม่มีรายการที่มีสลิปที่สามารถอนุมัติได้');
+      return;
+    }
+
+    if (!window.confirm(`ยืนยันอนุมัติรายการทั้งหมดที่พร้อม ${approvableItems.length} รายการ?`)) return;
+
+    try {
+      setLoading(true);
+      const ids = approvableItems.map(tx => tx._id);
+      await axios.put(`${api}/api/transactions/bulk-approve`, { ids }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('อนุมัติรายการทั้งหมดสำเร็จ');
+      fetchSubmitted();
+    } catch (e) {
+      toast.error(e?.response?.data?.error || 'อนุมัติทั้งหมดไม่สำเร็จ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleReject = async (txId) => {
     if (!window.confirm('ยืนยันปฏิเสธรายการนี้?')) return;
     try {
@@ -157,6 +181,8 @@ export default function AccountTransactionsPage() {
     );
   }
 
+  const readyCount = items.filter(tx => tx.slipImage).length;
+
   return (
     <div className="all-transaction-page fade-up">
       <div className="transaction-container">
@@ -170,7 +196,15 @@ export default function AccountTransactionsPage() {
             </div>
           </div>
           {items.length > 0 && (
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button
+                className="btn-bulk-approve"
+                onClick={handleBulkApprove}
+                disabled={readyCount === 0}
+                title={readyCount === 0 ? 'ไม่มีรายการที่มีภาพสลิปที่รออนุมัติ' : `อนุมัติทั้งหมดที่พร้อม (${readyCount} รายการ)`}
+              >
+                <CheckCircle size={18} /> อนุมัติทั้งหมด ({readyCount})
+              </button>
               <div className="summary-card" style={{ minWidth: '160px', padding: '10px 14px' }}>
                 <CashCoin size={20} />
                 <div>

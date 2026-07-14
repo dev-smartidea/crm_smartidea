@@ -289,6 +289,33 @@ router.put('/transactions/:id/approve', async (req, res) => {
   }
 });
 
+// PUT /api/transactions/bulk-approve - อนุมัติหลายรายการพร้อมกัน (เฉพาะ account/admin)
+router.put('/transactions/bulk-approve', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (user.role !== 'account' && user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Only account/admin can approve' });
+    }
+
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Invalid or empty transaction IDs list' });
+    }
+
+    // อัปเดตทุกรายการที่มี ID อยู่ในลิสต์ และมีสถานะ submissionStatus เป็น submitted
+    const result = await Transaction.updateMany(
+      { _id: { $in: ids }, submissionStatus: 'submitted' },
+      { $set: { submissionStatus: 'approved' } }
+    );
+
+    res.json({ success: true, modifiedCount: result.modifiedCount });
+  } catch (err) {
+    console.error('Bulk approve transactions failed:', err);
+    res.status(500).json({ error: 'Bulk approve failed' });
+  }
+});
+
 // PUT /api/transactions/:id/reject - ปฏิเสธรายการ (เฉพาะ account/admin)
 router.put('/transactions/:id/reject', async (req, res) => {
   try {
