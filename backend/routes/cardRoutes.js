@@ -529,7 +529,6 @@ router.get('/cards/:id/ledger', async (req, res) => {
 
     const ledger = await CardLedger.find({ cardId: req.params.id })
       .sort({ createdAt: -1 })
-      .limit(50)
       .populate('createdBy', 'name email')
       .populate('serviceId', 'name cid customerId');
 
@@ -625,16 +624,24 @@ router.get('/cards/daily-summary', async (req, res) => {
     const { date } = req.query; // YYYY-MM-DD
     if (!date) return res.status(400).json({ error: 'date is required' });
 
-    const dayStart = new Date(date + 'T00:00:00.000Z');
-    const dayEnd = new Date(date + 'T23:59:59.999Z');
+    // Parse YYYY-MM-DD into local-day boundaries to match UI expectations
+    // Avoid using the 'Z' suffix which forces UTC and can shift the day
+    const [yy, mm, dd] = (date || '').split('-').map(n => parseInt(n, 10));
+    if (!yy || !mm || !dd) return res.status(400).json({ error: 'invalid date' });
+    const dayStart = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
+    const dayEnd = new Date(yy, mm - 1, dd, 23, 59, 59, 999);
 
     const Transaction = require('../models/Transaction');
 
     // Charges: from CardLedger (type=charge) to get the actual charged amount,
     // then join with Transaction (via reference) for detail info
+    // Include entries where either createdAt or chargeDate falls within the day
     const chargeLedgers = await CardLedger.find({
       type: 'charge',
-      createdAt: { $gte: dayStart, $lte: dayEnd }
+      $or: [
+        { createdAt: { $gte: dayStart, $lte: dayEnd } },
+        { chargeDate: { $gte: dayStart, $lte: dayEnd } }
+      ]
     })
       .populate('cardId', 'displayName last4')
       .populate('serviceId', 'cid customerIdField')
@@ -677,9 +684,13 @@ router.get('/cards/daily-summary', async (req, res) => {
     });
 
     // Topups: card ledger entries of type topup on the selected date
+    // Include topups where createdAt or topupDate falls within the day
     const topups = await CardLedger.find({
       type: 'topup',
-      createdAt: { $gte: dayStart, $lte: dayEnd }
+      $or: [
+        { createdAt: { $gte: dayStart, $lte: dayEnd } },
+        { topupDate: { $gte: dayStart, $lte: dayEnd } }
+      ]
     })
       .populate('cardId', 'displayName last4')
       .populate('createdBy', 'name')

@@ -98,6 +98,15 @@ export default function AccountCardDailySummaryPage() {
     setCurrentPage(1);
   }, [activeTab, selectedDate, selectedRange]);
 
+  // If filteredItems length changes such that currentPage is out of range, clamp it
+  useEffect(() => {
+    if (totalPages === 0) {
+      setCurrentPage(1);
+    } else if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages]);
+
   // quick filters: single date or range ({start,end})
   const todayStr = new Date().toISOString().split('T')[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -481,10 +490,12 @@ const thStyle = {
   fontSize: '12px',
   fontWeight: '600',
   color: '#525252',
-  whiteSpace: 'nowrap'
+  whiteSpace: 'normal',
+  wordBreak: 'break-word'
 };
 
 const tdStyle = {
   padding: '8px 10px',
-  whiteSpace: 'nowrap'
+  whiteSpace: 'normal',
+  wordBreak: 'break-word'
 };
