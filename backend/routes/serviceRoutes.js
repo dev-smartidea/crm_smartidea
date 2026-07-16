@@ -518,6 +518,88 @@ router.put('/services/:id', async (req, res) => {
   }
 });
 
+// PUT /api/services/:id/update-dates - อัปเดตวันเริ่ม-สิ้นสุดบริการหลังได้รับการอนุมัติ (โดย user เจ้าของ)
+router.put('/services/:id/update-dates', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { startDate, dueDate, notificationId } = req.body;
+    if (!startDate || !dueDate) {
+      return res.status(400).json({ error: 'startDate และ dueDate จำเป็นต้องระบุ' });
+    }
+
+    const newStart = new Date(startDate);
+    const newDue = new Date(dueDate);
+    if (isNaN(newStart.getTime()) || isNaN(newDue.getTime())) {
+      return res.status(400).json({ error: 'รูปแบบวันที่ไม่ถูกต้อง' });
+    }
+    if (newDue <= newStart) {
+      return res.status(400).json({ error: 'วันสิ้นสุดต้องมาหลังวันเริ่มต้น' });
+    }
+
+    const service = await Service.findById(req.params.id).populate('customerId');
+    if (!service) return res.status(404).json({ error: 'Service not found' });
+
+    const isAdmin = ['admin', 'account'].includes(user.role);
+    const currentUser = await getCurrentUser(user);
+    const caretakerNames = [currentUser?.name, currentUser?.username].filter(Boolean);
+    const isServiceOwner = service.userId.toString() === user.id;
+    const isCaretaker = caretakerNames.includes(service.caretaker);
+    const isCustomerManager = service.customerId && Array.isArray(service.customerId.userIds)
+      && service.customerId.userIds.some(id => id.toString() === user.id);
+
+    if (!isAdmin && !isServiceOwner && !isCaretaker && !isCustomerManager) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // บันทึก previousDurationMonths จากช่วงเดิม
+    const update = { startDate: newStart, dueDate: newDue };
+    if (service.startDate && service.dueDate) {
+      const oldStart = new Date(service.startDate);
+      const oldEnd = new Date(service.dueDate);
+      const oldMonths = (oldEnd.getFullYear() - oldStart.getFullYear()) * 12 + (oldEnd.getMonth() - oldStart.getMonth());
+      if (oldMonths > 0) update.previousDurationMonths = oldMonths;
+    }
+
+    const updated = await Service.findByIdAndUpdate(req.params.id, update, { new: true });
+
+    // Mark notification ว่า isRead = true เพื่อซ่อน pending banner
+    if (notificationId) {
+      try {
+        await Notification.findByIdAndUpdate(notificationId, { isRead: true, readAt: new Date() });
+      } catch (e) {
+        console.error('Mark notification read failed:', e.message);
+      }
+    }
+
+    // บันทึก audit log
+    try {
+      const { createAuditLog } = require('../utils/auditLogger');
+      await createAuditLog({
+        userId: user.id,
+        action: 'update_service',
+        username: currentUser?.username || currentUser?.name || user.id,
+        details: {
+          serviceId: service._id,
+          field: 'startDate/dueDate (update-dates)',
+          oldStartDate: service.startDate,
+          oldDueDate: service.dueDate,
+          newStartDate: newStart,
+          newDueDate: newDue
+        }
+      });
+    } catch (auditErr) {
+      console.error('Audit log failed:', auditErr.message);
+    }
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Update service dates error:', err);
+    res.status(400).json({ error: 'Update dates failed' });
+  }
+});
+
 // Delete a service
 router.delete('/services/:id', async (req, res) => {
   try {

@@ -17,7 +17,8 @@ const notificationSchema = new mongoose.Schema({
       'card_inactive',
       'card_active',
       'transaction_success',
-      'transaction_failed'
+      'transaction_failed',
+      'service_date_update'
     ],
     required: true
   },

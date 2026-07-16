@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import LoginPage from './pages/auth/LoginPage';
+import ServiceDateUpdateModal from './components/ServiceDateUpdateModal';
 import RegisterPage from './pages/auth/RegisterPage';
 import AddCustomerPage from './pages/user/AddCustomerPage';
 import CustomerListPage from './pages/user/CustomerListPage';
@@ -40,6 +42,8 @@ import axios from 'axios';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
+  // queue ของรายการที่รอให้ user กรอกวันบริการ (real-time + pending จาก DB)
+  const [dateUpdateQueue, setDateUpdateQueue] = useState([]);
 
   // ฟังก์ชันสำหรับ login สำเร็จ
   const handleLoginSuccess = () => {
@@ -63,6 +67,113 @@ function App() {
   }, [token]);
 
   const getRoleFromToken = () => role;
+
+  // Decode user id จาก token
+  const userId = useMemo(() => {
+    try {
+      if (!token) return null;
+      const base64 = token.split('.')[1];
+      const normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(decodeURIComponent(
+        atob(normalized).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+      ));
+      return payload.id || null;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
+  // ดึง pending notifications ประเภท service_date_update จาก DB (กรณี user ไม่ได้เปิดหน้าตอนบัญชีอนุมัติ)
+  const fetchPendingDateUpdates = useCallback(async () => {
+    if (!token || role !== 'user') return;
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const pending = (res.data || []).filter(
+        n => n.type === 'service_date_update' && !n.isRead && n.relatedServiceId
+      );
+      if (pending.length === 0) return;
+
+      // ดึงข้อมูล Service จาก API เพื่อให้ Modal แสดง cid, customerName, currentDueDate ได้ถูกต้อง
+      const serviceIds = [...new Set(pending.map(n =>
+        typeof n.relatedServiceId === 'string' ? n.relatedServiceId : n.relatedServiceId?._id?.toString()
+      ).filter(Boolean))];
+
+      const serviceMap = {};
+      await Promise.all(serviceIds.map(async (sid) => {
+        try {
+          const svcRes = await axios.get(
+            `${process.env.REACT_APP_API_URL}/api/services/${sid}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          serviceMap[sid] = svcRes.data;
+        } catch { /* ignore ถ้าดึงไม่ได้ */ }
+      }));
+
+      setDateUpdateQueue(prev => {
+        const existingIds = new Set(prev.map(p => p.notificationId));
+        const newItems = pending
+          .filter(n => !existingIds.has(n._id))
+          .map(n => {
+            const sid = typeof n.relatedServiceId === 'string'
+              ? n.relatedServiceId
+              : n.relatedServiceId?._id?.toString();
+            const svc = serviceMap[sid] || {};
+            return {
+              notificationId: n._id,
+              serviceId: sid,
+              cid: svc.cid || svc.customerIdField || svc.pageUrl || sid,
+              customerName: svc.customerId?.name || '',
+              serviceType: svc.serviceType || svc.name || '',
+              amount: null,
+              transactionDate: n.createdAt,
+              currentStartDate: svc.startDate || null,
+              currentDueDate: svc.dueDate || null,
+              fromDB: true
+            };
+          });
+        return [...prev, ...newItems];
+      });
+    } catch { /* ignore */ }
+  }, [token, role]);
+
+
+  // Socket.io listener สำหรับ service_date_update (real-time)
+  useEffect(() => {
+    if (!token || role !== 'user' || !userId) return;
+
+    const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', {
+      auth: { token }
+    });
+
+    socket.on('service_date_update', (data) => {
+      // Guard: ตรวจสอบว่า event นี้ส่งมาหา user คนนี้จริง
+      if (data.userId && data.userId !== userId) return;
+      setDateUpdateQueue(prev => {
+        // กัน duplicate
+        if (prev.some(p => p.notificationId === data.notificationId)) return prev;
+        return [...prev, data];
+      });
+    });
+
+    return () => { socket.disconnect(); };
+  }, [token, role, userId]);
+
+  // โหลด pending notifications เมื่อ login หรือ role เปลี่ยน
+  useEffect(() => {
+    fetchPendingDateUpdates();
+  }, [fetchPendingDateUpdates]);
+
+  // Callback เมื่อ user กดบันทึกวันที่สำเร็จ
+  const handleDateUpdateSaved = (notificationId) => {
+    setDateUpdateQueue(prev => prev.filter(p => p.notificationId !== notificationId));
+  };
+
+  // Callback เมื่อ user กด "ข้ามก่อน"
+  const handleDateUpdateDismiss = (notificationId) => {
+    setDateUpdateQueue(prev => prev.filter(p => p.notificationId !== notificationId));
+  };
 
   return (
     <Router>
@@ -159,6 +270,15 @@ function App() {
 
         <Route path="*" element={<Navigate to={token ? (['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? '/dashboard/admin' : getRoleFromToken() === 'account' ? '/dashboard/account' : '/dashboard') : '/login'} />} />
       </Routes>
+
+      {/* Global ServiceDateUpdateModal — แสดงเฉพาะ user role */}
+      {role === 'user' && dateUpdateQueue.length > 0 && (
+        <ServiceDateUpdateModal
+          queue={dateUpdateQueue}
+          onSaved={handleDateUpdateSaved}
+          onDismiss={handleDateUpdateDismiss}
+        />
+      )}
     </Router>
   );
 }

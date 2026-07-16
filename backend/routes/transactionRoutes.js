@@ -276,6 +276,59 @@ router.put('/transactions/:id/approve', async (req, res) => {
     tx.submissionStatus = 'approved';
     await tx.save();
 
+    // ตรวจสอบว่ามี breakdown ค่าบริการ (code 14=GG, 18=FB, 20=Hosting) หรือไม่
+    const SERVICE_FEE_CODES = ['14', '18', '20'];
+    const hasServiceFee = (tx.breakdowns || []).some(b => SERVICE_FEE_CODES.includes(b.code));
+
+    if (hasServiceFee) {
+      try {
+        const { getIO } = require('../socket');
+        const service = await Service.findById(tx.serviceId);
+        const customer = service ? await Customer.findById(service.customerId).select('name') : null;
+
+        if (service && service.userId) {
+          const cid = service.cid || service.customerIdField || service._id.toString();
+          const customerName = customer?.name || 'ลูกค้า';
+          const amountFormatted = parseFloat(tx.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+
+          // สร้าง Notification เก็บลงฐานข้อมูล (สำหรับ user ที่ offline)
+          const notif = await Notification.create({
+            userId: service.userId,
+            type: 'service_date_update',
+            title: '📅 กรุณาอัปเดตวันรันโฆษณา',
+            message: `บัญชีอนุมัติรายการโอน ${amountFormatted} บาท ของบริการ "${cid}" (${customerName}) แล้ว กรุณากำหนดวันเริ่มและวันสิ้นสุดรอบใหม่`,
+            link: null,
+            relatedTransactionId: tx._id,
+            relatedServiceId: service._id,
+            relatedCustomerId: service.customerId,
+            isRead: false
+          });
+
+          // ยิง Socket.io event แบบ real-time (สำหรับ user ที่ online อยู่)
+          try {
+            const io = getIO();
+            io.to(`user:${service.userId.toString()}`).emit('service_date_update', {
+              notificationId: notif._id.toString(),
+              transactionId: tx._id.toString(),
+              serviceId: service._id.toString(),
+              cid,
+              customerName,
+              serviceType: service.serviceType || service.name || '',
+              amount: tx.amount,
+              transactionDate: tx.transactionDate,
+              currentStartDate: service.startDate || null,
+              currentDueDate: service.dueDate || null,
+              userId: service.userId.toString()
+            });
+          } catch (socketErr) {
+            console.error('Socket emit service_date_update failed:', socketErr.message);
+          }
+        }
+      } catch (notifErr) {
+        console.error('Create service_date_update notification failed:', notifErr.message);
+      }
+    }
+
     const populated = await Transaction.findById(tx._id)
       .populate({
         path: 'serviceId',
@@ -288,6 +341,7 @@ router.put('/transactions/:id/approve', async (req, res) => {
     res.status(500).json({ error: 'Approve failed' });
   }
 });
+
 
 // PUT /api/transactions/bulk-approve - อนุมัติหลายรายการพร้อมกัน (เฉพาะ account/admin)
 router.put('/transactions/bulk-approve', async (req, res) => {

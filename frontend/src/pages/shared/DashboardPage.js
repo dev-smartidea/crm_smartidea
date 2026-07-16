@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Line, Doughnut } from 'react-chartjs-2';
 import 'chart.js/auto';
-import { PeopleFill, BriefcaseFill, ClockFill, CashCoin, Google, Facebook } from 'react-bootstrap-icons';
+import { PeopleFill, BriefcaseFill, ClockFill, CashCoin, ExclamationTriangleFill, Google, Facebook } from 'react-bootstrap-icons';
 import './DashboardPage.css';
 
 // Icon components
@@ -47,6 +47,7 @@ export default function DashboardPage() {
     ]
   });
   const [chartMaxY, setChartMaxY] = useState(0);
+  const [pendingDateCount, setPendingDateCount] = useState(0);
 
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -55,6 +56,17 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        // โหลด pending date update notifications
+        try {
+          const notifRes = await axios.get(`${api}/api/notifications`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const pending = (notifRes.data || []).filter(
+            n => n.type === 'service_date_update' && !n.isRead
+          );
+          setPendingDateCount(pending.length);
+        } catch { /* ignore */ }
+
         const res = await axios.get(`${api}/api/dashboard/summary`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -130,7 +142,41 @@ export default function DashboardPage() {
         <h2>Dashboard</h2>
         <p className="dashboard-subtitle">ภาพรวมข้อมูลธุรกิจของคุณ</p>
       </div>
-      
+
+      {/* Pending Date Update Banner */}
+      {pendingDateCount > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: 'linear-gradient(135deg, #fff7ed, #ffedd5)',
+            border: '1.5px solid #fed7aa',
+            borderRadius: '12px',
+            padding: '14px 20px',
+            marginBottom: '20px',
+            cursor: 'pointer',
+            transition: 'box-shadow 0.2s',
+            boxShadow: '0 2px 8px rgba(249,115,22,0.12)'
+          }}
+          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(249,115,22,0.22)'}
+          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(249,115,22,0.12)'}
+        >
+          <ExclamationTriangleFill size={22} style={{ color: '#ea580c', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <strong style={{ color: '#9a3412', fontSize: '0.92rem' }}>
+              ⏰ มี {pendingDateCount} บริการที่อนุมัติแล้ว รอคุณกำหนดวันรันโฆษณา
+            </strong>
+            <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#c2410c' }}>
+              กรุณากำหนดวันเริ่มและวันสิ้นสุดรอบใหม่ ระบบจะแจ้งเตือนในหน้าต่างอัตโนมัติ
+            </p>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: '#ea580c', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            ดูรายการ →
+          </span>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="dashboard-stats-grid">
         <div className="stat-card">
