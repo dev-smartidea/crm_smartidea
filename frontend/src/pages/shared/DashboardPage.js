@@ -146,6 +146,7 @@ export default function DashboardPage() {
       {/* Pending Date Update Banner */}
       {pendingDateCount > 0 && (
         <div
+          onClick={() => window.dispatchEvent(new CustomEvent('show-date-update-modal'))}
           style={{
             display: 'flex',
             alignItems: 'center',

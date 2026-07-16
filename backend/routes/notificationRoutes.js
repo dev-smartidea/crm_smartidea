@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Notification = require('../models/Notification');
@@ -49,6 +49,7 @@ router.get('/notifications', async (req, res) => {
 
     // ดึงการแจ้งเตือนของ user นี้ เรียงตามวันที่ล่าสุด
     const notifications = await Notification.find({ userId: user.id })
+      .populate('relatedTransactionId')
       .sort({ createdAt: -1 })
       .limit(100); // จำกัดไม่เกิน 100 รายการ
 
@@ -78,6 +79,27 @@ router.put('/notifications/:id/read', async (req, res) => {
     res.json({ success: true, message: 'Marked as read', notification });
   } catch (err) {
     console.error('Mark notification read error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/notifications/:id/unread - ย้อนสถานะเป็นยังไม่ได้อ่าน
+router.post('/notifications/:id/unread', async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: user.id },
+      { isRead: false },
+      { new: true }
+    );
+
+    if (!notification) return res.status(404).json({ error: 'Notification not found' });
+
+    res.json({ success: true, message: 'Marked as unread', notification });
+  } catch (err) {
+    console.error('Mark notification unread error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

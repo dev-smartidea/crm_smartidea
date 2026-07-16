@@ -85,6 +85,17 @@ export default function BaseNotificationPage({
     }
   };
 
+  const handleMarkAsUnread = async (id) => {
+    try {
+      await axios.post(`${api}/api/notifications/${id}/unread`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: false } : n));
+    } catch {
+      if (toastEnabled) toast.error('ย้อนสถานะเป็นยังไม่ได้อ่านไม่สำเร็จ');
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('ต้องการลบการแจ้งเตือนนี้?')) return;
     try {
@@ -344,6 +355,19 @@ export default function BaseNotificationPage({
                       aria-label="ทำเครื่องหมายว่าอ่านแล้ว"
                     >
                       <Check size={18} />
+                    </button>
+                  )}
+                  {notif.isRead && (
+                    <button
+                      className="notif-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkAsUnread(notif._id);
+                      }}
+                      title="ย้อนเป็นยังไม่ได้อ่าน"
+                      aria-label="ย้อนเป็นยังไม่ได้อ่าน"
+                    >
+                      <BellSlash size={18} />
                     </button>
                   )}
                   <button 

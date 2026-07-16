@@ -44,6 +44,7 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   // queue ของรายการที่รอให้ user กรอกวันบริการ (real-time + pending จาก DB)
   const [dateUpdateQueue, setDateUpdateQueue] = useState([]);
+  const [showDateUpdateModal, setShowDateUpdateModal] = useState(false);
 
   // ฟังก์ชันสำหรับ login สำเร็จ
   const handleLoginSuccess = () => {
@@ -120,20 +121,27 @@ function App() {
               ? n.relatedServiceId
               : n.relatedServiceId?._id?.toString();
             const svc = serviceMap[sid] || {};
+            // ดึง amount จาก transaction ที่ถูก populate มาจาก backend
+            const tx = n.relatedTransactionId || {};
             return {
               notificationId: n._id,
               serviceId: sid,
               cid: svc.cid || svc.customerIdField || svc.pageUrl || sid,
               customerName: svc.customerId?.name || '',
               serviceType: svc.serviceType || svc.name || '',
-              amount: null,
-              transactionDate: n.createdAt,
+              amount: tx.amount || null,
+              transactionDate: tx.transactionDate || n.createdAt,
               currentStartDate: svc.startDate || null,
               currentDueDate: svc.dueDate || null,
               fromDB: true
             };
           });
-        return [...prev, ...newItems];
+        
+        const nextQueue = [...prev, ...newItems];
+        if (nextQueue.length > 0) {
+          setShowDateUpdateModal(true); // เปิด Modal อัตโนมัติเมื่อมีข้อมูลใหม่เข้ามา
+        }
+        return nextQueue;
       });
     } catch { /* ignore */ }
   }, [token, role]);
@@ -153,6 +161,7 @@ function App() {
       setDateUpdateQueue(prev => {
         // กัน duplicate
         if (prev.some(p => p.notificationId === data.notificationId)) return prev;
+        setShowDateUpdateModal(true); // เด้งหน้าต่างขึ้นมาทันทีเมื่อได้ realtime event
         return [...prev, data];
       });
     });
@@ -165,14 +174,44 @@ function App() {
     fetchPendingDateUpdates();
   }, [fetchPendingDateUpdates]);
 
+  // จัดการ Event แสดง/ปิด Modal จากปุ่มภายนอก
+  useEffect(() => {
+    const showHandler = async () => {
+      if (dateUpdateQueue.length === 0) {
+        await fetchPendingDateUpdates();
+      }
+      setShowDateUpdateModal(true);
+    };
+    const closeHandler = () => setShowDateUpdateModal(false);
+
+    window.addEventListener('show-date-update-modal', showHandler);
+    window.addEventListener('close-date-update-modal', closeHandler);
+    return () => {
+      window.removeEventListener('show-date-update-modal', showHandler);
+      window.removeEventListener('close-date-update-modal', closeHandler);
+    };
+  }, [dateUpdateQueue.length, fetchPendingDateUpdates]);
+
   // Callback เมื่อ user กดบันทึกวันที่สำเร็จ
   const handleDateUpdateSaved = (notificationId) => {
-    setDateUpdateQueue(prev => prev.filter(p => p.notificationId !== notificationId));
+    setDateUpdateQueue(prev => {
+      const next = prev.filter(p => p.notificationId !== notificationId);
+      if (next.length === 0) {
+        setShowDateUpdateModal(false);
+      }
+      return next;
+    });
   };
 
-  // Callback เมื่อ user กด "ข้ามก่อน"
+  // Callback เมื่อ user กด "ข้ามก่อน" / "ข้ามถาวร"
   const handleDateUpdateDismiss = (notificationId) => {
-    setDateUpdateQueue(prev => prev.filter(p => p.notificationId !== notificationId));
+    setDateUpdateQueue(prev => {
+      const next = prev.filter(p => p.notificationId !== notificationId);
+      if (next.length === 0) {
+        setShowDateUpdateModal(false);
+      }
+      return next;
+    });
   };
 
   return (
@@ -271,8 +310,8 @@ function App() {
         <Route path="*" element={<Navigate to={token ? (['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken()) ? '/dashboard/admin' : getRoleFromToken() === 'account' ? '/dashboard/account' : '/dashboard') : '/login'} />} />
       </Routes>
 
-      {/* Global ServiceDateUpdateModal — แสดงเฉพาะ user role */}
-      {role === 'user' && dateUpdateQueue.length > 0 && (
+      {/* Global ServiceDateUpdateModal — แสดงเฉพาะ role ที่เกี่ยวข้อง */}
+      {['user', 'google_manager', 'facebook_manager'].includes(role) && showDateUpdateModal && (
         <ServiceDateUpdateModal
           queue={dateUpdateQueue}
           onSaved={handleDateUpdateSaved}
