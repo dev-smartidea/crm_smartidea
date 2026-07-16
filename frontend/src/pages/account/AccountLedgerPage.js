@@ -60,10 +60,11 @@ export default function AccountLedgerPage() {
   const [total, setTotal] = useState(0);
   
   // Filters
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true); // ปรับเป็น true เสมอเพื่อให้เห็นตัวเลือกชัดเจน
+  const todayStr = new Date().toISOString().split('T')[0];
   const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: '',
+    startDate: todayStr,
+    endDate: todayStr,
     bank: '',
     serviceType: '',
     search: ''
@@ -260,8 +261,8 @@ export default function AccountLedgerPage() {
 
   const clearFilters = () => {
     setFilters({
-      startDate: '',
-      endDate: '',
+      startDate: todayStr,
+      endDate: todayStr,
       bank: '',
       serviceType: '',
       search: ''
@@ -570,6 +571,10 @@ export default function AccountLedgerPage() {
     let endDate = '';
 
     switch (type) {
+      case 'all':
+        startDate = '';
+        endDate = '';
+        break;
       case 'today':
         startDate = today.toISOString().split('T')[0];
         endDate = startDate;
@@ -629,24 +634,73 @@ export default function AccountLedgerPage() {
       {showFilters && (
         <div className="ledger-filters">
           {/* Quick Date Filters */}
-          <div className="quick-date-filters">
+          <div className="quick-date-filters" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <label className="quick-filter-label">ช่วงเวลา:</label>
-            <div className="quick-filter-buttons">
-              <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('today')}>
+            <div className="quick-filter-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              <button 
+                type="button" 
+                className={`btn-quick-filter ${!filters.startDate && !filters.endDate ? 'active' : ''}`} 
+                onClick={() => setQuickDateFilter('all')}
+              >
+                ทั้งหมด
+              </button>
+              <button 
+                type="button" 
+                className={`btn-quick-filter ${filters.startDate === todayStr && filters.endDate === todayStr ? 'active' : ''}`} 
+                onClick={() => setQuickDateFilter('today')}
+              >
                 วันนี้
               </button>
-              <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('yesterday')}>
+              <button 
+                type="button" 
+                className={`btn-quick-filter ${filters.startDate && filters.startDate === filters.endDate && filters.startDate === new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0] ? 'active' : ''}`} 
+                onClick={() => setQuickDateFilter('yesterday')}
+              >
                 เมื่อวาน
               </button>
-              <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('last7days')}>
+              <button 
+                type="button" 
+                className="btn-quick-filter" 
+                onClick={() => setQuickDateFilter('last7days')}
+              >
                 7 วันล่าสุด
               </button>
-              <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('last30days')}>
+              <button 
+                type="button" 
+                className="btn-quick-filter" 
+                onClick={() => setQuickDateFilter('last30days')}
+              >
                 30 วันล่าสุด
               </button>
-              <button type="button" className="btn-quick-filter" onClick={() => setQuickDateFilter('thisMonth')}>
+              <button 
+                type="button" 
+                className="btn-quick-filter" 
+                onClick={() => setQuickDateFilter('thisMonth')}
+              >
                 เดือนนี้
               </button>
+            </div>
+            
+            <div className="custom-single-date" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#4b5563' }}>เลือกวันที่เจาะจง:</span>
+              <input 
+                type="date" 
+                value={filters.startDate === filters.endDate ? filters.startDate : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) {
+                    setFilters({ ...filters, startDate: val, endDate: val });
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  border: '1.5px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '0.88rem',
+                  color: '#1f2937',
+                  outline: 'none'
+                }}
+              />
             </div>
           </div>
 
