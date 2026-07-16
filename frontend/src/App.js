@@ -193,10 +193,10 @@ function App() {
           element={
             token
               ? (['admin', 'google_manager', 'facebook_manager'].includes(getRoleFromToken())
-                  ? <Navigate to="/dashboard/admin" />
-                  : getRoleFromToken() === 'account'
-                    ? <Navigate to="/dashboard/account" />
-                    : <DashboardLayout />)
+                ? <Navigate to="/dashboard/admin" />
+                : getRoleFromToken() === 'account'
+                  ? <Navigate to="/dashboard/account" />
+                  : <DashboardLayout />)
               : <Navigate to="/login" />
           }
         >

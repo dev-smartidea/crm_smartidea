@@ -59,4 +59,20 @@ const notificationSchema = new mongoose.Schema({
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, isRead: 1 });
 
+// ช่วยให้เปลี่ยนสถานะการอ่านกลับเป็นยังไม่ได้อ่าน
+notificationSchema.methods.markAsUnread = function() {
+  this.isRead = false;
+  this.readAt = undefined;
+  return this.save();
+};
+
+// static helper: ตรงๆ update โดย id
+notificationSchema.statics.markUnreadById = function(id) {
+  return this.findByIdAndUpdate(
+    id,
+    { isRead: false, $unset: { readAt: "" } },
+    { new: true }
+  );
+};
+
 module.exports = mongoose.model('Notification', notificationSchema);
