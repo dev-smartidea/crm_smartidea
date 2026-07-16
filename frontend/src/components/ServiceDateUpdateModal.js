@@ -143,6 +143,12 @@ export default function ServiceDateUpdateModal({ queue = [], onSaved, onDismiss 
     setCurrentIndex(prev => (prev < queue.length - 1 ? prev + 1 : 0));
   };
 
+  // ย้อนกลับรายการก่อนหน้า
+  const handlePrev = () => {
+    setError('');
+    setCurrentIndex(prev => (prev > 0 ? prev - 1 : queue.length - 1));
+  };
+
   // ปิด Modal ทั้งหมดชั่วคราว แต่ queue ยังอยู่ใน App state
   const handleCloseAll = () => {
     window.dispatchEvent(new CustomEvent('close-date-update-modal'));
@@ -150,6 +156,10 @@ export default function ServiceDateUpdateModal({ queue = [], onSaved, onDismiss 
 
   // ข้ามถาวร → ลบออกจาก queue
   const handleDismissPermanent = () => {
+    const cidText = current.cid || current.serviceId;
+    const isConfirmed = window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการ "ข้ามถาวร" สำหรับบริการ "${cidText}"?\n\n*หมายเหตุ: รายการนี้จะถูกทำเครื่องหมายว่าอ่านแล้ว และระบบจะไม่แสดงหน้าต่างเตือนให้กรอกวันรันโฆษณาของยอดนี้อีก`);
+    if (!isConfirmed) return;
+
     if (onDismiss) onDismiss(current.notificationId);
     setCurrentIndex(prev => Math.max(0, prev >= queue.length - 1 ? prev - 1 : prev));
   };
@@ -302,6 +312,17 @@ export default function ServiceDateUpdateModal({ queue = [], onSaved, onDismiss 
         <div className="sdu-actions">
           {isMultiple ? (
             <>
+              {currentIndex > 0 && (
+                <button
+                  type="button"
+                  className="sdu-btn-skip"
+                  onClick={handlePrev}
+                  disabled={saving}
+                  style={{ marginRight: 'auto' }}
+                >
+                  ← ย้อนกลับ
+                </button>
+              )}
               <button
                 className="sdu-btn-skip"
                 onClick={handleDismissPermanent}

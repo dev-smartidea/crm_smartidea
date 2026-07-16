@@ -216,6 +216,24 @@
   color: #374151;
 }
 
+.sdu-btn-next {
+  padding: 10px 20px;
+  border: 1.5px solid #0284c7;
+  border-radius: 10px;
+  background: #f0f9ff;
+  color: #0369a1;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sdu-btn-next:hover {
+  background: #e0f2fe;
+  border-color: #0369a1;
+  color: #0c4a6e;
+}
+
 .sdu-btn-save {
   padding: 10px 24px;
   border: none;
