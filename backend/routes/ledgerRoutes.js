@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Transaction = require('../models/Transaction');
+const CardLedger = require('../models/CardLedger');
 const User = require('../models/User');
 const { createAuditLog } = require('../utils/auditLogger');
 const Service = require('../models/Service');
@@ -390,6 +391,54 @@ router.patch('/ledger/:id', async (req, res) => {
     Object.keys(updateData).forEach(k => { transaction[k] = updateData[k]; });
 
     await transaction.save();
+
+    // If cardDate was updated, shift associated CardLedger charge entries' dates
+    // so the charge history appears on the edited date in UI.
+    try {
+      if (req.body.cardDate !== undefined && req.body.cardDate) {
+        const newChargeDate = new Date(req.body.cardDate);
+        await CardLedger.updateMany(
+          { reference: transaction._id, type: 'charge' },
+          { $set: { chargeDate: newChargeDate, createdAt: newChargeDate, updatedAt: newChargeDate } }
+        );
+
+        // Also update transaction.cardChargedAt to reflect the edited date if it was previously charged
+        if (transaction.cardCharged) {
+          transaction.cardChargedAt = newChargeDate;
+          await transaction.save();
+        }
+      }
+    } catch (e) {
+      console.error('Failed to shift CardLedger dates after transaction update:', e);
+    }
+
+    // If fb click breakdown (code 11) changed, propagate to CardLedger charge entries
+    try {
+      const newFbClickObj = Array.isArray(transaction.breakdowns) ? transaction.breakdowns.find(b => String(b.code) === '11') : null;
+      const newFbClick = newFbClickObj ? Number(newFbClickObj.amount || 0) : 0;
+      const oldFbClickNum = oldFbClick == null ? 0 : Number(oldFbClick || 0);
+      if (oldFbClickNum !== newFbClick) {
+        const cardLedgers = await CardLedger.find({ reference: transaction._id, type: 'charge' });
+        for (const cl of cardLedgers) {
+          const bd = Array.isArray(cl.breakdowns) ? [...cl.breakdowns] : [];
+          const idx = bd.findIndex(b => String(b.code) === '11');
+          if (idx >= 0) {
+            if (newFbClick === 0) bd.splice(idx, 1);
+            else bd[idx] = { ...bd[idx], amount: newFbClick };
+          } else if (newFbClick !== 0) {
+            bd.push({ code: '11', label: 'ค่าคลิก', amount: newFbClick });
+          }
+
+          // Recalculate ledger amount as sum of breakdowns when available
+          const totalFromBd = bd.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+          cl.breakdowns = bd;
+          if (totalFromBd > 0) cl.amount = totalFromBd;
+          await cl.save();
+        }
+      }
+    } catch (e) {
+      console.error('Failed to propagate fbClick changes to CardLedger:', e);
+    }
 
     // create audit log if amount or fbClick changed
     try {

@@ -850,7 +850,9 @@ export default function AccountLedgerPage() {
                       {editingCell?.id === item._id && editingCell?.field === 'cardDate' ? (
                         <input type="date" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus />
                       ) : (
-                        <span className="editable-text">{item.cardDate ? formatDate(item.cardDate) : ''}</span>
+                        <span className="editable-text">
+                          {item.cardDate ? formatDate(item.cardDate) : (item.fbChargedDate ? formatDate(item.fbChargedDate) : (item.cardChargedAt ? formatDate(item.cardChargedAt) : ''))}
+                        </span>
                       )}
                     </td>
                     <td className="col-cardtime editable-cell" onClick={() => handleCellClick(item._id, 'cardTime', item.cardTime)}>

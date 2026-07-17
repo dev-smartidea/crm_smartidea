@@ -896,18 +896,49 @@ router.delete('/transactions/:id', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const deleted = await Transaction.findByIdAndDelete(req.params.id);
+    // Use a session to delete the transaction and associated CardLedger entries atomically.
+    const mongoose = require('mongoose');
+    let session;
+    try {
+      session = await mongoose.startSession();
+      await session.withTransaction(async () => {
+        const deleted = await Transaction.findByIdAndDelete(req.params.id).session(session);
+        if (!deleted) throw Object.assign(new Error('Transaction not found during delete'), { statusCode: 404 });
 
-    // ลบสลิปจาก Cloudinary (ถ้ามี)
-    if (deleted.slipImage) {
-      if (deleted.cloudinaryId) {
-        try { await deleteFromCloudinary(deleted.cloudinaryId); } catch (e) { console.warn('delete cloudinary slip failed:', e.message); }
-      }
-      // ลบจากคลังรูปภาพ
-      try { await Image.deleteMany({ imageUrl: deleted.slipImage }); } catch (e) { console.warn('delete gallery slip failed:', e.message); }
+        // If there are CardLedger entries referencing this transaction, remove them and adjust card balances accordingly
+        const CardLedger = require('../models/CardLedger');
+        const Card = require('../models/Card');
+
+        const ledgers = await CardLedger.find({ reference: req.params.id }).session(session);
+        for (const entry of ledgers) {
+          // Compute balance delta: debit -> add back; credit -> subtract
+          const delta = entry.direction === 'debit' ? entry.amount : -entry.amount;
+          if (entry.cardId) {
+            const card = await Card.findByIdAndUpdate(entry.cardId, { $inc: { balance: delta } }, { new: true, session });
+            if (!card) {
+              // If card not found, continue but log
+              console.warn('Card not found while deleting ledger entry:', entry._id);
+            }
+          }
+          await CardLedger.findByIdAndDelete(entry._id).session(session);
+        }
+
+        // Delete slip images after successful DB transaction (outside session effects are fine)
+        if (deleted.slipImage && deleted.cloudinaryId) {
+          try { await deleteFromCloudinary(deleted.cloudinaryId); } catch (e) { console.warn('delete cloudinary slip failed:', e.message); }
+        }
+        if (deleted.slipImage2 && deleted.cloudinaryId2) {
+          try { await deleteFromCloudinary(deleted.cloudinaryId2); } catch (e) { console.warn('delete cloudinary slip2 failed:', e.message); }
+        }
+      });
+      session.endSession();
+      res.json({ message: 'ลบรายการโอนเงินและประวัติบัตรที่เกี่ยวข้องเรียบร้อย' });
+      return;
+    } catch (e) {
+      if (session) session.endSession();
+      console.error('Delete transaction with ledger cleanup failed:', e);
+      return res.status(e.statusCode || 500).json({ error: e.message || 'Delete failed' });
     }
-
-    res.json({ message: 'ลบรายการโอนเงินสำเร็จ' });
   } catch (err) {
     console.error('Delete transaction error:', err);
     res.status(500).json({ error: 'Delete failed' });

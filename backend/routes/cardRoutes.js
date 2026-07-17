@@ -162,7 +162,7 @@ router.post('/cards/charge', async (req, res) => {
   }
 
   const { cardId, amount, channel, reference, note, chargeTime, chargeDate, serviceId, breakdowns, skipMarkCharged } = req.body;
-  const numericAmount = Number(amount || 0);
+  let numericAmount = Number(amount || 0);
   if (!cardId || numericAmount <= 0) {
     return res.status(400).json({ error: 'Invalid cardId or amount' });
   }
@@ -184,6 +184,45 @@ router.post('/cards/charge', async (req, res) => {
   let svcIdToStore;
   if (serviceId) {
     svcIdToStore = (typeof serviceId === 'object' && serviceId._id) ? serviceId._id : serviceId;
+  }
+
+  // If this charge references a Transaction for Facebook Ads, prefer the transaction's
+  // breakdown code '11' (ค่าคลิก) as the amount to charge so CardLedger history matches the "ค่าคลิก" column.
+  if (reference && !skipMarkCharged && /facebook/i.test(channel || '')) {
+    try {
+      const trx = await Transaction.findById(reference).lean();
+      if (trx && Array.isArray(trx.breakdowns)) {
+        const code11 = trx.breakdowns.find(b => String(b.code) === '11');
+        const code11amt = code11 ? Number(code11.amount || 0) : 0;
+        if (code11amt > 0) {
+          // override numericAmount to match transaction breakdown
+          numericAmount = code11amt;
+        }
+        if (code11amt > 0) {
+          // override numericAmount to match transaction breakdown
+          numericAmount = code11amt;
+          // ensure finalBreakdowns will include code 11
+        }
+      }
+    } catch (e) {
+      // ignore — fallback to provided amount
+      console.error('Failed to read transaction for charge amount alignment:', e);
+    }
+  }
+
+  // Prepare finalBreakdowns used for CardLedger creation (copy incoming breakdowns)
+  let finalBreakdowns = Array.isArray(breakdowns) ? [...breakdowns] : [];
+  // If channel is Facebook and numericAmount derived from transaction code 11, ensure finalBreakdowns contains code '11'
+  try {
+    if (/facebook/i.test(channel || '') && reference && finalBreakdowns.findIndex(b => String(b.code) === '11') === -1) {
+      // If transaction had code11 we may have overridden numericAmount earlier — add code11 entry
+      const existingTrx = await Transaction.findById(reference).lean();
+      const code11 = existingTrx && Array.isArray(existingTrx.breakdowns) ? existingTrx.breakdowns.find(b => String(b.code) === '11') : null;
+      const code11amt = code11 ? Number(code11.amount || 0) : 0;
+      if (code11amt > 0) finalBreakdowns.push({ code: '11', amount: code11amt, statusNote: 'ค่าคลิกที่ยังไม่ต้องเติม' });
+    }
+  } catch (e) {
+    // noop
   }
 
   let session;
@@ -231,7 +270,7 @@ router.post('/cards/charge', async (req, res) => {
         channel: channel === 'Google Ads' || channel === 'Facebook Ads' ? channel : 'Other',
         reference,
         note,
-        breakdowns: Array.isArray(breakdowns) ? breakdowns : [],
+        breakdowns: Array.isArray(finalBreakdowns) ? finalBreakdowns : [],
         chargeTime,
         chargeDate: chargeDate ? new Date(chargeDate) : undefined,
         serviceId: svcIdToStore,
