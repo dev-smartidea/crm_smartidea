@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import toast from '../../utils/toast';
 import { 
@@ -59,6 +59,42 @@ export default function AccountLedgerPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   
+  const tableWrapperRef = useRef(null);
+  const topScrollRef = useRef(null);
+  const [scrollWidth, setScrollWidth] = useState(0);
+
+  const handleTopScroll = () => {
+    if (topScrollRef.current && tableWrapperRef.current) {
+      if (tableWrapperRef.current.scrollLeft !== topScrollRef.current.scrollLeft) {
+        tableWrapperRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+      }
+    }
+  };
+
+  const handleTableScroll = () => {
+    if (topScrollRef.current && tableWrapperRef.current) {
+      if (topScrollRef.current.scrollLeft !== tableWrapperRef.current.scrollLeft) {
+        topScrollRef.current.scrollLeft = tableWrapperRef.current.scrollLeft;
+      }
+    }
+  };
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (tableWrapperRef.current) {
+        setScrollWidth(tableWrapperRef.current.scrollWidth);
+      }
+    };
+    
+    // Small delay to ensure the DOM has fully rendered
+    const timer = setTimeout(updateWidth, 100);
+    window.addEventListener('resize', updateWidth);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, [ledgerData]);
+
   // Filters
   const [showFilters, setShowFilters] = useState(true); // ปรับเป็น true เสมอเพื่อให้เห็นตัวเลือกชัดเจน
   const todayStr = new Date().toISOString().split('T')[0];
@@ -777,8 +813,22 @@ export default function AccountLedgerPage() {
             </p>
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table className="ledger-table">
+          <>
+            <div
+              ref={topScrollRef}
+              onScroll={handleTopScroll}
+              style={{
+                overflowX: 'auto',
+                overflowY: 'hidden',
+                width: '100%',
+                background: '#f1f3f4',
+                borderBottom: '1px solid #dadce0'
+              }}
+            >
+              <div style={{ width: `${scrollWidth}px`, height: '1px' }}></div>
+            </div>
+            <div className="table-wrapper" ref={tableWrapperRef} onScroll={handleTableScroll}>
+              <table className="ledger-table">
               <thead>
                 <tr>
                   <th className="col-index sticky-col sticky-col-1" scope="col">#</th>
@@ -1080,7 +1130,8 @@ export default function AccountLedgerPage() {
               )}
             </table>
           </div>
-        )}
+        </>
+      )}
       </div>
 
       {/* Pagination */}
