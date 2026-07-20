@@ -677,15 +677,33 @@ export default function CustomerServicesPage() {
               <form className="svc-form" onSubmit={(e) => { e.preventDefault(); saveDetailEdit(); }}>
                 <label>
                   ประเภทบริการ
-                  <input type="text" value={detailForm.serviceType} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                  <input 
+                    type="text" 
+                    value={detailForm.serviceType || ''} 
+                    onChange={e => setDetailForm({ ...detailForm, serviceType: e.target.value })}
+                    disabled={!isAdminRole} 
+                    style={!isAdminRole ? { background: '#f5f5f5', cursor: 'not-allowed' } : {}} 
+                  />
                 </label>
                 <label>
                   Website / Facebook Page
-                  <input type="text" value={detailForm.pageUrl} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                  <input 
+                    type="text" 
+                    value={detailForm.pageUrl || ''} 
+                    onChange={e => setDetailForm({ ...detailForm, pageUrl: e.target.value })}
+                    disabled={!isAdminRole} 
+                    style={!isAdminRole ? { background: '#f5f5f5', cursor: 'not-allowed' } : {}} 
+                  />
                 </label>
                 <label>
                   CID
-                  <input type="text" value={detailForm.cid} disabled style={{ background: '#f5f5f5', cursor: 'not-allowed' }} />
+                  <input 
+                    type="text" 
+                    value={detailForm.cid || ''} 
+                    onChange={e => setDetailForm({ ...detailForm, cid: e.target.value })}
+                    disabled={!isAdminRole} 
+                    style={!isAdminRole ? { background: '#f5f5f5', cursor: 'not-allowed' } : {}} 
+                  />
                 </label>
                 <div className="svc-row-2">
                   <label>
