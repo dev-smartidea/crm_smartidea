@@ -12,19 +12,30 @@ async function recomputeServiceStatuses() {
 
   // เกินกำหนดมากกว่า 30 วัน
   await Service.updateMany(
-    { dueDate: { $lt: thirtyDaysAgo } },
+    { 
+      dueDate: { $lt: thirtyDaysAgo },
+      status: { $nin: ['ไม่ต่ออายุ', 'หยุดโฆษณา'] }
+    },
     { $set: { status: 'เกินกำหนดมากกว่า 30 วัน' } }
   );
 
   // ครบกำหนด (เลยกำหนด แต่ไม่เกิน 30 วัน)
   await Service.updateMany(
-    { dueDate: { $gte: thirtyDaysAgo, $lt: now } },
+    { 
+      dueDate: { $gte: thirtyDaysAgo, $lt: now },
+      status: { $nin: ['ไม่ต่ออายุ', 'หยุดโฆษณา'] }
+    },
     { $set: { status: 'ครบกำหนด' } }
   );
 
   // อยู่ระหว่างบริการ (ยังไม่ถึงกำหนด, ไม่มี dueDate, หรือ dueDate เป็น null)
   await Service.updateMany(
-    { $or: [ { dueDate: { $gte: now } }, { dueDate: { $exists: false } }, { dueDate: null } ] },
+    { 
+      $and: [
+        { $or: [ { dueDate: { $gte: now } }, { dueDate: { $exists: false } }, { dueDate: null } ] },
+        { status: { $nin: ['ไม่ต่ออายุ', 'หยุดโฆษณา'] } }
+      ]
+    },
     { $set: { status: 'อยู่ระหว่างบริการ' } }
   );
 }
