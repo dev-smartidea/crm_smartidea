@@ -374,6 +374,10 @@ router.patch('/ledger/:id', async (req, res) => {
     updateBreakdownForCode('9', wht2click);
     updateBreakdownForCode('10', wht3svc);
     updateBreakdownForCode('12', vat36);
+    updateBreakdownForCode('14', req.body.newCustomerGG !== undefined ? req.body.newCustomerGG : req.body.renewGG);
+    updateBreakdownForCode('16', coupon);
+    updateBreakdownForCode('18', req.body.newCustomerFB !== undefined ? req.body.newCustomerFB : req.body.renewFB);
+    updateBreakdownForCode('20', req.body.hostingDomain);
     
     // For vat30 (which aggregates 13, 17, 19), determine which one is relevant based on serviceType, or default to 13 (Google) / 17 (Facebook)
     if (vat30 !== undefined) {

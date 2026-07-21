@@ -331,7 +331,8 @@ export default function AccountLedgerPage() {
       // Prepare payload: numeric fields sent as numbers with 2 decimals
       const numericFields = [
         'prepaid', 'coupon', 'invGG', 'invFB', 'amount', 'fbClickAmount',
-        'wht3click', 'wht2svc', 'wht2click', 'wht3svc', 'vat36', 'vat30'
+        'wht3click', 'wht2svc', 'wht2click', 'wht3svc', 'vat36', 'vat30',
+        'newCustomerGG', 'renewGG', 'newCustomerFB', 'renewFB', 'hostingDomain'
       ];
       const payload = {};
       if (numericFields.includes(editingCell.field)) {
@@ -359,7 +360,13 @@ export default function AccountLedgerPage() {
           wht2svc: '8',
           wht2click: '9',
           wht3svc: '10',
-          vat36: '12'
+          vat36: '12',
+          newCustomerGG: '14',
+          renewGG: '14',
+          coupon: '16',
+          newCustomerFB: '18',
+          renewFB: '18',
+          hostingDomain: '20'
         };
 
         if (codeMap[editingCell.field]) {
@@ -913,15 +920,45 @@ export default function AccountLedgerPage() {
                       )}
                     </td>
                     {/* ลูกค้าใหม่ GG */}
-                    <td className="col-gg">{formatNumber(getFirstTransactionAmount(item, 14, firstTxMap))}</td>
+                    <td className="col-gg editable-cell" onClick={() => handleCellClick(item._id, 'newCustomerGG', getFirstTransactionAmount(item, 14, firstTxMap))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'newCustomerGG' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getFirstTransactionAmount(item, 14, firstTxMap))}</span>
+                      )}
+                    </td>
                     {/* ต่ออายุ GG */}
-                    <td className="col-gg">{formatNumber(getRenewTransactionAmount(item, 14, firstTxMap))}</td>
+                    <td className="col-gg editable-cell" onClick={() => handleCellClick(item._id, 'renewGG', getRenewTransactionAmount(item, 14, firstTxMap))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'renewGG' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getRenewTransactionAmount(item, 14, firstTxMap))}</span>
+                      )}
+                    </td>
                     {/* ลูกค้าใหม่ FB */}
-                    <td className="col-fb">{formatNumber(getFirstTransactionAmount(item, 18, firstTxMap))}</td>
+                    <td className="col-fb editable-cell" onClick={() => handleCellClick(item._id, 'newCustomerFB', getFirstTransactionAmount(item, 18, firstTxMap))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'newCustomerFB' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getFirstTransactionAmount(item, 18, firstTxMap))}</span>
+                      )}
+                    </td>
                     {/* ต่ออายุ FB */}
-                    <td className="col-fb">{formatNumber(getRenewTransactionAmount(item, 18, firstTxMap))}</td>
+                    <td className="col-fb editable-cell" onClick={() => handleCellClick(item._id, 'renewFB', getRenewTransactionAmount(item, 18, firstTxMap))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'renewFB' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getRenewTransactionAmount(item, 18, firstTxMap))}</span>
+                      )}
+                    </td>
                     {/* Hosting Domain */}
-                    <td className="col-hosting">{formatNumber(getBreakdownAmount(item, 20))}</td>
+                    <td className="col-hosting editable-cell" onClick={() => handleCellClick(item._id, 'hostingDomain', getBreakdownAmount(item, 20))}>
+                      {editingCell?.id === item._id && editingCell?.field === 'hostingDomain' ? (
+                        <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />
+                      ) : (
+                        <span className="editable-text">{formatNumber(getBreakdownAmount(item, 20))}</span>
+                      )}
+                    </td>
                     {/* ค่าคลิก */}
                     <td className="col-click editable-cell" onClick={() => handleCellClick(item._id, 'fbClickAmount', getBreakdownAmount(item, 11))}>
                       {editingCell?.id === item._id && editingCell?.field === 'fbClickAmount' ? (
