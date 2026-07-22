@@ -12,7 +12,7 @@ const { createAuditLog } = require('../utils/auditLogger');
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 นาที
   max: 5, // จำกัด 5 ครั้งต่อ IP
-  message: 'ล็อกอินผิดพลาดหลายครั้ง กรุณาลองใหม่อีกครั้งใน 15 นาที',
+  message: { error: 'ล็อกอินผิดพลาดหลายครั้ง กรุณาลองใหม่อีกครั้งใน 15 นาที' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -21,7 +21,7 @@ const loginLimiter = rateLimit({
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 ชั่วโมง
   max: 3, // จำกัด 3 ครั้งต่อ IP
-  message: 'สมัครสมาชิกมากเกินไป กรุณาลองใหม่ในอีก 1 ชั่วโมง',
+  message: { error: 'สมัครสมาชิกมากเกินไป กรุณาลองใหม่ในอีก 1 ชั่วโมง' },
   standardHeaders: true,
   legacyHeaders: false,
 });

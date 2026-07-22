@@ -49,7 +49,7 @@ const isProd = process.env.NODE_ENV === 'production';
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 นาที
   max: Number(process.env.RATE_LIMIT_MAX) || 100, // จำกัด requests ต่อ IP (ปรับได้จาก env)
-  message: 'คำขอมากเกินไป กรุณาลองใหม่ในอีก 15 นาที',
+  message: { error: 'คำขอมากเกินไป กรุณาลองใหม่ในอีก 15 นาที' },
   standardHeaders: true,
   legacyHeaders: false,
   // ข้าม rate limiting ใน environment ที่ไม่ใช่ production (dev/local)
