@@ -357,11 +357,75 @@ router.put('/transactions/bulk-approve', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or empty transaction IDs list' });
     }
 
+    // ค้นหารายการทั้งหมดที่จะทำการอนุมัติเพื่อดึงข้อมูลสำหรับส่งแจ้งเตือน
+    const txs = await Transaction.find({ _id: { $in: ids }, submissionStatus: 'submitted' });
+    if (txs.length === 0) {
+      return res.json({ success: true, modifiedCount: 0 });
+    }
+
     // อัปเดตทุกรายการที่มี ID อยู่ในลิสต์ และมีสถานะ submissionStatus เป็น submitted
     const result = await Transaction.updateMany(
-      { _id: { $in: ids }, submissionStatus: 'submitted' },
+      { _id: { $in: txs.map(t => t._id) } },
       { $set: { submissionStatus: 'approved' } }
     );
+
+    // ส่งแจ้งเตือนสำหรับรายการโอนค่าบริการที่ได้รับการอนุมัติ
+    const SERVICE_FEE_CODES = ['14', '18', '20'];
+    try {
+      const { getIO } = require('../socket');
+      for (const tx of txs) {
+        const hasServiceFee = (tx.breakdowns || []).some(b => SERVICE_FEE_CODES.includes(b.code));
+        if (hasServiceFee) {
+          try {
+            const service = await Service.findById(tx.serviceId);
+            const customer = service ? await Customer.findById(service.customerId).select('name') : null;
+
+            if (service && service.userId) {
+              const cid = service.cid || service.customerIdField || service._id.toString();
+              const customerName = customer?.name || 'ลูกค้า';
+              const amountFormatted = parseFloat(tx.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+
+              // สร้าง Notification เก็บลงฐานข้อมูล (สำหรับ user ที่ offline)
+              const notif = await Notification.create({
+                userId: service.userId,
+                type: 'service_date_update',
+                title: '📅 กรุณาอัปเดตวันรันโฆษณา',
+                message: `บัญชีอนุมัติรายการโอน ${amountFormatted} บาท ของบริการ "${cid}" (${customerName}) แล้ว กรุณากำหนดวันเริ่มและวันสิ้นสุดรอบใหม่`,
+                link: null,
+                relatedTransactionId: tx._id,
+                relatedServiceId: service._id,
+                relatedCustomerId: service.customerId,
+                isRead: false
+              });
+
+              // ยิง Socket.io event แบบ real-time (สำหรับ user ที่ online อยู่)
+              try {
+                const io = getIO();
+                io.to(`user:${service.userId.toString()}`).emit('service_date_update', {
+                  notificationId: notif._id.toString(),
+                  transactionId: tx._id.toString(),
+                  serviceId: service._id.toString(),
+                  cid,
+                  customerName,
+                  serviceType: service.serviceType || service.name || '',
+                  amount: tx.amount,
+                  transactionDate: tx.transactionDate,
+                  currentStartDate: service.startDate || null,
+                  currentDueDate: service.dueDate || null,
+                  userId: service.userId.toString()
+                });
+              } catch (socketErr) {
+                console.error('Socket emit service_date_update failed (bulk):', socketErr.message);
+              }
+            }
+          } catch (notifErr) {
+            console.error('Create service_date_update notification failed (bulk):', notifErr.message);
+          }
+        }
+      }
+    } catch (socketRequireErr) {
+      console.error('Socket load failed (bulk):', socketRequireErr.message);
+    }
 
     res.json({ success: true, modifiedCount: result.modifiedCount });
   } catch (err) {
