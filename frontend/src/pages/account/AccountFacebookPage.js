@@ -186,6 +186,7 @@ export default function AccountFacebookPage() {
   const [fbRecordCardId, setFbRecordCardId] = useState('');
   const [fbRecordDate, setFbRecordDate] = useState('');
   const [fbRecordTime, setFbRecordTime] = useState('');
+  const [fbRecordAmount, setFbRecordAmount] = useState('');
   const [fbRecordLoading, setFbRecordLoading] = useState(false);
   const [cards, setCards] = useState([]);
 
@@ -206,6 +207,7 @@ export default function AccountFacebookPage() {
     setFbRecordCardId(tx.fbTopupCardId || '');
     setFbRecordDate(new Date().toISOString().split('T')[0]);
     setFbRecordTime('');
+    setFbRecordAmount(String(tx.fbTopupAmount || tx.clickCost || 0));
   };
 
   const handleCancelTopup = async (tx, e) => {
@@ -865,21 +867,67 @@ export default function AccountFacebookPage() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>ยอดเติมเงิน</label>
-                  <div style={{ padding: '8px', borderRadius: 6, border: '1px solid #eee', background: '#e8f0fe', color: '#1877f2' }}>{fmt(fbRecordModal.fbTopupAmount || fbRecordModal.clickCost || 0)} บาท</div>
+                  <input
+                    type="number"
+                    value={fbRecordAmount}
+                    onChange={e => setFbRecordAmount(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }}
+                    step="0.01"
+                  />
                 </div>
               </div>
+              {/* คำนวณยอดเงินคงเหลือในบัญชี */}
+              {(() => {
+                const groupKey = fbRecordModal.serviceId || `${fbRecordModal.accountName}__${fbRecordModal.customerCode}`;
+                const g = groups.find(group => group.key === groupKey);
+                if (!g) return null;
+                const currentRemaining = g.remaining;
+                const enteredAmount = Number(fbRecordAmount) || 0;
+                const newRemaining = currentRemaining - enteredAmount;
+                return (
+                  <div style={{ marginTop: 8, padding: '10px', borderRadius: 8, background: '#f8f9fa', border: '1px solid #e9ecef', fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: '#6c757d' }}>ยอดคงเหลือเดิมในบัญชี:</span>
+                      <span style={{ fontWeight: 600 }}>{fmt(currentRemaining)} บาท</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#6c757d' }}>ยอดคงเหลือใหม่หลังบันทึก:</span>
+                      <span style={{ fontWeight: 700, color: newRemaining >= 0 ? '#198754' : '#dc3545' }}>
+                        {fmt(newRemaining)} บาท
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setFbRecordModal(null)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #dee2e6', background: '#fff' }}>ยกเลิก</button>
               <button onClick={async () => {
-                if (!fbRecordCardId || !fbRecordDate || !fbRecordTime) { toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+                if (!fbRecordCardId || !fbRecordDate || !fbRecordTime || !fbRecordAmount) { toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
                 try {
                   setFbRecordLoading(true);
                   const token = localStorage.getItem('token');
                   const selectedCard = cards.find(c => c._id === fbRecordCardId);
-                  const amount = Number(fbRecordModal.fbTopupAmount || fbRecordModal.clickCost || 0);
-                  await axios.post(`${process.env.REACT_APP_API_URL}/api/cards/charge`, { cardId: fbRecordCardId, amount, channel: 'Facebook Ads', note: `FB ตัดเงิน: ${fbRecordModal.accountName}`, serviceId: fbRecordModal.serviceId }, { headers: { Authorization: `Bearer ${token}` } });
-                  await axios.patch(`${process.env.REACT_APP_API_URL}/api/ledger/${fbRecordModal._id}`, { cardCharged: true, cardNumber: selectedCard?.last4 || '', cardTime: fbRecordTime, fbChargedDate: fbRecordDate, fbChargedAmount: amount }, { headers: { Authorization: `Bearer ${token}` } });
+                  const amount = Number(fbRecordAmount);
+                  // 1. ตัดยอดบัตรจริง (ส่ง reference เพื่อเชื่อมโยง)
+                  await axios.post(`${process.env.REACT_APP_API_URL}/api/cards/charge`, {
+                    cardId: fbRecordCardId,
+                    amount,
+                    channel: 'Facebook Ads',
+                    note: `FB ตัดเงิน: ${fbRecordModal.accountName}`,
+                    serviceId: fbRecordModal.serviceId,
+                    reference: fbRecordModal._id
+                  }, { headers: { Authorization: `Bearer ${token}` } });
+                  // 2. บันทึก cardCharged บน Transaction พร้อมอัปเดตยอดเติมเงินให้ตรงกัน
+                  await axios.patch(`${process.env.REACT_APP_API_URL}/api/ledger/${fbRecordModal._id}`, {
+                    cardCharged: true,
+                    cardNumber: selectedCard?.last4 || '',
+                    cardTime: fbRecordTime,
+                    fbChargedDate: fbRecordDate,
+                    fbChargedAmount: amount,
+                    fbTopupAmount: amount,
+                    fbClickAmount: amount
+                  }, { headers: { Authorization: `Bearer ${token}` } });
                   toast.success('บันทึกการตัดของ Facebook สำเร็จ');
                   setFbRecordModal(null);
                   fetchData(new AbortController().signal);

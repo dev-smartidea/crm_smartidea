@@ -188,6 +188,7 @@ export default function AccountGooglePage() {
   const [ggRecordCardId, setGgRecordCardId] = useState('');
   const [ggRecordDate, setGgRecordDate] = useState('');
   const [ggRecordTime, setGgRecordTime] = useState('');
+  const [ggRecordAmount, setGgRecordAmount] = useState('');
   const [ggRecordLoading, setGgRecordLoading] = useState(false);
 
   const openGgRecordModal = (tx, e) => {
@@ -196,6 +197,8 @@ export default function AccountGooglePage() {
     setGgRecordCardId('');
     setGgRecordDate(new Date().toISOString().split('T')[0]);
     setGgRecordTime('');
+    const defaultAmount = tx.invGG || (tx.clickCost || 0) + (tx.newCustomerGG || tx.renewGG || 0);
+    setGgRecordAmount(String(defaultAmount || 0));
   };
 
   const handleCancelInvoice = async (tx, e) => {
@@ -724,28 +727,72 @@ export default function AccountGooglePage() {
                   <input type="date" value={ggRecordDate} onChange={e => setGgRecordDate(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ width: 140 }}>
                   <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>เวลาที่ตัด</label>
                   <input type="text" placeholder="08:00" maxLength={5} value={ggRecordTime} onChange={e => setGgRecordTime(e.target.value.replace(/\./g, ':').replace(/[^0-9:]/g, ''))} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>ยอด Invoice</label>
-                  <div style={{ padding: '8px', borderRadius: 6, border: '1px solid #eee', background: '#fff8f0', color: '#a63d00' }}>{fmt(ggRecordModal.invGG || (ggRecordModal.clickCost || 0) + (ggRecordModal.newCustomerGG || ggRecordModal.renewGG || 0))} บาท</div>
+                  <input
+                    type="number"
+                    value={ggRecordAmount}
+                    onChange={e => setGgRecordAmount(e.target.value)}
+                    style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #dee2e6' }}
+                    step="0.01"
+                  />
                 </div>
               </div>
+              {/* คำนวณยอดเงินคงเหลือในบัญชี */}
+              {(() => {
+                const groupKey = ggRecordModal.serviceId || `${ggRecordModal.accountName}__${ggRecordModal.customerCode}`;
+                const g = groups.find(group => group.key === groupKey);
+                if (!g) return null;
+                const currentRemaining = g.remaining;
+                const enteredAmount = Number(ggRecordAmount) || 0;
+                const newRemaining = currentRemaining - enteredAmount;
+                return (
+                  <div style={{ marginTop: 4, marginBottom: 12, padding: '10px', borderRadius: 8, background: '#f8f9fa', border: '1px solid #e9ecef', fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: '#6c757d' }}>ยอดคงเหลือเดิมในบัญชี:</span>
+                      <span style={{ fontWeight: 600 }}>{fmt(currentRemaining)} บาท</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#6c757d' }}>ยอดคงเหลือใหม่หลังบันทึก:</span>
+                      <span style={{ fontWeight: 700, color: newRemaining >= 0 ? '#198754' : '#dc3545' }}>
+                        {fmt(newRemaining)} บาท
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setGgRecordModal(null)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #dee2e6', background: '#fff' }}>ยกเลิก</button>
               <button onClick={async () => {
-                if (!ggRecordCardId || !ggRecordDate || !ggRecordTime) { toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
+                if (!ggRecordCardId || !ggRecordDate || !ggRecordTime || !ggRecordAmount) { toast.warning('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
                 try {
                   setGgRecordLoading(true);
                   const token = localStorage.getItem('token');
                   const selectedCard = cards.find(c => c._id === ggRecordCardId);
-                  const amount = Number(ggRecordModal.invGG || (ggRecordModal.clickCost || 0) + (ggRecordModal.newCustomerGG || ggRecordModal.renewGG || 0) || 0);
-                  await axios.post(`${process.env.REACT_APP_API_URL}/api/cards/charge`, { cardId: ggRecordCardId, amount, channel: 'Google Ads', note: `Invoice Google ตัดเงิน: ${ggRecordModal.accountName}`, serviceId: ggRecordModal.serviceId }, { headers: { Authorization: `Bearer ${token}` } });
-                  await axios.patch(`${process.env.REACT_APP_API_URL}/api/ledger/${ggRecordModal._id}`, { cardCharged: true, cardNumber: selectedCard?.last4 || '', cardTime: ggRecordTime, cardDate: ggRecordDate }, { headers: { Authorization: `Bearer ${token}` } });
+                  const amount = Number(ggRecordAmount);
+                  // 1. ตัดยอดบัตรจริง (ส่ง reference เพื่อเชื่อมโยง)
+                  await axios.post(`${process.env.REACT_APP_API_URL}/api/cards/charge`, {
+                    cardId: ggRecordCardId,
+                    amount,
+                    channel: 'Google Ads',
+                    note: `Invoice Google ตัดเงิน: ${ggRecordModal.accountName}`,
+                    serviceId: ggRecordModal.serviceId,
+                    reference: ggRecordModal._id
+                  }, { headers: { Authorization: `Bearer ${token}` } });
+                  // 2. บันทึก cardCharged บน Transaction พร้อมอัปเดตยอด invGG ให้ตรงกัน
+                  await axios.patch(`${process.env.REACT_APP_API_URL}/api/ledger/${ggRecordModal._id}`, {
+                    cardCharged: true,
+                    cardNumber: selectedCard?.last4 || '',
+                    cardTime: ggRecordTime,
+                    cardDate: ggRecordDate,
+                    invGG: amount
+                  }, { headers: { Authorization: `Bearer ${token}` } });
                   toast.success('บันทึกการตัดของ Google สำเร็จ');
                   setGgRecordModal(null);
                   fetchData(new AbortController().signal);
