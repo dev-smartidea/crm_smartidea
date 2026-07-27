@@ -276,6 +276,15 @@ router.put('/transactions/:id/approve', async (req, res) => {
     tx.submissionStatus = 'approved';
     await tx.save();
 
+    // Emit a general ledger update so any open ledger views can refresh
+    try {
+      const { getIO } = require('../socket');
+      const io = getIO();
+      io.emit('ledger_update', { transactionId: tx._id.toString(), action: 'approved' });
+    } catch (e) {
+      console.error('Emit ledger_update failed:', e.message);
+    }
+
     // ตรวจสอบว่ามี breakdown ค่าบริการ (code 14=GG, 18=FB, 20=Hosting) หรือไม่
     const SERVICE_FEE_CODES = ['14', '18', '20'];
     const hasServiceFee = (tx.breakdowns || []).some(b => SERVICE_FEE_CODES.includes(b.code));

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import toast from '../../utils/toast';
 import { 
   FileEarmarkSpreadsheet, Search, Download, 
@@ -125,6 +126,16 @@ export default function AdminLedgerPage() {
     const controller = new AbortController();
     fetchLedger(1, controller.signal);
     return () => controller.abort();
+  }, [fetchLedger]);
+
+  // Listen for global ledger updates via socket and refresh
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000', { auth: { token } });
+    socket.on('ledger_update', () => {
+      fetchLedger(1);
+    });
+    return () => socket.disconnect();
   }, [fetchLedger]);
 
   const handleSearch = (e) => {
