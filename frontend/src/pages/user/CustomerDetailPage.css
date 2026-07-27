@@ -228,7 +228,7 @@
   margin-bottom: 60px;
 }
 .cd-form label { display: flex; flex-direction: column; font-size: 14px; gap: 6px; font-weight: 600; }
-.cd-form input[type=text], .cd-form input[type=email], .cd-form select, .cd-form textarea {
+.cd-form input[type=text], .cd-form input[type=email], .cd-form input[type=date], .cd-form select, .cd-form textarea {
   border: 1px solid #d3d8e2;
   border-radius: 8px;
   padding: 10px 12px;

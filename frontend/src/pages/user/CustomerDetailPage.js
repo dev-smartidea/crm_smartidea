@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { PersonVcardFill, TelephoneFill, Globe, BoxSeam, CalendarPlus, ArrowLeftCircleFill, TagFill, Building, BriefcaseFill, EnvelopeFill, CreditCard, PencilSquare } from 'react-bootstrap-icons';
+import { PersonVcardFill, TelephoneFill, Globe, BoxSeam, CalendarPlus, CalendarFill, ArrowLeftCircleFill, TagFill, Building, BriefcaseFill, EnvelopeFill, CreditCard, PencilSquare } from 'react-bootstrap-icons';
 import './CustomerDetailPage.css';
 import '../shared/ImageGalleryPage.css'; // reuse gradient blue button style
 
@@ -21,6 +21,7 @@ export default function CustomerDetailPage() {
     taxId: '',
     address: '',
     productService: '',
+    startDate: '',
     userIds: []
   });
   const [users, setUsers] = useState([]);
@@ -151,6 +152,7 @@ export default function CustomerDetailPage() {
                       taxId: customer.taxId || '',
                       address: customer.address || '',
                       productService: customer.productService || '',
+                      startDate: customer.startDate ? new Date(customer.startDate).toISOString().split('T')[0] : '',
                       userIds: customer.userIds?.map(u => u._id) || []
                     });
                     setIsEditing(true);
@@ -174,6 +176,11 @@ export default function CustomerDetailPage() {
               <DetailItem icon={<TelephoneFill />} label="เบอร์โทรศัพท์" value={customer.phone} />
               <DetailItem icon={<EnvelopeFill />} label="Email" value={customer.email} />
               <DetailItem icon={<CreditCard />} label="Tax ID" value={customer.taxId} />
+              <DetailItem
+                icon={<CalendarFill />}
+                label="วันที่เริ่ม"
+                value={customer.startDate ? new Date(customer.startDate).toLocaleDateString('th-TH', { dateStyle: 'long' }) : null}
+              />
               <DetailItem icon={<Globe />} label="ที่อยู่" value={customer.address} className="detail-full-width" />
               <DetailItem icon={<BoxSeam />} label="สินค้า / บริการของลูกค้า" value={customer.productService} className="service detail-full-width" />
               <DetailItem
@@ -250,6 +257,10 @@ export default function CustomerDetailPage() {
                       <label>
                         Tax ID
                         <input type="text" value={editForm.taxId} onChange={e => setEditForm({ ...editForm, taxId: e.target.value })} required />
+                      </label>
+                      <label>
+                        วันที่เริ่ม
+                        <input type="date" value={editForm.startDate} onChange={e => setEditForm({ ...editForm, startDate: e.target.value })} />
                       </label>
                     </div>
                     <label>

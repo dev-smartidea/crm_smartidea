@@ -171,7 +171,7 @@ router.post('/', async (req, res) => {
     // Whitelist fields to prevent mass assignment
     const ALLOWED_CUSTOMER_CREATE_FIELDS = [
       'name', 'customerType', 'businessSize', 'address', 'phone', 'email',
-      'taxId', 'productService', 'contactPerson', 'lineId', 'facebook', 'website', 'notes'
+      'taxId', 'productService', 'contactPerson', 'lineId', 'facebook', 'website', 'notes', 'startDate'
     ];
     const customerData = { _id: genId, customerCode: derivedCode, userIds };
     for (const field of ALLOWED_CUSTOMER_CREATE_FIELDS) {
@@ -353,7 +353,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const allowedFields = [
       'customerCode', 'name', 'customerType', 'address', 'phone', 'email',
       'taxId', 'businessSize', 'productService', 'contactPerson',
-      'lineId', 'facebook', 'website', 'notes'
+      'lineId', 'facebook', 'website', 'notes', 'startDate'
     ];
     const updateData = {};
     for (const field of allowedFields) {

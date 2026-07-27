@@ -24,6 +24,9 @@ const customerSchema = new mongoose.Schema({
   // ผู้ติดต่อ (Contact Person)
   contactPerson: { type: String, trim: true, required: true },
 
+  // วันที่เริ่ม
+  startDate: { type: Date, default: null },
+
   // ฟิลด์เดิม (คงไว้เพื่อความเข้ากันได้ของฟีเจอร์อื่น เช่น คลังรูปภาพ)
   lineId: { type: String, trim: true },
   facebook: { type: String, trim: true },

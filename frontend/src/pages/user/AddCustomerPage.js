@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
   PersonPlusFill, TelephoneFill, Globe, BriefcaseFill, 
   CheckCircleFill, ArrowCounterclockwise, Building, 
-  CreditCard, EnvelopeFill, TagFill, ExclamationTriangleFill 
+  CreditCard, EnvelopeFill, TagFill, ExclamationTriangleFill, CalendarFill 
 } from 'react-bootstrap-icons';
 import './AddCustomerPage.css';
 import '../shared/ImageGalleryPage.css'; 
@@ -31,7 +31,8 @@ export default function AddCustomerPage() {
     taxId: '',
     businessSize: '',
     productService: '',
-    contactPerson: '' // ผู้ติดต่อ
+    contactPerson: '', // ผู้ติดต่อ
+    startDate: '' // วันที่เริ่ม
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -183,7 +184,7 @@ export default function AddCustomerPage() {
   };
 
   const calculateProgress = () => {
-    const requiredFields = ['name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize', 'productService', 'contactPerson'];
+    const requiredFields = ['name', 'customerType', 'address', 'phone', 'email', 'taxId', 'businessSize', 'productService', 'contactPerson', 'startDate'];
     const filled = requiredFields.filter((field) => String(formData[field] || '').trim()).length;
     return Math.round((filled / requiredFields.length) * 100);
   };
@@ -602,49 +603,22 @@ export default function AddCustomerPage() {
                 </div>
               </div>
 
-              {/* Row 5: Tax ID & Product */}
-              {/* <div className="form-row">
+              {/* Row 6: Start Date & Product */}
+              <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="taxId"><CreditCard /> Tax ID <span className="required">*</span></label>
-                  <div style={{ position: 'relative', width: '100%' }}>
-                    <input
-                      type="number"
-                      id="taxId"
-                      ref={taxIdInputRef}
-                      name="taxId"
-                      className={`form-input ${touched.taxId && (formData.taxId && !taxIdDuplicate ? 'valid' : 'invalid')}`}
-                      value={formData.taxId}
-                      onChange={handleChange}
-                      onFocus={() => setShowTaxIdDropdown(true)}
-                      onBlur={e => {
-                        handleBlur(e);
-                        setTimeout(() => setShowTaxIdDropdown(false), 200);
-                      }}
-                      placeholder="เลขประจำตัวผู้เสียภาษี"
-                      autoComplete="off"
-                      required
-                      style={{ width: '100%' }}
-                    />
-                    {showTaxIdDropdown && taxIdQuery && (
-                      <div className="combo-panel" style={{ zIndex: 10, maxHeight: 180, overflowY: 'auto', position: 'absolute', left: 0, right: 0 }}>
-                        {allCustomers
-                          .filter(c => (c.taxId || '').includes(taxIdQuery) && c.taxId !== formData.taxId)
-                          .slice(0, 10)
-                          .map(c => (
-                            <div key={c._id} className="combo-item" onMouseDown={() => handleSelectTaxId(c.taxId)}>
-                              {c.taxId}
-                            </div>
-                          ))
-                        }
-                        {allCustomers.filter(c => (c.taxId || '').includes(taxIdQuery) && c.taxId !== formData.taxId).length === 0 && (
-                          <div className="combo-item disabled">ไม่พบ Tax ID ที่คล้ายกัน</div>
-                        )}
-                      </div>
-                    )}
-                    {taxIdDuplicate && <div className="input-error-text" style={{color: 'red', fontSize: '12px'}}>มี Tax ID นี้ในระบบแล้ว</div>}
-                  </div>
+                  <label htmlFor="startDate"><CalendarFill /> วันที่เริ่ม <span className="required">*</span></label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    name="startDate"
+                    className={`form-input ${touched.startDate && (formData.startDate ? 'valid' : 'invalid')}`}
+                    value={formData.startDate}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    required
+                  />
                 </div>
-              </div> */}
+              </div>
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="productService"><BriefcaseFill /> สินค้า / บริการ <span className="required">*</span></label>
