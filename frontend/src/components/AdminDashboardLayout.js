@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import { useNavigate, Outlet } from 'react-router-dom';
-import { FaUserShield, FaDownload, FaUserPlus, FaClipboardList, FaCalendarAlt, FaHome, FaSignOutAlt, FaBars, FaBook, FaTools } from 'react-icons/fa';
+import { FaUserShield, FaDownload, FaUpload, FaUserPlus, FaClipboardList, FaCalendarAlt, FaHome, FaSignOutAlt, FaBars, FaBook, FaTools } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
 import ImpersonationBanner from './ImpersonationBanner';
 import '../pages/admin/AdminDashboardPage.css';
@@ -11,6 +11,7 @@ export default function AdminDashboardLayout() {
   const { isImpersonating } = useContext(AuthContext);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   // decode role ของ admin ที่ login อยู่
   const currentRole = (() => {
@@ -28,6 +29,48 @@ export default function AdminDashboardLayout() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  const handleRestore = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so it triggers even if uploading the same file
+    e.target.value = '';
+
+    const firstConfirm = window.confirm(
+      '⚠️ คำเตือนสำคัญ:\n\nการกู้คืนข้อมูล (Restore Backup) จะทำการลบและเขียนทับฐานข้อมูลปัจจุบันในระบบทั้งหมด!\n\nต้องการดำเนินการต่อหรือไม่?'
+    );
+    if (!firstConfirm) return;
+
+    const secondConfirm = window.confirm(
+      '⚠️ ยืนยันขั้นตอนสุดท้าย:\n\nระบบจะกู้คืนทุกคอลเลกชันและข้อมูลเก่าทั้งหมดจะถูกแทนที่ทันที! การกู้คืนไม่สามารถเรียกกลับคืนได้ คุณต้องการเริ่มกระบวนการเขียนทับใช่หรือไม่?'
+    );
+    if (!secondConfirm) return;
+
+    try {
+      setRestoreLoading(true);
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const backupData = JSON.parse(event.target.result);
+          await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/restore`, backupData, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          alert('🎉 กู้คืนข้อมูลจากไฟล์สำรองสำเร็จเรียบร้อยแล้ว! หน้าเว็บจะทำการรีโหลด');
+          window.location.reload();
+        } catch (err) {
+          console.error(err);
+          alert('การกู้คืนข้อมูลล้มเหลว: ' + (err.response?.data?.error || 'ไฟล์ไม่ถูกต้องหรือระบบเกิดข้อผิดพลาด'));
+        } finally {
+          setRestoreLoading(false);
+        }
+      };
+      reader.readAsText(file);
+    } catch (err) {
+      alert('เกิดข้อผิดพลาดในการอ่านไฟล์');
+      setRestoreLoading(false);
+    }
   };
 
   const handleBackup = async () => {
@@ -99,6 +142,14 @@ export default function AdminDashboardLayout() {
               <FaDownload /> <span>{backupLoading ? 'กำลัง Export...' : 'Export Backup'}</span>
             </button>
           </li>
+          {isSuperAdmin && (
+            <li>
+              <label className="admin-sidebar-item" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', margin: 0, gap: '10px' }}>
+                <FaUpload /> <span>{restoreLoading ? 'กำลัง Import...' : 'Import Backup'}</span>
+                <input type="file" accept=".json" onChange={handleRestore} disabled={restoreLoading} style={{ display: 'none' }} />
+              </label>
+            </li>
+          )}
           <li>
             <button className={`admin-sidebar-item ${window.location.pathname === '/dashboard/admin/ledger' ? 'active' : ''}`} onClick={() => { closeSidebar(); navigate('/dashboard/admin/ledger'); }}>
               <FaBook /> <span>ยอดเดินบัญชี</span>

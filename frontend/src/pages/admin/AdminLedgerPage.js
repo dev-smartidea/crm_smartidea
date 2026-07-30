@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import toast from '../../utils/toast';
-import { 
-  FileEarmarkSpreadsheet, Search, Download, 
+import {
+  FileEarmarkSpreadsheet, Search, Download,
   ChevronLeft, ChevronRight, Funnel, X,
 } from 'react-bootstrap-icons';
 import './AdminLedgerPage.css';
@@ -57,7 +57,7 @@ export default function AdminLedgerPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  
+
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -76,15 +76,15 @@ export default function AdminLedgerPage() {
     const hasActiveFilters = filters.startDate || filters.endDate || filters.bank || filters.serviceType || filters.search;
     if (!ledgerData.length || !hasActiveFilters) return null;
     return ledgerData.reduce((acc, item) => ({
-      amount:     acc.amount     + (item.amount || 0),
-      newGG:      acc.newGG      + getFirstTransactionAmount(item, 14, firstTxMap),
-      renewGG:    acc.renewGG    + getRenewTransactionAmount(item, 14, firstTxMap),
-      newFB:      acc.newFB      + getFirstTransactionAmount(item, 18, firstTxMap),
-      renewFB:    acc.renewFB    + getRenewTransactionAmount(item, 18, firstTxMap),
-      hosting:    acc.hosting    + getBreakdownAmount(item, 20),
-      click:      acc.click      + getBreakdownAmount(item, 11),
-      vat36:      acc.vat36      + getBreakdownAmount(item, 12),
-      vat30:      acc.vat30      + getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19),
+      amount: acc.amount + (item.amount || 0),
+      newGG: acc.newGG + getFirstTransactionAmount(item, 14, firstTxMap),
+      renewGG: acc.renewGG + getRenewTransactionAmount(item, 14, firstTxMap),
+      newFB: acc.newFB + getFirstTransactionAmount(item, 18, firstTxMap),
+      renewFB: acc.renewFB + getRenewTransactionAmount(item, 18, firstTxMap),
+      hosting: acc.hosting + getBreakdownAmount(item, 20),
+      click: acc.click + getBreakdownAmount(item, 11),
+      vat36: acc.vat36 + getBreakdownAmount(item, 12),
+      vat30: acc.vat30 + getBreakdownAmount(item, 13) + getBreakdownAmount(item, 17) + getBreakdownAmount(item, 19),
     }), { amount: 0, newGG: 0, renewGG: 0, newFB: 0, renewFB: 0, hosting: 0, click: 0, vat36: 0, vat30: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledgerData, firstTxMap, filters.startDate, filters.endDate, filters.bank, filters.serviceType, filters.search]);
@@ -98,7 +98,7 @@ export default function AdminLedgerPage() {
       const params = new URLSearchParams();
       params.append('page', page);
       params.append('limit', '50');
-      
+
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.bank) params.append('bank', filters.bank);
@@ -157,7 +157,7 @@ export default function AdminLedgerPage() {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -188,28 +188,28 @@ export default function AdminLedgerPage() {
 
   const handleCellBlur = async () => {
     if (!editingCell) return;
-    
+
     try {
       await axios.patch(
         `${api}/api/ledger/${editingCell.id}`,
         { [editingCell.field]: editValue },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       // อัพเดต local state
       const numericFields = ['prepaid', 'coupon', 'invGG', 'invFB'];
       const newValue = numericFields.includes(editingCell.field)
         ? (editValue === '' ? null : Number(editValue))
         : (editValue || '-');
-      setLedgerData(prev => prev.map(item => 
-        item._id === editingCell.id 
+      setLedgerData(prev => prev.map(item =>
+        item._id === editingCell.id
           ? { ...item, [editingCell.field]: newValue }
           : item
       ));
     } catch (err) {
       toast.error('บันทึกไม่สำเร็จ');
     }
-    
+
     setEditingCell(null);
     setEditValue('');
   };

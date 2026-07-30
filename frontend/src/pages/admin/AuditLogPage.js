@@ -6,27 +6,27 @@ import toast from '../../utils/toast';
 import './AuditLogPage.css';
 
 const ACTION_LABELS = {
-  login:              { label: 'เข้าสู่ระบบ',           color: '#16a34a' },
-  logout:             { label: 'ออกจากระบบ',             color: '#6b7280' },
-  create_user:        { label: 'สร้างผู้ใช้',             color: '#2563eb' },
-  delete_user:        { label: 'ลบผู้ใช้',               color: '#dc2626' },
-  reset_password:     { label: 'รีเซ็ตรหัสผ่าน',         color: '#d97706' },
-  change_role:        { label: 'เปลี่ยน Role',            color: '#7c3aed' },
-  create_customer:    { label: 'เพิ่มลูกค้า',            color: '#0891b2' },
-  delete_customer:    { label: 'ลบลูกค้า',               color: '#dc2626' },
-  reassign_customer:  { label: 'โยกลูกค้า',              color: '#7c3aed' },
-  create_service:     { label: 'สร้างบริการ',             color: '#2563eb' },
-  update_service:     { label: 'แก้ไขบริการ',             color: '#d97706' },
-  delete_service:     { label: 'ลบบริการ',               color: '#dc2626' },
-  create_transaction: { label: 'สร้างรายการโอน',          color: '#0891b2' },
-  update_transaction: { label: 'แก้ไขรายการโอน',          color: '#d97706' },
-  delete_transaction: { label: 'ลบรายการโอน',            color: '#dc2626' },
-  approve_transaction:{ label: 'อนุมัติรายการ',           color: '#16a34a' },
-  reject_transaction: { label: 'ปฏิเสธรายการ',           color: '#dc2626' },
-  bulk_approve:       { label: 'อนุมัติหลายรายการ',       color: '#10b981' },
-  rollback_approve:   { label: 'ย้อนคืนการอนุมัติกลุ่ม', color: '#ef4444' },
-  impersonate:        { label: 'เข้าสู่ระบบแทนผู้ใช้',   color: '#f59e0b' },
-  backup:             { label: 'สำรองข้อมูล',             color: '#8b5cf6' },
+  login: { label: 'เข้าสู่ระบบ', color: '#16a34a' },
+  logout: { label: 'ออกจากระบบ', color: '#6b7280' },
+  create_user: { label: 'สร้างผู้ใช้', color: '#2563eb' },
+  delete_user: { label: 'ลบผู้ใช้', color: '#dc2626' },
+  reset_password: { label: 'รีเซ็ตรหัสผ่าน', color: '#d97706' },
+  change_role: { label: 'เปลี่ยน Role', color: '#7c3aed' },
+  create_customer: { label: 'เพิ่มลูกค้า', color: '#0891b2' },
+  delete_customer: { label: 'ลบลูกค้า', color: '#dc2626' },
+  reassign_customer: { label: 'โยกลูกค้า', color: '#7c3aed' },
+  create_service: { label: 'สร้างบริการ', color: '#2563eb' },
+  update_service: { label: 'แก้ไขบริการ', color: '#d97706' },
+  delete_service: { label: 'ลบบริการ', color: '#dc2626' },
+  create_transaction: { label: 'สร้างรายการโอน', color: '#0891b2' },
+  update_transaction: { label: 'แก้ไขรายการโอน', color: '#d97706' },
+  delete_transaction: { label: 'ลบรายการโอน', color: '#dc2626' },
+  approve_transaction: { label: 'อนุมัติรายการ', color: '#16a34a' },
+  reject_transaction: { label: 'ปฏิเสธรายการ', color: '#dc2626' },
+  bulk_approve: { label: 'อนุมัติหลายรายการ', color: '#10b981' },
+  rollback_approve: { label: 'ย้อนคืนการอนุมัติกลุ่ม', color: '#ef4444' },
+  impersonate: { label: 'เข้าสู่ระบบแทนผู้ใช้', color: '#f59e0b' },
+  backup: { label: 'สำรองข้อมูล', color: '#8b5cf6' },
 };
 
 const PAGE_SIZE = 20;
@@ -88,7 +88,7 @@ function AuditLogPage() {
     try {
       const parsed = JSON.parse(log.detail);
       count = (parsed.ids || []).length;
-    } catch {}
+    } catch { }
     if (!window.confirm(
       `ยืนยันย้อนกลับ (Rollback) การอนุมัติกลุ่มนี้?\n\nรายการ ${count} รายการ จะถูกเปลี่ยนกลับเป็น "รออนุมัติ" และจะกลับไปแสดงที่หน้ารายการที่ส่งมาบัญชี\n\nดำเนินการนี้ไม่สามารถยกเลิกได้`
     )) return;

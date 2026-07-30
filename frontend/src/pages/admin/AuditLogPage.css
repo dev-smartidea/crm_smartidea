@@ -25,7 +25,10 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.audit-back-btn:hover { background: #f9fafb; }
+
+.audit-back-btn:hover {
+  background: #f9fafb;
+}
 
 .audit-title {
   font-size: 1.5rem;
@@ -99,7 +102,10 @@
   cursor: pointer;
   transition: opacity 0.15s;
 }
-.audit-search-btn:hover { opacity: 0.88; }
+
+.audit-search-btn:hover {
+  opacity: 0.88;
+}
 
 .audit-clear-btn {
   background: #fff;
@@ -111,7 +117,10 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.audit-clear-btn:hover { background: #f9fafb; }
+
+.audit-clear-btn:hover {
+  background: #f9fafb;
+}
 
 /* Error */
 .audit-error {
@@ -161,13 +170,36 @@
   vertical-align: middle;
 }
 
-.audit-table tbody tr:last-child td { border-bottom: none; }
-.audit-table tbody tr:hover { background: #f9fafb; }
+.audit-table tbody tr:last-child td {
+  border-bottom: none;
+}
 
-.audit-td-date { white-space: nowrap; color: #6b7280; font-size: 0.82rem; }
-.audit-td-user { font-weight: 600; color: #111827; }
-.audit-td-detail { color: #9ca3af; font-size: 0.82rem; max-width: 220px; }
-.audit-td-ip { color: #9ca3af; font-size: 0.78rem; font-family: monospace; }
+.audit-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.audit-td-date {
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+
+.audit-td-user {
+  font-weight: 600;
+  color: #111827;
+}
+
+.audit-td-detail {
+  color: #9ca3af;
+  font-size: 0.82rem;
+  max-width: 220px;
+}
+
+.audit-td-ip {
+  color: #9ca3af;
+  font-size: 0.78rem;
+  font-family: monospace;
+}
 
 .audit-badge {
   display: inline-block;
@@ -205,13 +237,29 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.audit-pagination button:hover:not(:disabled) { background: #f3f4f6; }
-.audit-pagination button:disabled { opacity: 0.4; cursor: default; }
+
+.audit-pagination button:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.audit-pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 
 @media (max-width: 768px) {
-  .audit-page { padding: 16px; }
-  .audit-filter-bar { flex-direction: column; align-items: stretch; }
-  .audit-filter-group { width: 100%; }
+  .audit-page {
+    padding: 16px;
+  }
+
+  .audit-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .audit-filter-group {
+    width: 100%;
+  }
 }
 
 /* Rollback Button */
@@ -260,6 +308,7 @@
 }
 
 @keyframes audit-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
-

@@ -97,4 +97,84 @@ router.get('/admin/stats', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/restore — นำเข้าไฟล์ backup เพื่อกู้คืนข้อมูล (admin only)
+router.post('/admin/restore', authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { collections } = req.body;
+    if (!collections) {
+      return res.status(400).json({ error: 'ไม่พบข้อมูล collections ในไฟล์ backup' });
+    }
+
+    const { users, customers, services, transactions, cards, cardLedgers, activities, images } = collections;
+
+    // 1. Restore Users (Safe Merge to prevent password lockout)
+    if (users && Array.isArray(users)) {
+      for (const u of users) {
+        const existing = await User.findById(u._id);
+        if (existing) {
+          existing.username = u.username || existing.username;
+          existing.name = u.name || existing.name;
+          existing.email = u.email || existing.email;
+          existing.role = u.role || existing.role;
+          existing.serviceTypeScope = u.serviceTypeScope !== undefined ? u.serviceTypeScope : existing.serviceTypeScope;
+          existing.phone = u.phone || existing.phone;
+          existing.avatar = u.avatar || existing.avatar;
+          existing.avatarCloudinaryId = u.avatarCloudinaryId || existing.avatarCloudinaryId;
+          await existing.save();
+        } else {
+          const bcrypt = require('bcryptjs');
+          const hashedPassword = await bcrypt.hash('123456', 10);
+          await User.create({
+            _id: u._id,
+            username: u.username,
+            name: u.name || u.username,
+            email: u.email || `${u.username}@example.com`,
+            password: hashedPassword,
+            role: u.role || 'user',
+            serviceTypeScope: u.serviceTypeScope || null,
+            phone: u.phone || '',
+            avatar: u.avatar || '',
+            avatarCloudinaryId: u.avatarCloudinaryId || ''
+          });
+        }
+      }
+    }
+
+    // 2. Drop and Restore other collections
+    if (customers && Array.isArray(customers)) {
+      await Customer.deleteMany({});
+      await Customer.insertMany(customers);
+    }
+    if (services && Array.isArray(services)) {
+      await Service.deleteMany({});
+      await Service.insertMany(services);
+    }
+    if (transactions && Array.isArray(transactions)) {
+      await Transaction.deleteMany({});
+      await Transaction.insertMany(transactions);
+    }
+    if (cards && Array.isArray(cards)) {
+      await Card.deleteMany({});
+      await Card.insertMany(cards);
+    }
+    if (cardLedgers && Array.isArray(cardLedgers)) {
+      await CardLedger.deleteMany({});
+      await CardLedger.insertMany(cardLedgers);
+    }
+    if (activities && Array.isArray(activities)) {
+      await Activity.deleteMany({});
+      await Activity.insertMany(activities);
+    }
+    if (images && Array.isArray(images)) {
+      await Image.deleteMany({});
+      await Image.insertMany(images);
+    }
+
+    res.json({ success: true, message: 'กู้คืนข้อมูลจากระบบ Backup สำเร็จเรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('Restore error:', error);
+    res.status(500).json({ error: 'กู้คืนข้อมูลล้มเหลว: ' + error.message });
+  }
+});
+
 module.exports = router;
