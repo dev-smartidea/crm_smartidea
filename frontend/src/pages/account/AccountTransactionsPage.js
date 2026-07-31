@@ -19,6 +19,7 @@ export default function AccountTransactionsPage() {
   // Pagination
   const pageSize = TRANSACTION_PAGE_SIZE;
   const [currentPage, setCurrentPage] = useState(1);
+  const [filterType, setFilterType] = useState('all'); // 'all' or 'serviceOnly'
   
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -72,7 +73,7 @@ export default function AccountTransactionsPage() {
   };
 
   const handleBulkApprove = async () => {
-    const approvableItems = items.filter(tx => tx.slipImage);
+    const approvableItems = filteredItems.filter(tx => tx.slipImage);
     if (approvableItems.length === 0) {
       toast.warning('ไม่มีรายการที่มีสลิปที่สามารถอนุมัติได้');
       return;
@@ -160,13 +161,27 @@ export default function AccountTransactionsPage() {
     }
   };
 
-  const totalAmount = items.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+  const filteredItems = items.filter(tx => {
+    if (filterType === 'serviceOnly') {
+      return tx.breakdowns && tx.breakdowns.some(bd => 
+        ['8', '10', '13', '14', '15', '17', '18', '19', '20'].includes(String(bd.code))
+      );
+    }
+    if (filterType === 'otherOnly') {
+      return !tx.breakdowns || !tx.breakdowns.some(bd => 
+        ['8', '10', '13', '14', '15', '17', '18', '19', '20'].includes(String(bd.code))
+      );
+    }
+    return true;
+  });
+
+  const totalAmount = filteredItems.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
   // Pagination
-  const totalPages = Math.ceil(items.length / pageSize);
+  const totalPages = Math.ceil(filteredItems.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const pageItems = items.slice(startIndex, endIndex);
+  const pageItems = filteredItems.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -181,7 +196,7 @@ export default function AccountTransactionsPage() {
     );
   }
 
-  const readyCount = items.filter(tx => tx.slipImage).length;
+  const readyCount = filteredItems.filter(tx => tx.slipImage).length;
 
   return (
     <div className="all-transaction-page fade-up">
@@ -197,6 +212,30 @@ export default function AccountTransactionsPage() {
           </div>
           {items.length > 0 && (
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <select
+                value={filterType}
+                onChange={(e) => {
+                  setFilterType(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1.5px solid #cbd5e1',
+                  backgroundColor: '#fff',
+                  color: '#334155',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  minWidth: '180px',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+                }}
+              >
+                <option value="all">แสดงทั้งหมด</option>
+                <option value="serviceOnly">เฉพาะรายการที่มีค่าบริการ</option>
+                <option value="otherOnly">เฉพาะรายการอื่นๆ</option>
+              </select>
               <button
                 className="btn-bulk-approve"
                 onClick={handleBulkApprove}
@@ -218,7 +257,7 @@ export default function AccountTransactionsPage() {
                 <Wallet size={20} />
                 <div>
                   <div className="summary-label" style={{ fontSize: '0.75rem' }}>จำนวนรายการ</div>
-                  <div className="summary-value" style={{ fontSize: '0.95rem' }}>{items.length} รายการ</div>
+                  <div className="summary-value" style={{ fontSize: '0.95rem' }}>{filteredItems.length} รายการ</div>
                 </div>
               </div>
             </div>
@@ -226,11 +265,17 @@ export default function AccountTransactionsPage() {
         </div>
         {/* Transactions Cards */}
         <div className="transactions-section">
-          {items.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="no-data">
               <Wallet size={48} />
-              <p>ยังไม่มีรายการที่ส่งมา</p>
-              <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '8px' }}>รายการที่ส่งมาจาก User จะแสดงที่นี่</p>
+              <p>
+                {filterType === 'serviceOnly' && 'ไม่พบรายการที่มีค่าบริการ'}
+                {filterType === 'otherOnly' && 'ไม่พบรายการอื่นๆ'}
+                {filterType === 'all' && 'ยังไม่มีรายการที่ส่งมา'}
+              </p>
+              <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '8px' }}>
+                {filterType !== 'all' ? 'ลองเปลี่ยนตัวกรองเป็นแสดงทั้งหมด' : 'รายการที่ส่งมาจาก User จะแสดงที่นี่'}
+              </p>
             </div>
           ) : (
             <>
@@ -402,7 +447,7 @@ export default function AccountTransactionsPage() {
                     ← ก่อนหน้า
                   </button>
                   <div className="pagination-info">
-                    หน้า {currentPage} จาก {totalPages} (ทั้งหมด {items.length} รายการ)
+                    หน้า {currentPage} จาก {totalPages} (ทั้งหมด {filteredItems.length} รายการ)
                   </div>
                   <button
                     className="pagination-btn"
