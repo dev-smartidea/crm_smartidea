@@ -73,7 +73,7 @@ export default function AccountTransactionsPage() {
   };
 
   const handleBulkApprove = async () => {
-    const approvableItems = filteredItems.filter(tx => tx.slipImage);
+    const approvableItems = filteredItems.filter(tx => tx.slipImage || tx.slipImage2);
     if (approvableItems.length === 0) {
       toast.warning('ไม่มีรายการที่มีสลิปที่สามารถอนุมัติได้');
       return;
@@ -416,9 +416,9 @@ export default function AccountTransactionsPage() {
                     <div className="card-actions">
                       <button
                         onClick={() => handleApprove(tx._id)}
-                        disabled={processingId === tx._id || !tx.slipImage}
+                        disabled={processingId === tx._id || (!tx.slipImage && !tx.slipImage2)}
                         className="btn-approve"
-                        title={!tx.slipImage ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
+                        title={(!tx.slipImage && !tx.slipImage2) ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
                         aria-label={`อนุมัติรายการ ${tx.customer?.name || ''}`}
                       >
                         <CheckCircle size={20} /> อนุมัติ
