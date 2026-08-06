@@ -887,7 +887,10 @@ export default function AccountLedgerPage() {
                     <td className="col-code sticky-col sticky-col-6">{item.customerCode}</td>
                     <td className="col-bank sticky-col sticky-col-7">{item.bank}</td>
                     <td className="col-date sticky-col sticky-col-8">{formatDate(item.transactionDate)}</td>
-                    <td className="col-time">{item.transactionTime}</td>
+                    <td className="col-time">
+                      {item.transactionTime}
+                      {item.transactionTime2 && <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '2px' }}>สลิป2: {item.transactionTime2}</div>}
+                    </td>
                     <td className="col-amount editable-cell" onClick={() => handleCellClick(item._id, 'amount', item.amount)}>
                       {editingCell?.id === item._id && editingCell?.field === 'amount' ? (
                         <input type="number" className="inline-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleCellBlur} onKeyDown={handleKeyDown} autoFocus step="0.01" />

@@ -531,6 +531,9 @@ export default function AccountFacebookPage() {
                         {tx.transactionTime && tx.transactionTime !== '-' && (
                           <span style={{ marginLeft: 5, color: '#6c757d' }}>{tx.transactionTime}</span>
                         )}
+                        {tx.transactionTime2 && tx.transactionTime2 !== '-' && (
+                          <span style={{ marginLeft: 5, color: '#999', fontSize: 11 }}>สลิป2: {tx.transactionTime2}</span>
+                        )}
                         {tx.bank && tx.bank !== '-' && (
                           <span style={{
                             marginLeft: 8, background: '#e9ecef',

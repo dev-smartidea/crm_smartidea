@@ -458,7 +458,10 @@ export default function AdminLedgerPage() {
                     <td className="col-code">{item.customerCode}</td>
                     <td className="col-bank">{item.bank}</td>
                     <td className="col-date">{formatDate(item.transactionDate)}</td>
-                    <td className="col-time">{item.transactionTime}</td>
+                    <td className="col-time">
+                      {item.transactionTime}
+                      {item.transactionTime2 && <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '2px' }}>สลิป2: {item.transactionTime2}</div>}
+                    </td>
                     <td className="col-amount">{formatNumber(item.amount)}</td>
                     <td className="col-status">{getStatusBadge(item.status)}</td>
                     <td className="col-card editable-cell" onClick={() => handleCellClick(item._id, 'cardNumber', item.cardNumber)}>

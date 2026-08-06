@@ -405,6 +405,12 @@ export default function ApprovedTransactionsPage() {
                             <span style={{ fontWeight: '600' }}>{tx.transactionTime}</span>
                           </>
                         )}
+                        {tx.transactionTime2 && (
+                          <>
+                            <span style={{ fontWeight: '400', marginLeft: '12px', color: '#64748b' }}>สลิปที่ 2 </span>
+                            <span style={{ fontWeight: '600', color: '#64748b' }}>{tx.transactionTime2}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <span className={`badge ${getBankBadgeClass(tx.bank)}`} style={{ fontSize: '0.75rem' }}>

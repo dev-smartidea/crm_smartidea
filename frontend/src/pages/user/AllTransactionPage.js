@@ -40,6 +40,7 @@ export default function AllTransactionPage() {
     ],
     transactionDate: new Date().toISOString().split('T')[0],
     transactionTime: '',
+    transactionTime2: '',
     notes: '',
     bank: 'KBANK',
     slipImage: null,
@@ -421,6 +422,7 @@ export default function AllTransactionPage() {
         formData.append('amount', parseFloat(entry.amount));
         formData.append('transactionDate', form.transactionDate);
         if (form.transactionTime) formData.append('transactionTime', form.transactionTime);
+        if (form.transactionTime2) formData.append('transactionTime2', form.transactionTime2);
         formData.append('notes', form.notes || '');
         formData.append('bank', form.bank);
 
@@ -509,12 +511,14 @@ export default function AllTransactionPage() {
       ],
       transactionDate: new Date().toISOString().split('T')[0],
       transactionTime: '',
+      transactionTime2: '',
       notes: '',
       bank: 'KBANK',
       slipImage: null,
       slipImage2: null,
     });
     setSlipPreview(null);
+    setSlipPreview2(null);
     setFormCustomerQuery('');
     setExpandedEntries(new Set([0]));
   };
@@ -1045,6 +1049,7 @@ export default function AllTransactionPage() {
                       <td>
                         <div>{formatDate(tx.transactionDate)}</div>
                         {tx.transactionTime && <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '2px' }}>{tx.transactionTime}</div>}
+                        {tx.transactionTime2 && <div style={{ fontSize: '0.80rem', color: '#999', marginTop: '2px' }}>สลิปที่ 2: {tx.transactionTime2}</div>}
                       </td>
                       <td>
                         <div className="customer-info">
@@ -1372,6 +1377,23 @@ export default function AllTransactionPage() {
                       placeholder="เช่น 0930"
                     />
                   </div>
+
+                  {/* Time 2 (for second slip) */}
+                  {form.slipImage2 && (
+                    <div>
+                      <label style={formStyles.fieldLabel}>
+                        <Clock size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                        เวลาที่โอน (สลิปที่ 2)
+                      </label>
+                      <input 
+                        type="text" 
+                        value={form.transactionTime2} 
+                        onChange={e => setForm({ ...form, transactionTime2: e.target.value })}
+                        style={formStyles.input}
+                        placeholder="เช่น 1430"
+                      />
+                    </div>
+                  )}
 
                   {/* Bank */}
                   <div>

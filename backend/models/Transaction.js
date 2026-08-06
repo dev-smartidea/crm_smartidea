@@ -8,6 +8,7 @@ const transactionSchema = new mongoose.Schema({
   amount: { type: Number, required: true }, // จำนวนเงิน
   transactionDate: { type: Date, required: true }, // วันที่โอน
   transactionTime: { type: String }, // เวลาที่โอน (เช่น "10:30")
+  transactionTime2: { type: String }, // เวลาที่โอน (สลิปที่ 2)
   cardNumber: { type: String }, // บัตรเลขที่
   cardTime: { type: String }, // เวลาที่ตัดบัตร
   notes: { type: String }, // หมายเหตุ

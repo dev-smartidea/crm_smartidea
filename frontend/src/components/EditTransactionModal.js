@@ -19,6 +19,7 @@ export default function EditTransactionModal({
     amount: '',
     transactionDate: '',
     transactionTime: '',
+    transactionTime2: '',
     bank: '',
     notes: '',
     breakdowns: [],
@@ -163,6 +164,7 @@ export default function EditTransactionModal({
         amount: transaction.amount || '',
         transactionDate: transaction.transactionDate ? new Date(transaction.transactionDate).toISOString().slice(0,10) : '',
         transactionTime: transaction.transactionTime || '',
+        transactionTime2: transaction.transactionTime2 || '',
         bank: transaction.bank || '',
         notes: transaction.notes || '',
         breakdowns: Array.isArray(transaction.breakdowns) ? transaction.breakdowns.map(b => ({
@@ -383,6 +385,7 @@ export default function EditTransactionModal({
       payload.append('amount', form.amount);
       payload.append('transactionDate', form.transactionDate);
       if (form.transactionTime) payload.append('transactionTime', form.transactionTime);
+      if (form.transactionTime2) payload.append('transactionTime2', form.transactionTime2);
       payload.append('bank', form.bank);
       payload.append('notes', form.notes || '');
       payload.append('breakdowns', JSON.stringify(form.breakdowns || []));
@@ -485,6 +488,21 @@ export default function EditTransactionModal({
                   value={form.transactionTime}
                   onChange={(e) => updateField('transactionTime', e.target.value)}
                   style={formStyles.input}
+                />
+              </div>
+
+              {/* Time 2 (for second slip) */}
+              <div>
+                <label style={formStyles.fieldLabel}>
+                  <Clock size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                  เวลาที่โอน (สลิปที่ 2)
+                </label>
+                <input
+                  type="time"
+                  value={form.transactionTime2}
+                  onChange={(e) => updateField('transactionTime2', e.target.value)}
+                  style={formStyles.input}
+                  placeholder="ถ้ามีสลิปที่ 2"
                 />
               </div>
 

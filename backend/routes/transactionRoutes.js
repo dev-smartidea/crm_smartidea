@@ -580,7 +580,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { amount, transactionDate, transactionTime, notes, bank } = req.body || {};
+    const { amount, transactionDate, transactionTime, transactionTime2, notes, bank } = req.body || {};
     // แปลง breakdowns จาก string -> array (ถ้ามี)
     let breakdowns = [];
     if (req.body && typeof req.body.breakdowns !== 'undefined') {
@@ -667,6 +667,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       amount: parseFloat(amount),
       transactionDate: new Date(transactionDate),
       transactionTime: transactionTime || undefined,
+      transactionTime2: transactionTime2 || undefined,
       notes: notes || '',
       slipImage,
       cloudinaryId,
@@ -786,6 +787,10 @@ router.put('/transactions/:id', optionalUploadSlip, async (req, res) => {
     // เก็บ transactionTime ถ้ามี
     if (update.transactionTime !== undefined) {
       update.transactionTime = update.transactionTime || undefined;
+    }
+    // เก็บ transactionTime2 ถ้ามี
+    if (update.transactionTime2 !== undefined) {
+      update.transactionTime2 = update.transactionTime2 || undefined;
     }
 
     // รองรับการอัปเดต breakdowns (stringified JSON หรือ array)
