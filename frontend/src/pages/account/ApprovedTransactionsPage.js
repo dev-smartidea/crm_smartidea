@@ -30,6 +30,7 @@ export default function ApprovedTransactionsPage() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [submitterQuery, setSubmitterQuery] = useState('');
   const [cidQuery, setCidQuery] = useState('');
+  const [transactionIdQuery, setTransactionIdQuery] = useState('');
   
   const token = localStorage.getItem('token');
   const api = process.env.REACT_APP_API_URL;
@@ -134,9 +135,15 @@ export default function ApprovedTransactionsPage() {
       result = result.filter(tx => tx.serviceCid?.toLowerCase().includes(q));
     }
     
+    // กรองตาม transaction id
+    if (transactionIdQuery.trim()) {
+      const q = transactionIdQuery.trim().toLowerCase();
+      result = result.filter(tx => tx._id?.toLowerCase().includes(q));
+    }
+    
     setFilteredTransactions(result);
     setCurrentPage(1);
-  }, [transactions, selectedCustomerId, submitterQuery, cidQuery]);
+  }, [transactions, selectedCustomerId, submitterQuery, cidQuery, transactionIdQuery]);
 
   // ฟังก์ชันล้างค่าการค้นหา
   const handleClearFilters = () => {
@@ -144,6 +151,7 @@ export default function ApprovedTransactionsPage() {
     setCustomerQuery('');
     setSubmitterQuery('');
     setCidQuery('');
+    setTransactionIdQuery('');
   };
 
   // ยกเลิกรายการ (เปลี่ยนสถานะเป็น rejected)
@@ -354,8 +362,23 @@ export default function ApprovedTransactionsPage() {
               />
             </div>
 
+            {/* ค้นหาตาม Transaction ID */}
+            <div className="filter-group">
+              <label className="filter-label">
+                <Search size={16} />
+                ค้นหาตาม Transaction ID
+              </label>
+              <input
+                type="text"
+                className="combobox-input"
+                placeholder="พิมพ์ Transaction ID..."
+                value={transactionIdQuery}
+                onChange={(e) => setTransactionIdQuery(e.target.value)}
+              />
+            </div>
+
             {/* ปุ่มล้างค่าการค้นหา */}
-            {(selectedCustomerId || submitterQuery || cidQuery) && (
+            {(selectedCustomerId || submitterQuery || cidQuery || transactionIdQuery) && (
               <div className="filter-group" style={{ alignSelf: 'flex-end' }}>
                 <button
                   className="btn-clear-filters"
