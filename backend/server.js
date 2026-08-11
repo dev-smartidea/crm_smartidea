@@ -145,6 +145,10 @@ connectDB();
 const { initStatusScheduler } = require('./utils/statusScheduler');
 initStatusScheduler();
 
+// เริ่มตัวตั้งเวลาลบรูปสลิปเก่า (90 วัน)
+const { startCleanupScheduler } = require('./scripts/cleanup_old_slips');
+startCleanupScheduler();
+
 const PORT = process.env.PORT || 5000;
 const io = setupSocket(server);
 server.listen(PORT, '0.0.0.0', () => {
