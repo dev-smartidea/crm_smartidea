@@ -267,75 +267,105 @@ const AdminDashboardPage = () => {
     );
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (!customers || customers.length === 0) {
       alert('ไม่มีข้อมูลลูกค้าสำหรับการ Export');
       return;
     }
 
-    // กำหนด Headers ของไฟล์ CSV
-    const headers = [
-      'รหัสลูกค้า',
-      'ชื่อลูกค้า',
-      'ประเภทลูกค้า',
-      'เบอร์โทรศัพท์',
-      'อีเมล',
-      'เลขประจำตัวผู้เสียภาษี',
-      'ขนาดธุรกิจ',
-      'สินค้า/บริการ',
-      'ผู้ติดต่อหลัก',
-      'ที่อยู่',
-      'ผู้ดูแลในระบบ',
-      'จำนวนบริการทั้งหมด'
-    ];
+    try {
+      // ดึงข้อมูลบริการทั้งหมดเพื่อหาว่าลูกค้าแต่ละคนมีบริการอะไรบ้าง
+      const servicesRes = await axios.get(`${api}/api/services`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const allServices = servicesRes.data;
 
-    // แปลงข้อมูลแถวลูกค้าแต่ละคน
-    const rows = customers.map(c => {
-      const managers = (c.userIds || []).map(u => `${u.name} (@${u.username})`).join('; ');
-      
-      const escape = (val) => {
-        if (val === undefined || val === null) return '';
-        let str = String(val);
-        // แทนที่ " ด้วย "" เพื่อไม่ให้สูญเสีย format ใน CSV
-        str = str.replace(/"/g, '""');
-        // หากมี , " หรือขึ้นบรรทัดใหม่ ให้ครอบข้อความนั้นด้วย ""
-        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-          return `"${str}"`;
+      // จัดกลุ่มบริการตาม customerId
+      const servicesByCustomer = {};
+      allServices.forEach(service => {
+        const custId = service.customerId?._id || service.customerId;
+        if (!custId) return;
+        if (!servicesByCustomer[custId]) {
+          servicesByCustomer[custId] = [];
         }
-        return str;
-      };
+        servicesByCustomer[custId].push(service);
+      });
 
-      return [
-        escape(c.customerCode),
-        escape(c.name),
-        escape(c.customerType),
-        escape(c.phone),
-        escape(c.email),
-        escape(c.taxId),
-        escape(c.businessSize),
-        escape(c.productService),
-        escape(c.contactPerson),
-        escape(c.address),
-        escape(managers),
-        escape(c.serviceCount || 0)
+      // กำหนด Headers ของไฟล์ CSV
+      const headers = [
+        'รหัสลูกค้า',
+        'ชื่อลูกค้า',
+        'ประเภทลูกค้า',
+        'เบอร์โทรศัพท์',
+        'อีเมล',
+        'เลขประจำตัวผู้เสียภาษี',
+        'ขนาดธุรกิจ',
+        'สินค้า/บริการ',
+        'ผู้ติดต่อหลัก',
+        'ที่อยู่',
+        'ผู้ดูแลในระบบ',
+        'จำนวนบริการทั้งหมด',
+        'รายการบริการ (ประเภท: CID)'
       ];
-    });
 
-    // ประกอบแถวหัวตารางและแถวข้อมูลเข้าด้วยกัน
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\n');
+      // แปลงข้อมูลแถวลูกค้าแต่ละคน
+      const rows = customers.map(c => {
+        const managers = (c.userIds || []).map(u => `${u.name} (@${u.username})`).join('; ');
+        
+        // ดึงบริการของลูกค้านี้
+        const customerServices = servicesByCustomer[c._id] || [];
+        const servicesList = customerServices
+          .map(s => `${s.serviceType || 'N/A'}: ${s.cid || 'ไม่มี CID'}`)
+          .join('; ');
+        
+        const escape = (val) => {
+          if (val === undefined || val === null) return '';
+          let str = String(val);
+          // แทนที่ " ด้วย "" เพื่อไม่ให้สูญเสีย format ใน CSV
+          str = str.replace(/"/g, '""');
+          // หากมี , " หรือขึ้นบรรทัดใหม่ ให้ครอบข้อความนั้นด้วย ""
+          if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+            return `"${str}"`;
+          }
+          return str;
+        };
 
-    // ใส่ UTF-8 BOM (\uFEFF) เพื่อให้เปิดใน Excel ภาษาไทยได้ถูกต้อง
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `customers_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        return [
+          escape(c.customerCode),
+          escape(c.name),
+          escape(c.customerType),
+          escape(c.phone),
+          escape(c.email),
+          escape(c.taxId),
+          escape(c.businessSize),
+          escape(c.productService),
+          escape(c.contactPerson),
+          escape(c.address),
+          escape(managers),
+          escape(c.serviceCount || 0),
+          escape(servicesList || '-')
+        ];
+      });
+
+      // ประกอบแถวหัวตารางและแถวข้อมูลเข้าด้วยกัน
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(r => r.join(','))
+      ].join('\n');
+
+      // ใส่ UTF-8 BOM (\uFEFF) เพื่อให้เปิดใน Excel ภาษาไทยได้ถูกต้อง
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `customers_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert('เกิดข้อผิดพลาดในการ Export CSV');
+    }
   };
 
   if (loading) return <div className="admin-loading">กำลังโหลด...</div>;
