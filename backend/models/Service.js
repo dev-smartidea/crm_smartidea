@@ -125,5 +125,10 @@ serviceSchema.pre('findOneAndUpdate', function (next) {
 // Indexes
 serviceSchema.index({ customerId: 1 });
 serviceSchema.index({ userId: 1, serviceType: 1 });
+// เพิ่ม indexes สำหรับ performance
+serviceSchema.index({ serviceType: 1 }); // สำหรับ filter by serviceType เดี่ยว (google_manager/facebook_manager)
+serviceSchema.index({ status: 1 }); // สำหรับ filter by status
+serviceSchema.index({ customerId: 1, serviceType: 1 }); // compound index
+serviceSchema.index({ dueDate: 1, status: 1 }); // สำหรับ status scheduler และ upcoming services
 
 module.exports = mongoose.model('Service', serviceSchema);

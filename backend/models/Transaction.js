@@ -54,5 +54,9 @@ transactionSchema.index({ userId: 1, transactionDate: -1 });
 transactionSchema.index({ customerId: 1, transactionDate: -1 });
 transactionSchema.index({ transactionDate: -1 }); // For sorting all transactions by date
 transactionSchema.index({ submissionStatus: 1, transactionDate: -1 });
+// เพิ่ม indexes สำหรับ performance
+transactionSchema.index({ cardCharged: 1, transactionDate: -1 }); // สำหรับ filter card charged transactions
+transactionSchema.index({ fbToppedUp: 1, transactionDate: -1 }); // สำหรับ Facebook topup flow
+transactionSchema.index({ serviceId: 1, submissionStatus: 1 }); // compound index สำหรับ filter by service + status
 
 module.exports = mongoose.model('Transaction', transactionSchema);

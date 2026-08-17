@@ -68,11 +68,11 @@ router.get('/dashboard/summary', async (req, res) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const twelveMonthsAgo = new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1);
 
-    // Run all queries in parallel — ใช้ aggregation แทนการดึง Transaction ทั้งหมดมา memory
+    // Run all queries in parallel — ใช้ aggregation เพื่อคำนวณใน MongoDB
     const [
       customerCount,
       serviceCount,
-      services,
+      serviceStatusAgg,
       recentCustomers,
       recentTransactions,
       upcomingServices,
@@ -83,7 +83,21 @@ router.get('/dashboard/summary', async (req, res) => {
     ] = await Promise.all([
       Customer.countDocuments(customerFilter),
       Service.countDocuments(serviceStatusFilter),
-      Service.find(serviceStatusFilter).select('name serviceType status'),
+      // ใช้ aggregation คำนวณ status และ serviceType counts ใน MongoDB
+      Service.aggregate([
+        { $match: serviceStatusFilter },
+        {
+          $group: {
+            _id: null,
+            statusGroups: {
+              $push: {
+                status: '$status',
+                serviceType: '$serviceType'
+              }
+            }
+          }
+        }
+      ]),
       Customer.find(customerFilter).sort({ createdAt: -1 }).limit(5).select('name phone createdAt customerCode'),
       Transaction.find(transactionFilter)
         .populate('customerId', 'name')
@@ -159,18 +173,32 @@ router.get('/dashboard/summary', async (req, res) => {
       ])
     ]);
 
-    // Service status (คำนวณจาก services ที่ดึงมา)
-    const svcPlain = services.map(s => s.toObject());
+    // Service status และ serviceType counts (คำนวณจาก aggregation result)
     const serviceStatus = {
-      'อยู่ระหว่างบริการ': svcPlain.filter(s => s.status === 'อยู่ระหว่างบริการ').length,
-      'ครบกำหนด': svcPlain.filter(s => s.status === 'ครบกำหนด').length,
-      'เกินกำหนดมากกว่า 30 วัน': svcPlain.filter(s => s.status === 'เกินกำหนดมากกว่า 30 วัน').length
+      'อยู่ระหว่างบริการ': 0,
+      'ครบกำหนด': 0,
+      'เกินกำหนดมากกว่า 30 วัน': 0
     };
     const serviceTypeCount = {
-      'Google Ads': services.filter(s => s.serviceType === 'Google Ads').length,
-      'Facebook Ads': services.filter(s => s.serviceType === 'Facebook Ads').length,
-      'other': services.filter(s => s.serviceType !== 'Google Ads' && s.serviceType !== 'Facebook Ads').length
+      'Google Ads': 0,
+      'Facebook Ads': 0,
+      'other': 0
     };
+
+    // ประมวลผลจาก aggregation result
+    if (serviceStatusAgg.length > 0 && serviceStatusAgg[0].statusGroups) {
+      serviceStatusAgg[0].statusGroups.forEach(svc => {
+        // นับ status
+        if (svc.status === 'อยู่ระหว่างบริการ') serviceStatus['อยู่ระหว่างบริการ']++;
+        else if (svc.status === 'ครบกำหนด') serviceStatus['ครบกำหนด']++;
+        else if (svc.status === 'เกินกำหนดมากกว่า 30 วัน') serviceStatus['เกินกำหนดมากกว่า 30 วัน']++;
+        
+        // นับ serviceType
+        if (svc.serviceType === 'Google Ads') serviceTypeCount['Google Ads']++;
+        else if (svc.serviceType === 'Facebook Ads') serviceTypeCount['Facebook Ads']++;
+        else serviceTypeCount['other']++;
+      });
+    }
 
     // Revenue summary
     const revResult = revenueSummary[0] || { totalRevenue: 0, approvedTotal: 0, approvedCount: 0 };

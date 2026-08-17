@@ -4,6 +4,7 @@ import axios from 'axios';
 import { FaUserShield, FaTrashAlt, FaSignInAlt, FaPlus, FaKey, FaUsers, FaChartBar, FaUserPlus, FaListAlt, FaTools } from 'react-icons/fa';
 import { XCircle } from 'react-bootstrap-icons';
 import { AuthContext } from '../../context/AuthContext';
+import useDebounce from '../../hooks/useDebounce';
 import '../shared/DashboardPage.css';
 import './AdminDashboardPage.css';
 
@@ -49,6 +50,10 @@ const AdminDashboardPage = () => {
   const CUST_PAGE_SIZE = 10;
   const USER_PAGE_SIZE = 20;
   const api = process.env.REACT_APP_API_URL;
+
+  // Debounce search เพื่อลด re-renders
+  const debouncedCustSearch = useDebounce(custSearch, 300);
+  const debouncedUserSearch = useDebounce(userSearch, 300);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -370,9 +375,9 @@ const AdminDashboardPage = () => {
 
   if (loading) return <div className="admin-loading">กำลังโหลด...</div>;
 
-  // Filtered + paged customers
+  // Filtered + paged customers (ใช้ debouncedCustSearch เพื่อลด re-renders)
   const filteredCustomers = customers.filter(c => {
-    const searchStr = custSearch.toLowerCase();
+    const searchStr = debouncedCustSearch.toLowerCase();
     const matchBasic = [c.name, c.customerCode, c.phone, c.productService]
       .some(v => v?.toLowerCase().includes(searchStr));
     const matchManagers = c.userIds?.some(u =>
@@ -384,9 +389,9 @@ const AdminDashboardPage = () => {
   const custTotalPages = Math.max(1, Math.ceil(filteredCustomers.length / CUST_PAGE_SIZE));
   const pagedCustomers = filteredCustomers.slice((custPage - 1) * CUST_PAGE_SIZE, custPage * CUST_PAGE_SIZE);
 
-  // Filtered + paged users
+  // Filtered + paged users (ใช้ debouncedUserSearch เพื่อลด re-renders)
   const filteredUsers = users.filter(u => {
-    const matchSearch = [u.name, u.username, u.email].some(v => v?.toLowerCase().includes(userSearch.toLowerCase()));
+    const matchSearch = [u.name, u.username, u.email].some(v => v?.toLowerCase().includes(debouncedUserSearch.toLowerCase()));
     const matchRole = userRoleFilter === 'all' || u.role === userRoleFilter;
     return matchSearch && matchRole;
   });

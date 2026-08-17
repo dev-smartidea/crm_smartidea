@@ -37,73 +37,65 @@ async function cleanupOldSlips() {
     
     console.log(`🔍 [Cleanup] Found ${oldTransactions.length} transactions with old slips`);
     
+    // รวบรวม IDs และ URLs สำหรับ batch operations
+    const cloudinaryIds = [];
+    const imageUrls = [];
+    const transactionIds = [];
+    
+    for (const tx of oldTransactions) {
+      if (tx.cloudinaryId) cloudinaryIds.push(tx.cloudinaryId);
+      if (tx.cloudinaryId2) cloudinaryIds.push(tx.cloudinaryId2);
+      if (tx.slipImage) imageUrls.push(tx.slipImage);
+      if (tx.slipImage2) imageUrls.push(tx.slipImage2);
+      transactionIds.push(tx._id);
+    }
+    
     let deletedCount = 0;
     let errorCount = 0;
     
-    // ลบรูปสลิปทีละรายการ
-    for (const tx of oldTransactions) {
+    // 1. ลบรูปจาก Cloudinary (ทีละรูปเพราะ API ไม่รองรับ batch)
+    console.log(`\n🗑️  [Cleanup] Deleting ${cloudinaryIds.length} images from Cloudinary...`);
+    for (const cloudinaryId of cloudinaryIds) {
       try {
-        const txDate = new Date(tx.createdAt).toLocaleDateString('th-TH');
-        console.log(`\n📝 [Cleanup] Processing Transaction ID: ${tx._id} (${txDate})`);
-        
-        // ลบรูปสลิปหลัก (slipImage)
-        if (tx.slipImage) {
-          if (tx.cloudinaryId) {
-            try {
-              await deleteFromCloudinary(tx.cloudinaryId);
-              console.log(`  ✅ Deleted from Cloudinary: ${tx.cloudinaryId}`);
-            } catch (cloudError) {
-              console.warn(`  ⚠️  Cloudinary delete failed: ${cloudError.message}`);
-            }
-          }
-          
-          // ลบจาก Image gallery
-          try {
-            const deletedImages = await Image.deleteMany({ imageUrl: tx.slipImage });
-            if (deletedImages.deletedCount > 0) {
-              console.log(`  ✅ Deleted ${deletedImages.deletedCount} image(s) from gallery`);
-            }
-          } catch (imgError) {
-            console.warn(`  ⚠️  Gallery delete failed: ${imgError.message}`);
-          }
-        }
-        
-        // ลบรูปสลิปที่ 2 (slipImage2)
-        if (tx.slipImage2) {
-          if (tx.cloudinaryId2) {
-            try {
-              await deleteFromCloudinary(tx.cloudinaryId2);
-              console.log(`  ✅ Deleted from Cloudinary (2nd): ${tx.cloudinaryId2}`);
-            } catch (cloudError) {
-              console.warn(`  ⚠️  Cloudinary delete failed (2nd): ${cloudError.message}`);
-            }
-          }
-          
-          // ลบจาก Image gallery
-          try {
-            const deletedImages2 = await Image.deleteMany({ imageUrl: tx.slipImage2 });
-            if (deletedImages2.deletedCount > 0) {
-              console.log(`  ✅ Deleted ${deletedImages2.deletedCount} image(s) from gallery (2nd)`);
-            }
-          } catch (imgError) {
-            console.warn(`  ⚠️  Gallery delete failed (2nd): ${imgError.message}`);
-          }
-        }
-        
-        // Clear ข้อมูลรูปสลิปใน Transaction (แต่เก็บข้อมูลอื่นไว้)
-        tx.slipImage = null;
-        tx.slipImage2 = null;
-        tx.cloudinaryId = null;
-        tx.cloudinaryId2 = null;
-        await tx.save();
-        
-        console.log(`  ✅ Transaction updated - slip data cleared`);
+        await deleteFromCloudinary(cloudinaryId);
         deletedCount++;
-        
-      } catch (txError) {
-        console.error(`  ❌ Error processing transaction ${tx._id}:`, txError.message);
+      } catch (cloudError) {
+        console.warn(`  ⚠️  Cloudinary delete failed for ${cloudinaryId}: ${cloudError.message}`);
         errorCount++;
       }
+    }
+    console.log(`  ✅ Deleted ${deletedCount} images from Cloudinary`);
+    
+    // 2. ลบรูปจาก Image gallery (batch operation - ครั้งเดียว)
+    if (imageUrls.length > 0) {
+      console.log(`\n🗑️  [Cleanup] Deleting images from gallery...`);
+      try {
+        const deletedImages = await Image.deleteMany({ imageUrl: { $in: imageUrls } });
+        console.log(`  ✅ Deleted ${deletedImages.deletedCount} image(s) from gallery`);
+      } catch (imgError) {
+        console.warn(`  ⚠️  Gallery delete failed: ${imgError.message}`);
+        errorCount++;
+      }
+    }
+    
+    // 3. Clear ข้อมูลรูปสลิปใน Transaction (batch update - ครั้งเดียว)
+    console.log(`\n🔄 [Cleanup] Updating ${transactionIds.length} transactions...`);
+    try {
+      const updateResult = await Transaction.updateMany(
+        { _id: { $in: transactionIds } },
+        { 
+          $set: { 
+            slipImage: null, 
+            slipImage2: null, 
+            cloudinaryId: null, 
+            cloudinaryId2: null 
+          } 
+        }
+      );
+      console.log(`  ✅ Updated ${updateResult.modifiedCount} transactions`);
+    } catch (updateError) {
+      console.error(`  ❌ Transaction update failed:`, updateError.message);
+      errorCount++;
     }
     
     console.log('\n' + '='.repeat(60));

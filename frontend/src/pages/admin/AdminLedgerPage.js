@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import toast from '../../utils/toast';
+import useDebounce from '../../hooks/useDebounce';
 import {
   FileEarmarkSpreadsheet, Search, Download,
   ChevronLeft, ChevronRight, Funnel, X,
@@ -68,6 +69,9 @@ export default function AdminLedgerPage() {
     search: ''
   });
 
+  // Debounce search เพื่อลด API calls
+  const debouncedSearch = useDebounce(filters.search, 500);
+
   // Inline editing
   const [editingCell, setEditingCell] = useState(null); // { id, field }
   const [editValue, setEditValue] = useState('');
@@ -103,7 +107,7 @@ export default function AdminLedgerPage() {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.bank) params.append('bank', filters.bank);
       if (filters.serviceType) params.append('serviceType', filters.serviceType);
-      if (filters.search) params.append('search', filters.search);
+      if (debouncedSearch) params.append('search', debouncedSearch);
 
       const res = await axios.get(`${api}/api/ledger?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -120,7 +124,7 @@ export default function AdminLedgerPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, token, filters]);
+  }, [api, token, filters.startDate, filters.endDate, filters.bank, filters.serviceType, debouncedSearch]);
 
   useEffect(() => {
     const controller = new AbortController();
