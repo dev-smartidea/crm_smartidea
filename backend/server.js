@@ -85,6 +85,25 @@ app.use('/uploads/avatars', express.static(__dirname + '/uploads/avatars'));
 app.use('/uploads/images', express.static(__dirname + '/uploads/images'));
 app.use('/uploads/slips', express.static(__dirname + '/uploads/slips'));
 
+// 🔍 ตรวจสอบ Public IP ของ Server (ไม่ต้อง token) - ใช้เพื่อ Whitelist ใน EasySlip
+app.get('/api/my-server-ip', async (req, res) => {
+  try {
+    const https = require('https');
+    const ip = await new Promise((resolve, reject) => {
+      https.get('https://api.ipify.org?format=json', (r) => {
+        let data = '';
+        r.on('data', chunk => data += chunk);
+        r.on('end', () => {
+          try { resolve(JSON.parse(data).ip); } catch { reject(new Error('parse error')); }
+        });
+      }).on('error', reject);
+    });
+    res.json({ serverPublicIp: ip, message: 'นำ IP นี้ไปเพิ่มใน EasySlip Dashboard > การใช้งาน API > + เพิ่ม IP address' });
+  } catch (err) {
+    res.status(500).json({ error: 'ไม่สามารถดึง IP ได้', detail: err.message });
+  }
+});
+
 // ✅ Auth routes - ต้องมาก่อน routes อื่นที่ใช้ /api เพราะไม่ต้องการ middleware
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
@@ -100,6 +119,10 @@ app.use('/api', serviceRoutes); // เส้นทางจะเป็น /api/
 // ✅ Transaction routes (ประวัติการโอนเงิน)
 const transactionRoutes = require('./routes/transactionRoutes');
 app.use('/api', transactionRoutes); // เส้นทางจะเป็น /api/services/:id/transactions, /api/transactions/:id
+
+// EasySlip webhook receiver
+const easyslipWebhook = require('./routes/easyslipWebhook');
+app.use('/api', easyslipWebhook);
 
 // ✅ Dashboard routes (สรุปข้อมูล dashboard)
 const dashboardRoutes = require('./routes/dashboardRoutes');
@@ -137,6 +160,7 @@ app.use('/api', auditRoutes); // เส้นทางจะเป็น /api/au
 app.get('/', (req, res) => {
   res.send('🎉 Backend CRM is working');
 });
+
 
 // เชื่อมต่อ MongoDB
 connectDB();

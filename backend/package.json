@@ -5,7 +5,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "send-mock-webhook": "node ./scripts/send_mock_webhook.js"
+    ,
+    "count-submitted": "node ./scripts/count_submitted.js"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +22,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "express-validator": "^7.3.1",
+    "axios": "^1.5.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.3",

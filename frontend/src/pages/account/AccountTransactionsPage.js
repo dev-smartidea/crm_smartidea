@@ -73,7 +73,7 @@ export default function AccountTransactionsPage() {
   };
 
   const handleBulkApprove = async () => {
-    const approvableItems = filteredItems.filter(tx => tx.slipImage || tx.slipImage2);
+    const approvableItems = filteredItems.filter(tx => (tx.slipImage || tx.slipImage2) && tx.slipVerification?.status === 'verified');
     if (approvableItems.length === 0) {
       toast.warning('ไม่มีรายการที่มีสลิปที่สามารถอนุมัติได้');
       return;
@@ -422,13 +422,20 @@ export default function AccountTransactionsPage() {
                     <div className="card-actions">
                       <button
                         onClick={() => handleApprove(tx._id)}
-                        disabled={processingId === tx._id || (!tx.slipImage && !tx.slipImage2)}
+                        disabled={processingId === tx._id || (!tx.slipImage && !tx.slipImage2) || (tx.slipImage && tx.slipVerification?.status !== 'verified')}
                         className="btn-approve"
-                        title={(!tx.slipImage && !tx.slipImage2) ? 'ต้องมีสลิปก่อนอนุมัติ' : 'อนุมัติรายการ'}
+                        title={
+                          processingId === tx._id ? 'กำลังประมวลผล' : (!tx.slipImage && !tx.slipImage2) ? 'ต้องมีสลิปก่อนอนุมัติ' : (tx.slipImage && tx.slipVerification?.status !== 'verified') ? 'สลิปยังไม่ได้ผ่านการตรวจสอบ' : 'อนุมัติรายการ'
+                        }
                         aria-label={`อนุมัติรายการ ${tx.customer?.name || ''}`}
                       >
                         <CheckCircle size={20} /> อนุมัติ
                       </button>
+                      {tx.slipVerification && (
+                        <span style={{ marginLeft: 8, fontSize: '0.85rem', padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: tx.slipVerification.status === 'verified' ? '#ecfdf5' : (tx.slipVerification.status === 'pending' ? '#fff7ed' : '#fff1f2'), color: tx.slipVerification.status === 'verified' ? '#065f46' : (tx.slipVerification.status === 'pending' ? '#92400e' : '#981b1b') }}>
+                          {tx.slipVerification.status}{tx.slipVerification.confidence ? ` • ${(tx.slipVerification.confidence * 100).toFixed(0)}%` : ''}
+                        </span>
+                      )}
                       <button
                         onClick={() => handleReject(tx._id)}
                         disabled={processingId === tx._id}

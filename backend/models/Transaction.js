@@ -22,6 +22,16 @@ const transactionSchema = new mongoose.Schema({
   // รองรับสลิปที่สอง (สำรอง/เพิ่มเติม)
   slipImage2: { type: String },
   cloudinaryId2: { type: String },
+  // ผลการตรวจสอบสลิปจากผู้ให้บริการภายนอก
+  slipVerification: {
+    status: { type: String, enum: ['none','pending','verified','rejected','manual_review','error'], default: 'none' },
+    provider: { type: String },
+    confidence: { type: Number },
+    result: { type: mongoose.Schema.Types.Mixed },
+    requestedAt: { type: Date },
+    verifiedAt: { type: Date },
+    error: { type: String }
+  },
   bank: { type: String, enum: ['KBANK', 'SCB', 'BBL', 'KTB', 'TTB', 'BAY', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'], required: true }, // บัญชีธนาคาร
   // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
   breakdowns: [{

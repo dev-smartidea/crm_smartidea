@@ -679,6 +679,42 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
 
     await transaction.save();
 
+    // ถ้ามีสลิป ให้เริ่มการตรวจสอบแบบ background (non-blocking)
+    try {
+      if (slipImage || slipImage2) {
+        transaction.slipVerification = transaction.slipVerification || {};
+        transaction.slipVerification.status = 'pending';
+        transaction.slipVerification.provider = 'easyslip';
+        transaction.slipVerification.requestedAt = new Date();
+        await transaction.save();
+
+        // เรียก verifier แบบ fire-and-forget
+        const { verifyByUrl, saveResultToTransaction } = require('../utils/slipVerifier');
+        (async () => {
+          try {
+            const imageToVerify = slipImage || slipImage2;
+            const result = await verifyByUrl(imageToVerify, transaction._id.toString());
+            await saveResultToTransaction(transaction._id.toString(), result);
+          } catch (e) {
+            console.error('Async slip verification failed:', e.message);
+            try {
+              const txErr = await Transaction.findById(transaction._id);
+              if (txErr) {
+                txErr.slipVerification = txErr.slipVerification || {};
+                txErr.slipVerification.status = 'error';
+                txErr.slipVerification.error = e.message;
+                await txErr.save();
+              }
+            } catch (e2) {
+              console.error('Failed to record slip verification error:', e2.message);
+            }
+          }
+        })();
+      }
+    } catch (bgErr) {
+      console.error('Start slip verification background task failed:', bgErr.message);
+    }
+
     // สร้างการแจ้งเตือนรายการโอนเงินใหม่
     try {
       const customer = await Customer.findById(service.customerId).select('name');
@@ -1020,6 +1056,95 @@ router.delete('/transactions/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete transaction error:', err);
     res.status(500).json({ error: 'Delete failed' });
+  }
+});
+
+// POST /api/transactions/scan-slip - ตรวจสอบสลิปสดเพื่อดึงข้อมูลกรอกฟอร์มอัตโนมัติ (Auto-fill)
+router.post('/transactions/scan-slip', uploadSlip.single('slipImage'), async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'กรุณาอัปโหลดรูปภาพสลิป' });
+    }
+
+    // อัปโหลดไฟล์ชั่วคราวขึ้น Cloudinary เพื่อเอา URL ไปส่งต่อให้ EasySlip
+    let slipUrl = null;
+    let cloudinaryId = null;
+    try {
+      const cloudinaryResult = await uploadToCloudinary(req.file.buffer, {
+        folder: 'crm_smartidea/slips_temp',
+        original_filename: req.file.originalname
+      });
+      slipUrl = cloudinaryResult.secure_url;
+      cloudinaryId = cloudinaryResult.public_id;
+    } catch (cloudinaryError) {
+      console.error('Cloudinary temporary upload error:', cloudinaryError);
+      return res.status(500).json({ error: 'Failed to upload slip image temporarily' });
+    }
+
+    // เรียก EasySlip Verifier
+    const { verifyByUrl } = require('../utils/slipVerifier');
+    try {
+      const scanResult = await verifyByUrl(slipUrl);
+
+      // เมื่อได้ข้อมูลสแกนมาแล้ว ให้พยายามลบรูปใน Cloudinary ทันทีเพราะเป็นแค่ภาพสแกนชั่วคราว
+      if (cloudinaryId) {
+        deleteFromCloudinary(cloudinaryId).catch(err => console.warn('Failed to delete temporary slip:', err.message));
+      }
+
+      if (scanResult && scanResult.success && scanResult.data) {
+        const data = scanResult.data;
+
+        // แปลงรูปแบบวันที่โอน (จาก ISO / string ในสลิป)
+        // EasySlip มักจะส่ง transDate / transTime กลับมา
+        // ตัวอย่าง data.transDate = "20260820"
+        let dateStr = '';
+        if (data.transDate && data.transDate.length === 8) {
+          const y = data.transDate.substring(0, 4);
+          const m = data.transDate.substring(4, 6);
+          const d = data.transDate.substring(6, 8);
+          dateStr = `${y}-${m}-${d}`;
+        } else {
+          dateStr = new Date().toISOString().split('T')[0];
+        }
+
+        // ตัวอย่าง data.transTime = "10:03:00"
+        let timeStr = '';
+        if (data.transTime) {
+          timeStr = data.transTime.substring(0, 5).replace(':', ''); // แปลงเป็น 0930 หรือดึงตรงๆ
+        }
+
+        // แปลงชื่อธนาคารจากสลิปเป็นระบบ
+        let detectedBank = 'KBANK';
+        const senderBank = (data.sender?.bank?.id || data.sender?.bank?.name || '').toUpperCase();
+        if (senderBank.includes('KBANK') || senderBank.includes('KASIKORN')) detectedBank = 'KBANK';
+        else if (senderBank.includes('SCB') || senderBank.includes('SIAM')) detectedBank = 'SCB';
+        else if (senderBank.includes('BBL') || senderBank.includes('BANGKOK')) detectedBank = 'BBL';
+        else if (senderBank.includes('BAY') || senderBank.includes('KRUNGSRI')) detectedBank = 'BAY-4396'; // default bay code
+
+        return res.json({
+          success: true,
+          amount: data.amount?.amount || null,
+          transactionDate: dateStr,
+          transactionTime: timeStr,
+          bank: detectedBank,
+          rawData: data
+        });
+      } else {
+        return res.status(400).json({ error: 'ไม่สามารถอ่านข้อมูลจากภาพสลิปนี้ได้ หรือสลิปไม่ถูกต้อง' });
+      }
+    } catch (verifyErr) {
+      if (cloudinaryId) {
+        deleteFromCloudinary(cloudinaryId).catch(err => console.warn('Failed to delete temporary slip:', err.message));
+      }
+      console.error('Scan slip verifyByUrl failed:', verifyErr.message);
+      return res.status(500).json({ error: 'การสแกนสลิปขัดข้อง: ' + verifyErr.message });
+    }
+  } catch (err) {
+    console.error('Scan slip endpoint error:', err);
+    res.status(500).json({ error: 'Server error during slip scan' });
   }
 });
 

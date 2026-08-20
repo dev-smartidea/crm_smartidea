@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import toast from '../../utils/toast';
 import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send, PencilSquare, Person, Calendar, Clock, Bank, FileText, Image, Gear, ListCheck, Calculator } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
 import '../shared/DashboardPage.css'; // reuse service-badge styles
@@ -523,13 +524,67 @@ export default function AllTransactionPage() {
     setExpandedEntries(new Set([0]));
   };
 
-  const handleSlipChange = (e) => {
+  const handleSlipChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setForm({ ...form, slipImage: file });
+      // 1. ตั้งค่าใน Form และเตรียม Preview
+      setForm(prev => ({ ...prev, slipImage: file }));
       const reader = new FileReader();
       reader.onloadend = () => setSlipPreview(reader.result);
       reader.readAsDataURL(file);
+
+      // 2. เรียกใช้งาน EasySlip Scan API ที่เราเพิ่งเขียนขึ้นฝั่ง Backend
+      try {
+        toast.warning('กำลังตรวจสอบสลิปและดึงข้อมูลอัตโนมัติ...');
+        const formData = new FormData();
+        formData.append('slipImage', file);
+
+        const scanRes = await axios.post(`${api}/api/transactions/scan-slip`, formData, {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        if (scanRes.data && scanRes.data.success) {
+          const { amount, transactionDate, transactionTime, bank } = scanRes.data;
+          
+          toast.success(amount ? `สแกนสลิปสำเร็จ! พบยอดเงิน ${amount} บาท` : 'สแกนสลิปสำเร็จ! กรุณาตรวจสอบข้อมูลในฟอร์ม');
+          
+          // 3. กรอกข้อมูลที่สแกนได้ลงในฟอร์มโดยอัตโนมัติ
+          setForm(prev => {
+            // อัปเดตยอดเงินในรายการย่อยตัวแรกให้ด้วย เพื่อความสะดวก
+            const updatedServiceEntries = [...prev.serviceEntries];
+            if (updatedServiceEntries[0]) {
+              updatedServiceEntries[0] = {
+                ...updatedServiceEntries[0],
+                amount: amount ? String(amount) : updatedServiceEntries[0].amount
+              };
+              
+              // อัปเดตใน breakdown ตัวแรกสุดด้วย (หากมี)
+              if (updatedServiceEntries[0].breakdowns && updatedServiceEntries[0].breakdowns[0]) {
+                const updatedBreakdowns = [...updatedServiceEntries[0].breakdowns];
+                updatedBreakdowns[0] = {
+                  ...updatedBreakdowns[0],
+                  amount: amount ? String(amount) : updatedBreakdowns[0].amount
+                };
+                updatedServiceEntries[0].breakdowns = updatedBreakdowns;
+              }
+            }
+
+            return {
+              ...prev,
+              transactionDate: transactionDate || prev.transactionDate,
+              transactionTime: transactionTime || prev.transactionTime,
+              bank: bank || prev.bank,
+              serviceEntries: updatedServiceEntries
+            };
+          });
+        }
+      } catch (scanErr) {
+        console.error('OCR Slip scan error:', scanErr);
+        toast.error(scanErr?.response?.data?.error || 'ไม่สามารถดึงข้อมูลจากสลิปอัตโนมัติได้ กรุณากรอกข้อมูลเอง');
+      }
     }
   };
 
@@ -1170,8 +1225,10 @@ export default function AllTransactionPage() {
                             <button
                               className="btn-submit-small"
                               onClick={() => handleSubmitTransaction(tx._id)}
-                              disabled={submittingId === tx._id}
-                              title={submittingId === tx._id ? 'กำลังส่ง...' : 'ส่งให้บัญชี'}
+                              disabled={submittingId === tx._id || (tx.slipImage && tx.slipVerification?.status !== 'verified')}
+                              title={
+                                submittingId === tx._id ? 'กำลังส่ง...' : (tx.slipImage && tx.slipVerification?.status !== 'verified') ? 'สลิปยังไม่ได้ผ่านการตรวจสอบ' : 'ส่งให้บัญชี'
+                              }
                             >
                               {submittingId === tx._id ? (
                                 <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
@@ -1180,6 +1237,11 @@ export default function AllTransactionPage() {
                               )}
                               <span>ส่ง</span>
                             </button>
+                          )}
+                          {tx.slipVerification && (
+                            <span style={{ marginLeft: 8, fontSize: '0.85rem', padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: tx.slipVerification.status === 'verified' ? '#ecfdf5' : (tx.slipVerification.status === 'pending' ? '#fff7ed' : '#fff1f2'), color: tx.slipVerification.status === 'verified' ? '#065f46' : (tx.slipVerification.status === 'pending' ? '#92400e' : '#981b1b') }}>
+                              {tx.slipVerification.status}{tx.slipVerification.confidence ? ` • ${(tx.slipVerification.confidence * 100).toFixed(0)}%` : ''}
+                            </span>
                           )}
                           <button
                             className="btn-delete-small"
