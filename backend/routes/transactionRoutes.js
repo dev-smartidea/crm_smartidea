@@ -1097,41 +1097,56 @@ router.post('/transactions/scan-slip', uploadSlip.single('slipImage'), async (re
       if (scanResult && scanResult.success && scanResult.data) {
         const data = scanResult.data;
 
-        // แปลงรูปแบบวันที่โอน (จาก ISO / string ในสลิป)
-        // EasySlip มักจะส่ง transDate / transTime กลับมา
-        // ตัวอย่าง data.transDate = "20260820"
-        let dateStr = '';
-        if (data.transDate && data.transDate.length === 8) {
-          const y = data.transDate.substring(0, 4);
-          const m = data.transDate.substring(4, 6);
-          const d = data.transDate.substring(6, 8);
-          dateStr = `${y}-${m}-${d}`;
-        } else {
-          dateStr = new Date().toISOString().split('T')[0];
-        }
-
-        // ตัวอย่าง data.transTime = "10:03:00"
+        // ── วันที่และเวลา ──
+        // EasySlip v2 ส่ง data.date เป็น ISO string เช่น "2026-08-20T03:30:00Z"
+        let dateStr = new Date().toISOString().split('T')[0];
         let timeStr = '';
-        if (data.transTime) {
-          timeStr = data.transTime.substring(0, 5).replace(':', ''); // แปลงเป็น 0930 หรือดึงตรงๆ
+        const rawDate = data.date || data.dateTime || data.transDate || null;
+        if (rawDate) {
+          try {
+            if (typeof rawDate === 'string' && rawDate.length === 8) {
+              // รูปแบบ "20260820"
+              dateStr = `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}`;
+            } else {
+              const dt = new Date(rawDate);
+              if (!isNaN(dt)) {
+                const thTime = new Date(dt.getTime() + 7 * 60 * 60 * 1000);
+                const y = thTime.getUTCFullYear();
+                const mo = String(thTime.getUTCMonth() + 1).padStart(2, '0');
+                const d = String(thTime.getUTCDate()).padStart(2, '0');
+                dateStr = `${y}-${mo}-${d}`;
+                const h = String(thTime.getUTCHours()).padStart(2, '0');
+                const min = String(thTime.getUTCMinutes()).padStart(2, '0');
+                timeStr = `${h}${min}`;
+              }
+            }
+          } catch (e) { console.warn('Date parse error:', e.message); }
+        }
+        if (!timeStr && data.transTime) {
+          timeStr = data.transTime.replace(':', '').substring(0, 4);
         }
 
-        // แปลงชื่อธนาคารจากสลิปเป็นระบบ
+        // ── ธนาคาร ──
+        const BANK_ID_MAP = { '004':'KBANK','014':'SCB','002':'BBL','025':'BAY-4396','006':'KTB' };
+        const bankShort = (data.sender?.bank?.short || '').toUpperCase();
+        const bankName  = (data.sender?.bank?.name  || '').toUpperCase();
+        const bankId    = String(data.sender?.bank?.id || '');
         let detectedBank = 'KBANK';
-        const senderBank = (data.sender?.bank?.id || data.sender?.bank?.name || '').toUpperCase();
-        if (senderBank.includes('KBANK') || senderBank.includes('KASIKORN')) detectedBank = 'KBANK';
-        else if (senderBank.includes('SCB') || senderBank.includes('SIAM')) detectedBank = 'SCB';
-        else if (senderBank.includes('BBL') || senderBank.includes('BANGKOK')) detectedBank = 'BBL';
-        else if (senderBank.includes('BAY') || senderBank.includes('KRUNGSRI')) detectedBank = 'BAY-4396'; // default bay code
+        if      (bankShort.includes('KBANK') || bankName.includes('KASIKORN')) detectedBank = 'KBANK';
+        else if (bankShort.includes('SCB')   || bankName.includes('SIAM'))     detectedBank = 'SCB';
+        else if (bankShort.includes('BBL')   || bankName.includes('BANGKOK'))  detectedBank = 'BBL';
+        else if (bankShort.includes('BAY')   || bankName.includes('KRUNGSRI')) detectedBank = 'BAY-4396';
+        else if (BANK_ID_MAP[bankId]) detectedBank = BANK_ID_MAP[bankId];
 
         return res.json({
           success: true,
-          amount: data.amount?.amount || null,
+          amount: data.amount?.amount ?? data.amount ?? null,
           transactionDate: dateStr,
           transactionTime: timeStr,
           bank: detectedBank,
           rawData: data
         });
+
       } else {
         return res.status(400).json({ error: 'ไม่สามารถอ่านข้อมูลจากภาพสลิปนี้ได้ หรือสลิปไม่ถูกต้อง' });
       }
