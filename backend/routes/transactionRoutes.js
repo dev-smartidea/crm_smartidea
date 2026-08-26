@@ -24,34 +24,42 @@ function fileExists(filePath) {
   }
 }
 
-// ใช้ memory storage สำหรับ Cloudinary  
-const slipStorage = multer.memoryStorage();
-
-const uploadSlip = multer({
-  storage: slipStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // จำกัด 5MB
+// multer สำหรับ verify-slip เท่านั้น (ใช้ใน route เดียว ไม่ใช่ global middleware)
+const verifySlipUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('อนุญาตเฉพาะไฟล์รูปภาพเท่านั้น (jpeg, jpg, png, gif, webp)'));
-    }
+    if (mimetype && extname) return cb(null, true);
+    cb(new Error('อนุญาตเฉพาะไฟล์รูปภาพเท่านั้น'));
   }
 });
 
-// Middleware เพื่อจัดการทั้งกรณีมีและไม่มีไฟล์ (รองรับทุกฟิลด์แบบ multipart)
+// multer สำหรับอัปโหลดสลิปแบบเลือกได้ (รองรับหลาย field) — ไม่บล็อกถ้าไม่มีไฟล์
+const optionalUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) return cb(null, true);
+    cb(new Error('อนุญาตเฉพาะไฟล์รูปภาพเท่านั้น'));
+  }
+});
+
 const optionalUploadSlip = (req, res, next) => {
-  // ใช้ .any() เพื่อให้ multer ดึงทั้งไฟล์และฟิลด์ข้อความเสมอ
-  uploadSlip.any()(req, res, (err) => {
-    if (err instanceof multer.MulterError) {
-      return res.status(400).json({ error: 'File upload error' });
-    } else if (err) {
-      return res.status(400).json({ error: 'File upload error' });
+  // ใช้ .any() เพื่อให้รับได้ทั้งการส่งเป็น fields หรือ single file โดยไม่ต้องกำหนดชื่อฟิลด์ล่วงหน้า
+  optionalUpload.any()(req, res, function (err) {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: err.message });
+      }
+      return res.status(400).json({ error: err.message || 'File upload error' });
     }
-    next();
+    return next();
   });
 };
 
@@ -1020,6 +1028,117 @@ router.delete('/transactions/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete transaction error:', err);
     res.status(500).json({ error: 'Delete failed' });
+  }
+});
+
+// POST /api/transactions/verify-slip — ตรวจสอบสลิปผ่าน Thunder API
+// ใช้ verifySlipUpload.single() เฉพาะ route นี้เท่านั้น ไม่กระทบ route อื่นๆ
+router.post('/transactions/verify-slip', verifySlipUpload.single('file'), async (req, res) => {
+  try {
+    const user = getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'กรุณาแนบไฟล์รูปสลิป' });
+    }
+
+    const THUNDER_API_KEY = process.env.THUNDER_API_KEY;
+    const THUNDER_API_URL = process.env.THUNDER_API_URL || 'https://api.thunder.in.th/v1/verify';
+
+    if (!THUNDER_API_KEY) {
+      return res.status(500).json({ error: 'Thunder API key not configured' });
+    }
+
+    // สร้าง FormData สำหรับส่งไป Thunder API
+    const formData = new FormData();
+    const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+    formData.set('file', blob, req.file.originalname);
+
+    const thunderRes = await fetch(THUNDER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${THUNDER_API_KEY}`,
+        'x-api-key': THUNDER_API_KEY
+      },
+      body: formData,
+    });
+
+    const result = await thunderRes.json();
+
+    if (!thunderRes.ok) {
+      return res.status(thunderRes.status).json({ error: result?.message || 'Thunder API error' });
+    }
+
+    if (!result.success && result.status !== 200) {
+      let errMsg = result.message || result.error || 'สลิปไม่ถูกต้อง หรือไม่ผ่านการตรวจสอบ';
+      if (errMsg === 'qrcode_not_found') {
+        errMsg = 'ไม่พบ QR Code ในรูปภาพสลิป กรุณาตรวจสอบว่ารูปภาพมีความชัดเจนและมี QR Code ครบถ้วน';
+      }
+      return res.status(400).json({ error: errMsg });
+    }
+
+    const data = result.data || result.result || result;
+    const getFirst = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
+    let transDate = '';
+    let transTime = '';
+    
+    // Parse date and time with robust fallbacks
+    const dateVal = getFirst(data.transDate, data.transactionDate, data.date, data.datetime, data.transDateTime);
+    if (dateVal) {
+      try {
+        const d = new Date(dateVal);
+        if (!isNaN(d.getTime())) {
+          // Adjust timezone to Thailand (GMT+7)
+          const localDate = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+          const isoString = localDate.toISOString(); // e.g. "2026-08-24T16:30:00.000Z"
+          transDate = isoString.split('T')[0]; // "2026-08-24"
+          const matchTime = isoString.split('T')[1].substring(0, 5); // "16:30"
+          transTime = matchTime.replace(':', ''); // "1630"
+        }
+      } catch (err) {
+        console.error('Error parsing date/time:', err);
+      }
+    }
+
+    // fallback if date/time format differs
+    if (!transDate && dateVal) {
+      transDate = String(dateVal).split('T')[0];
+    }
+    
+    const timeVal = getFirst(data.transTime, data.transactionTime, data.time);
+    if (!transTime && timeVal) {
+      transTime = String(timeVal).substring(0, 5).replace(':', '');
+    }
+
+    // Extract receiving bank
+    const receiverBank = getFirst(
+      data.receiver?.bank?.short,
+      data.receiver?.bank?.name,
+      data.receiver?.bank?.code,
+      data.receiverBank,
+      data.receiver_bank,
+      data.receivingBank,
+      data.M_ID,
+      data.m_id,
+      ''
+    );
+    
+    // Extract amount
+    const amountValue = getFirst(data.amount, data.transAmount, data.transactionAmount, data.totalAmount);
+    const amount = typeof amountValue === 'object'
+      ? getFirst(amountValue.amount, amountValue.value)
+      : amountValue;
+
+    return res.json({
+      success: true,
+      transDate,
+      transTime,
+      receiverBank,
+      amount
+    });
+  } catch (err) {
+    console.error('verify-slip error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

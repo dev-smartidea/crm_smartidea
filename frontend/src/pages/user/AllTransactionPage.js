@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send, PencilSquare, Person, Calendar, Clock, Bank, FileText, Image, Gear, ListCheck, Calculator } from 'react-bootstrap-icons';
+import { Wallet, Plus, Search, TrashFill, Eye, XCircle, ExclamationTriangleFill, CashCoin, Google, Facebook, Upload, Send, PencilSquare, Person, Calendar, Clock, Bank, FileText, Image, Gear, ListCheck } from 'react-bootstrap-icons';
 import './AllTransactionPage.css';
 import '../shared/DashboardPage.css'; // reuse service-badge styles
 import './TransactionHistoryPage.css'; // reuse slip upload button styles
@@ -45,6 +45,7 @@ export default function AllTransactionPage() {
     bank: 'KBANK',
     slipImage: null,
     slipImage2: null,
+    amount: '',
   });
   const [slipPreview, setSlipPreview] = useState(null);
   const [slipPreview2, setSlipPreview2] = useState(null);
@@ -53,6 +54,8 @@ export default function AllTransactionPage() {
   const [showFormCustomerDropdown, setShowFormCustomerDropdown] = useState(false);
   // collapse/expand state for service entries
   const [expandedEntries, setExpandedEntries] = useState(new Set([0]));
+  const [isVerifyingSlip, setIsVerifyingSlip] = useState(false);
+  const [allRecentTransactions, setAllRecentTransactions] = useState([]);
 
   const VAT_CODES = ['12', '13', '17', '19'];
 
@@ -288,7 +291,7 @@ export default function AllTransactionPage() {
   const handleCodeChange = (entryIdx, idx, newCode) => {
     const entry = form.serviceEntries[entryIdx];
     const rows = [...(entry.breakdowns || [])];
-    const current = rows[idx];
+    // eslint-disable-next-line no-unused-vars
 
     // ตรวจสอบสำหรับ code 7, 8, 9, 10
     if ((newCode === '7' || newCode === '9') && !rows.some((b, i) => i !== idx && b.code === '11')) {
@@ -344,6 +347,14 @@ export default function AllTransactionPage() {
 
       setTransactions(formattedTransactions);
       setFilteredTransactions(formattedTransactions);
+
+      // Map and set 5 most recent transactions of any status (Draft, Submitted, Approved, Rejected)
+      const mappedRecent = allTransactions.slice(0, 1).map(tx => ({
+        ...tx,
+        service: tx.serviceId || {},
+        customer: tx.serviceId?.customerId || {}
+      }));
+      setAllRecentTransactions(mappedRecent);
     } catch (error) {
       if (axios.isCancel(error)) return;
       console.error('Error fetching data:', error);
@@ -516,6 +527,7 @@ export default function AllTransactionPage() {
       bank: 'KBANK',
       slipImage: null,
       slipImage2: null,
+      amount: '',
     });
     setSlipPreview(null);
     setSlipPreview2(null);
@@ -523,23 +535,114 @@ export default function AllTransactionPage() {
     setExpandedEntries(new Set([0]));
   };
 
+  const handleVerifySlip = async (file) => {
+    if (!file) return;
+    try {
+      setIsVerifyingSlip(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await axios.post(`${api}/api/transactions/verify-slip`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (res.data && res.data.success) {
+        const { transDate, transTime, receiverBank, amount } = res.data;
+
+        // Format transTime to HH:MM if it is numeric like "1630" or "930"
+        const formatTransTime = (t) => {
+          if (!t) return '';
+          if (typeof t !== 'string') t = String(t);
+          if (t.includes(':')) return t;
+          const digits = t.replace(/\D/g, '');
+          const padded = digits.padStart(4, '0');
+          return padded.slice(0, 2) + ':' + padded.slice(2);
+        };
+        const formattedTime = formatTransTime(transTime);
+
+        setForm(prev => {
+          let mappedBank = prev.bank;
+          const bankUpper = (receiverBank || '').toUpperCase();
+          if (bankUpper.includes('KBANK') || bankUpper.includes('KASIKORN') || bankUpper.includes('กสิกร') || bankUpper === '004') {
+            mappedBank = 'KBANK';
+          } else if (bankUpper.includes('SCB') || bankUpper.includes('SIAM COMMERCIAL') || bankUpper.includes('ไทยพาณิชย์') || bankUpper === '014') {
+            mappedBank = 'SCB';
+          } else if (bankUpper.includes('BBL') || bankUpper.includes('BANGKOK') || bankUpper.includes('กรุงเทพ') || bankUpper === '002') {
+            mappedBank = 'BBL';
+          } else if (bankUpper.includes('BAY') || bankUpper.includes('KRUNGSRI') || bankUpper.includes('AYUDHYA') || bankUpper.includes('กรุงศรี') || bankUpper === '025') {
+            mappedBank = 'BAY-4396';
+          } else if (bankUpper.includes('KTB') || bankUpper.includes('KRUNG THAI') || bankUpper.includes('กรุงไทย') || bankUpper === '006') {
+            mappedBank = 'KTB';
+          } else if (bankUpper.includes('TTB') || bankUpper.includes('TMB') || bankUpper.includes('ทหารไทย') || bankUpper === '011') {
+            mappedBank = 'TTB';
+          }
+
+          const updatedEntries = [...prev.serviceEntries];
+          if (amount) {
+            // Pre-populate the amount of the first service entry and its breakdown if empty
+            if (updatedEntries[0]) {
+              const currentEntryAmount = updatedEntries[0].amount;
+              const newEntryAmount = (!currentEntryAmount || parseFloat(currentEntryAmount) === 0) ? amount.toString() : currentEntryAmount;
+              
+              const updatedBreakdowns = [...(updatedEntries[0].breakdowns || [])];
+              if (updatedBreakdowns[0] && (!updatedBreakdowns[0].amount || parseFloat(updatedBreakdowns[0].amount) === 0)) {
+                updatedBreakdowns[0] = {
+                  ...updatedBreakdowns[0],
+                  amount: amount.toString()
+                };
+              }
+
+              updatedEntries[0] = {
+                ...updatedEntries[0],
+                amount: newEntryAmount,
+                breakdowns: updatedBreakdowns
+              };
+            }
+          }
+
+          // also populate main amount if empty
+          const mainAmount = (amount && (!prev.amount || parseFloat(prev.amount) === 0)) ? amount.toString() : prev.amount;
+
+          return {
+            ...prev,
+            amount: mainAmount,
+            serviceEntries: updatedEntries,
+            transactionDate: transDate || prev.transactionDate,
+            transactionTime: formattedTime || prev.transactionTime,
+            bank: mappedBank
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Verify slip failed:', err);
+      alert(err?.response?.data?.error || 'ไม่สามารถดึงข้อมูลจากสลิปได้ กรุณากรอกข้อมูลเอง');
+    } finally {
+      setIsVerifyingSlip(false);
+    }
+  };
+
   const handleSlipChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setForm({ ...form, slipImage: file });
+      setForm(prev => ({ ...prev, slipImage: file }));
       const reader = new FileReader();
       reader.onloadend = () => setSlipPreview(reader.result);
       reader.readAsDataURL(file);
+      handleVerifySlip(file);
     }
   };
 
   const handleSlip2Change = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setForm({ ...form, slipImage2: file });
+      setForm(prev => ({ ...prev, slipImage2: file }));
       const reader = new FileReader();
       reader.onloadend = () => setSlipPreview2(reader.result);
       reader.readAsDataURL(file);
+      handleVerifySlip(file);
     }
   };
 
@@ -595,6 +698,9 @@ export default function AllTransactionPage() {
       'KBANK': 'badge-bank-kbank',
       'SCB': 'badge-bank-scb',
       'BBL': 'badge-bank-bbl',
+      'KTB': 'badge-bank-ktb',
+      'TTB': 'badge-bank-ttb',
+      'BAY': 'badge-bank-bay',
       'BAY-4396': 'badge-bank-bay',
       'BAY-7146': 'badge-bank-bay',
       'Cr.-8508': 'badge-bank',
@@ -608,6 +714,9 @@ export default function AllTransactionPage() {
         'KBANK': 'KBANK',
         'SCB': 'SCB',
         'BBL': 'BBL',
+        'KTB': 'KTB',
+        'TTB': 'TTB',
+        'BAY': 'BAY',
         'BAY-4396': 'BAY-4396',
         'BAY-7146': 'BAY-7146',
         'Cr.-8508': 'Cr.-8508',
@@ -1405,6 +1514,9 @@ export default function AllTransactionPage() {
                       <option value="KBANK">KBANK</option>
                       <option value="SCB">SCB</option>
                       <option value="BBL">BBL</option>
+                      <option value="KTB">KTB</option>
+                      <option value="TTB">TTB</option>
+                      <option value="BAY">BAY</option>
                       <option value="BAY-4396">BAY-4396</option>
                       <option value="BAY-7146">BAY-7146</option>
                       <option value="Cr.-8508">Cr.-8508</option>
@@ -1566,14 +1678,21 @@ export default function AllTransactionPage() {
                 <div style={formStyles.slipUploadArea}
                   onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.background = '#eff6ff'; }}
                   onDragLeave={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.background = '#fafafa'; }}
-                  onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) { setForm({ ...form, slipImage: file }); const reader = new FileReader(); reader.onloadend = () => setSlipPreview(reader.result); reader.readAsDataURL(file); } }}>
+                  onDrop={e => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) { setForm(prev => ({ ...prev, slipImage: file })); const reader = new FileReader(); reader.onloadend = () => setSlipPreview(reader.result); reader.readAsDataURL(file); handleVerifySlip(file); } }}>
                   <input type="file" accept="image/*" onChange={handleSlipChange} style={{ display: 'none' }} id="slip-upload-input" />
                   <input type="file" accept="image/*" onChange={handleSlip2Change} style={{ display: 'none' }} id="slip-upload2-input" />
-                  <label htmlFor="slip-upload-input" style={{ cursor: 'pointer', display: 'block' }}>
-                    <Upload size={28} style={{ color: '#94a3b8', marginBottom: '8px' }} />
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '500' }}>คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</p>
-                    <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>รองรับไฟล์ JPG, PNG, GIF, WEBP (สูงสุด 5MB)</p>
-                  </label>
+                  {isVerifyingSlip ? (
+                    <div style={{ padding: '14px 0' }}>
+                      <div style={{ width: '32px', height: '32px', border: '3px solid #e2e8f0', borderTop: '3px solid #3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
+                      <p style={{ margin: 0, color: '#2563eb', fontWeight: '600', fontSize: '0.88rem' }}>กำลังอ่านข้อมูลจากสลิปอัตโนมัติ...</p>
+                    </div>
+                  ) : (
+                    <label htmlFor="slip-upload-input" style={{ cursor: 'pointer', display: 'block' }}>
+                      <Upload size={28} style={{ color: '#94a3b8', marginBottom: '8px' }} />
+                      <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '500' }}>คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</p>
+                      <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>รองรับไฟล์ JPG, PNG, GIF, WEBP (สูงสุด 5MB)</p>
+                    </label>
+                  )}
                   <div style={{ marginTop: '8px', display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <button type="button" onClick={() => document.getElementById('slip-upload-input').click()} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer' }}>
                       <Upload style={{ verticalAlign: 'middle', marginRight: '6px' }} /> เลือกสลิปหลัก
@@ -1610,6 +1729,75 @@ export default function AllTransactionPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Section 4: รายการโอนเงินล่าสุดของคุณ ── */}
+              <div style={formStyles.sectionCard}>
+                <div style={formStyles.sectionTitle}>
+                  <ListCheck style={formStyles.sectionIcon} />
+                  <span>รายการโอนเงินล่าสุดของคุณ</span>
+                </div>
+                {allRecentTransactions.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '10px 0', color: '#94a3b8', fontSize: '0.85rem' }}>
+                    ไม่พบรายการโอนเงินล่าสุด
+                  </div>
+                ) : (
+                  <div style={{ maxHeight: '220px', overflowY: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <table style={{ fontSize: '0.75rem', width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          <th style={{ padding: '7px 10px', fontSize: '0.73rem', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>วันที่</th>
+                          <th style={{ padding: '7px 10px', fontSize: '0.73rem', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>ลูกค้า</th>
+                          <th style={{ padding: '7px 10px', fontSize: '0.73rem', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontWeight: '600' }}>บริการ</th>
+                          <th style={{ padding: '7px 10px', fontSize: '0.73rem', borderBottom: '1px solid #e2e8f0', textAlign: 'right', color: '#64748b', fontWeight: '600' }}>ยอดเงิน</th>
+                          <th style={{ padding: '7px 10px', fontSize: '0.73rem', borderBottom: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>ธนาคาร</th>
+                          <th style={{ padding: '7px 10px', fontSize: '0.73rem', borderBottom: '1px solid #e2e8f0', textAlign: 'center', color: '#64748b', fontWeight: '600' }}>สถานะ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allRecentTransactions.map((tx) => {
+                          const isRejected = tx.submissionStatus === 'rejected';
+                          const isSubmitted = tx.submissionStatus === 'submitted';
+                          const isApproved = tx.submissionStatus === 'approved';
+                          let statusLabel = 'แบบร่าง';
+                          let statusColor = '#475569';
+                          let statusBg = '#f1f5f9';
+                          let statusBorder = '#cbd5e1';
+                          if (isRejected) { statusLabel = 'ถูกปฏิเสธ'; statusColor = '#dc2626'; statusBg = '#fee2e2'; statusBorder = '#fca5a5'; }
+                          else if (isSubmitted) { statusLabel = 'รอตรวจสอบ'; statusColor = '#2563eb'; statusBg = '#eff6ff'; statusBorder = '#bfdbfe'; }
+                          else if (isApproved) { statusLabel = 'สำเร็จ'; statusColor = '#16a34a'; statusBg = '#f0fdf4'; statusBorder = '#bbf7d0'; }
+                          return (
+                            <tr key={tx._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '7px 10px', verticalAlign: 'middle' }}>
+                                <div style={{ fontWeight: '500', color: '#0f172a' }}>{formatDate(tx.transactionDate)}</div>
+                                {tx.transactionTime && <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginTop: '1px' }}>{tx.transactionTime}</div>}
+                              </td>
+                              <td style={{ padding: '7px 10px', verticalAlign: 'middle', color: '#334155' }}>
+                                {tx.customer?.name || tx.serviceId?.customerId?.name || '-'}
+                              </td>
+                              <td style={{ padding: '7px 10px', verticalAlign: 'middle', color: '#64748b', fontSize: '0.7rem' }}>
+                                {tx.serviceId?.cid || tx.service?.cid || '-'}
+                              </td>
+                              <td style={{ padding: '7px 10px', verticalAlign: 'middle', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>
+                                {formatCurrency(tx.amount)}
+                              </td>
+                              <td style={{ padding: '7px 10px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                <span className={`badge ${getBankBadgeClass(tx.bank)}`} style={{ padding: '2px 7px', fontSize: '0.68rem' }}>
+                                  {getBankName(tx.bank)}
+                                </span>
+                              </td>
+                              <td style={{ padding: '7px 10px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: '600', color: statusColor, background: statusBg, border: `1px solid ${statusBorder}` }}>
+                                  {statusLabel}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
