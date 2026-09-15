@@ -173,7 +173,9 @@ export default function SubmittedTransactionsPage() {
     '17': 'Vat ค่าบริการ Facebook',
     '18': 'ค่าบริการ Facebook',
     '19': 'Vat ค่าบริการ Hosting Domain',
-    '20': 'ค่าบริการ Hosting Domain'
+    '20': 'ค่าบริการ Hosting Domain',
+    '21': 'หัก ณ ที่จ่าย 3% ค่า Domain',
+    '22': 'หัก ณ ที่จ่าย 2% ค่า Domain'
   };
 
   const totalAmount = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);

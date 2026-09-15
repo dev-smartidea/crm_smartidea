@@ -85,7 +85,9 @@ export default function AllTransactionPage() {
     { value: '17', label: '17 : Vat ค่าบริการ Facebook' },
     { value: '18', label: '18 : ค่าบริการ Facebook' },
     { value: '19', label: '19 : Vat ค่าบริการ Hosting Domain' },
-    { value: '20', label: '20 : ค่าบริการ Hosting Domain' }
+    { value: '20', label: '20 : ค่าบริการ Hosting Domain' },
+    { value: '21', label: '21 : หัก ณ ที่จ่าย 3% ค่า Domain' },
+    { value: '22', label: '22 : หัก ณ ที่จ่าย 2% ค่า Domain' }
   ];
   const STATUS_OPTIONS = [
     { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },
@@ -170,6 +172,42 @@ export default function AllTransactionPage() {
           }
           const w = Math.round(amountSrc * 0.03 * 100) / 100;
           rows[idx] = { ...rows[idx], code: '10', amount: (-w).toFixed(2) };
+          return { ...entry, breakdowns: rows };
+        }
+
+        // หัก ณ ที่จ่าย 3% ค่า Domain (code 21) - ใช้ code 19 หรือ 20 เป็นฐาน
+        if (code === '21') {
+          const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '19' || b.code === '20'));
+          if (idxSrc === -1) {
+            alert('กรุณาเพิ่มรายการรหัส 19 หรือ 20 (ค่า Domain) ก่อน');
+            return entry;
+          }
+          const rowSrc = rows[idxSrc];
+          const amountSrc = parseFloat(rowSrc.amount) || 0;
+          if (amountSrc <= 0) {
+            alert('กรุณากรอกยอดเงินในรหัส 19 หรือ 20 ก่อน');
+            return entry;
+          }
+          const w = Math.round(amountSrc * 0.03 * 100) / 100;
+          rows[idx] = { ...rows[idx], code: '21', amount: (-w).toFixed(2) };
+          return { ...entry, breakdowns: rows };
+        }
+
+        // หัก ณ ที่จ่าย 2% ค่า Domain (code 22) - ใช้ code 19 หรือ 20 เป็นฐาน
+        if (code === '22') {
+          const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '19' || b.code === '20'));
+          if (idxSrc === -1) {
+            alert('กรุณาเพิ่มรายการรหัส 19 หรือ 20 (ค่า Domain) ก่อน');
+            return entry;
+          }
+          const rowSrc = rows[idxSrc];
+          const amountSrc = parseFloat(rowSrc.amount) || 0;
+          if (amountSrc <= 0) {
+            alert('กรุณากรอกยอดเงินในรหัส 19 หรือ 20 ก่อน');
+            return entry;
+          }
+          const w = Math.round(amountSrc * 0.02 * 100) / 100;
+          rows[idx] = { ...rows[idx], code: '22', amount: (-w).toFixed(2) };
           return { ...entry, breakdowns: rows };
         }
 
@@ -293,7 +331,7 @@ export default function AllTransactionPage() {
     const rows = [...(entry.breakdowns || [])];
     // eslint-disable-next-line no-unused-vars
 
-    // ตรวจสอบสำหรับ code 7, 8, 9, 10
+    // ตรวจสอบสำหรับ code 7, 8, 9, 10, 21, 22
     if ((newCode === '7' || newCode === '9') && !rows.some((b, i) => i !== idx && b.code === '11')) {
       alert('กรุณาเพิ่มรายการรหัส 11 (ค่าคลิก) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่ายได้');
       return;
@@ -302,9 +340,13 @@ export default function AllTransactionPage() {
       alert('กรุณาเพิ่มรายการรหัส 14, 18 หรือ 15 (ค่าบริการ) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่ายได้');
       return;
     }
+    if ((newCode === '21' || newCode === '22') && !rows.some((b, i) => i !== idx && (b.code === '19' || b.code === '20'))) {
+      alert('กรุณาเพิ่มรายการรหัส 19 หรือ 20 (ค่า Domain) ก่อนจึงจะสามารถเลือกรายการหัก ณ ที่จ่ายได้');
+      return;
+    }
 
     // คำนวณหัก ณ ที่จ่ายอัตโนมัติ
-    if (newCode === '7' || newCode === '8' || newCode === '9' || newCode === '10') {
+    if (newCode === '7' || newCode === '8' || newCode === '9' || newCode === '10' || newCode === '21' || newCode === '22') {
       computeWithholdingTax(entryIdx, idx, newCode);
       return;
     }
@@ -690,7 +732,9 @@ export default function AllTransactionPage() {
     '17': 'Vat ค่าบริการ Facebook',
     '18': 'ค่าบริการ Facebook',
     '19': 'Vat ค่าบริการ Hosting Domain',
-    '20': 'ค่าบริการ Hosting Domain'
+    '20': 'ค่าบริการ Hosting Domain',
+    '21': 'หัก ณ ที่จ่าย 3% ค่า Domain',
+    '22': 'หัก ณ ที่จ่าย 2% ค่า Domain'
   };
 
   const getBankBadgeClass = (bank) => {
@@ -1229,7 +1273,7 @@ export default function AllTransactionPage() {
                             <div className="breakdowns">
                               {tx.breakdowns.map((bd, idx) => {
                                 const label = breakdownCodeLabels[bd.code] || bd.code;
-                                const isDeduction = bd.code === '7' || bd.code === '8' || bd.code === '9' || bd.code === '10';
+                                const isDeduction = bd.code === '7' || bd.code === '8' || bd.code === '9' || bd.code === '10' || bd.code === '21' || bd.code === '22';
                                 const isVat = bd.code === '12' || bd.code === '13' || bd.code === '17' || bd.code === '19';
                                 const amountColor = isDeduction ? '#dc2626' : isVat ? '#7c3aed' : '#1d4ed8';
                                 return (

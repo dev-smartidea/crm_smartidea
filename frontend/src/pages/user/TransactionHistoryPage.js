@@ -153,7 +153,9 @@ export default function TransactionHistoryPage() {
     { value: '17', label: '17 : Vat ค่าบริการ Facebook' },
     { value: '18', label: '18 : ค่าบริการ Facebook' },
     { value: '19', label: '19 : Vat ค่าบริการ Hosting Domain' },
-    { value: '20', label: '20 : ค่าบริการ Hosting Domain' }
+    { value: '20', label: '20 : ค่าบริการ Hosting Domain' },
+    { value: '21', label: '21 : หัก ณ ที่จ่าย 3% ค่า Domain' },
+    { value: '22', label: '22 : หัก ณ ที่จ่าย 2% ค่า Domain' }
   ];
   const STATUS_OPTIONS = [
     { value: 'รอบันทึกบัญชี', label: 'รอบันทึกบัญชี' },
@@ -327,12 +329,48 @@ export default function TransactionHistoryPage() {
       return rows;
     }
 
+    // หัก ณ ที่จ่าย 3% ค่า Domain (code 21) - ใช้ code 19 หรือ 20 เป็นฐาน
+    if (code === '21') {
+      const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '19' || b.code === '20'));
+      if (idxSrc === -1) {
+        alert('กรุณาเพิ่มรายการรหัส 19 หรือ 20 (ค่า Domain) ก่อน');
+        return breakdownsList;
+      }
+      const rowSrc = rows[idxSrc];
+      const amountSrc = parseFloat(rowSrc.amount) || 0;
+      if (amountSrc <= 0) {
+        alert('กรุณากรอกยอดเงินในรหัส 19 หรือ 20 ก่อน');
+        return breakdownsList;
+      }
+      const w = Math.round(amountSrc * 0.03 * 100) / 100;
+      rows[idx] = { ...current, code: '21', amount: (-w).toFixed(2) };
+      return rows;
+    }
+
+    // หัก ณ ที่จ่าย 2% ค่า Domain (code 22) - ใช้ code 19 หรือ 20 เป็นฐาน
+    if (code === '22') {
+      const idxSrc = rows.findIndex((b, i) => i !== idx && (b.code === '19' || b.code === '20'));
+      if (idxSrc === -1) {
+        alert('กรุณาเพิ่มรายการรหัส 19 หรือ 20 (ค่า Domain) ก่อน');
+        return breakdownsList;
+      }
+      const rowSrc = rows[idxSrc];
+      const amountSrc = parseFloat(rowSrc.amount) || 0;
+      if (amountSrc <= 0) {
+        alert('กรุณากรอกยอดเงินในรหัส 19 หรือ 20 ก่อน');
+        return breakdownsList;
+      }
+      const w = Math.round(amountSrc * 0.02 * 100) / 100;
+      rows[idx] = { ...current, code: '22', amount: (-w).toFixed(2) };
+      return rows;
+    }
+
     return rows;
   };
 
-  // Auto-calculate withholding tax when selecting code 7, 8, 9 or 10
+  // Auto-calculate withholding tax when selecting code 7, 8, 9, 10, 21 or 22
   const handleCodeChange = (idx, newCode, breakdownsList, setter) => {
-    const withholdingTaxCodes = ['7', '8', '9', '10'];
+    const withholdingTaxCodes = ['7', '8', '9', '10', '21', '22'];
     if (withholdingTaxCodes.includes(newCode)) {
       const updatedRows = computeWithholdingTax(idx, newCode, breakdownsList);
       if (updatedRows !== breakdownsList && setter) {
