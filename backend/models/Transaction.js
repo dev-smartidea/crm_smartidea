@@ -1,11 +1,14 @@
 const mongoose = require('mongoose');
 
+// Allowed breakdown codes (centralized)
+const ALLOWED_BREAKDOWN_CODES = ['7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22'];
+
 // ประวัติการโอนเงินสำหรับแต่ละบริการ
 const transactionSchema = new mongoose.Schema({
   serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', required: true },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // เจ้าของ
-  amount: { type: Number, required: true }, // จำนวนเงิน
+  amount: { type: Number, required: true, min: 0 }, // จำนวนเงิน
   transactionDate: { type: Date, required: true }, // วันที่โอน
   transactionTime: { type: String }, // เวลาที่โอน (เช่น "10:30")
   transactionTime2: { type: String }, // เวลาที่โอน (สลิปที่ 2)
@@ -23,10 +26,11 @@ const transactionSchema = new mongoose.Schema({
   slipImage2: { type: String },
   cloudinaryId2: { type: String },
   bank: { type: String, enum: ['KBANK', 'SCB', 'BBL', 'KTB', 'TTB', 'BAY', 'BAY-4396', 'BAY-7146', 'Cr.-8508', 'BBL-ส่วนตัว'], required: true }, // บัญชีธนาคาร
+  needsManagerReview: { type: Boolean, default: false }, // ให้ manager ตรวจสอบเพิ่มเติม
   // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
   breakdowns: [{
-    code: { type: String, enum: ['7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22'], required: true }, // รหัส
-    amount: { type: Number, required: true }, // ยอดเงินของรายการย่อย
+    code: { type: String, enum: ALLOWED_BREAKDOWN_CODES, required: true }, // รหัส
+    amount: { type: Number, required: true, min: 0 }, // ยอดเงินของรายการย่อย
     statusNote: { type: String, enum: ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'], required: true }, // สถานะ/หมายเหตุ
     isAutoVat: { type: Boolean, default: false } // ระบุว่ารายการนี้ถูกสร้างอัตโนมัติจากการคำนวณ VAT หรือไม่
   }],
@@ -58,5 +62,32 @@ transactionSchema.index({ submissionStatus: 1, transactionDate: -1 });
 transactionSchema.index({ cardCharged: 1, transactionDate: -1 }); // สำหรับ filter card charged transactions
 transactionSchema.index({ fbToppedUp: 1, transactionDate: -1 }); // สำหรับ Facebook topup flow
 transactionSchema.index({ serviceId: 1, submissionStatus: 1 }); // compound index สำหรับ filter by service + status
+
+// Index on breakdowns.code for fast lookup/filtering by code
+transactionSchema.index({ 'breakdowns.code': 1 });
+
+// Helper to compute breakdown total
+transactionSchema.methods.getBreakdownTotal = function () {
+  if (!Array.isArray(this.breakdowns)) return 0;
+  return this.breakdowns.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+};
+
+// Validate that breakdowns do not exceed transaction amount and reasonable limits
+transactionSchema.pre('validate', function (next) {
+  try {
+    if (Array.isArray(this.breakdowns) && this.breakdowns.length > 0) {
+      const total = this.getBreakdownTotal();
+      if (total > (Number(this.amount) || 0)) {
+        return next(new Error('Sum of breakdowns exceeds transaction amount'));
+      }
+      if (this.breakdowns.length > 100) {
+        return next(new Error('Too many breakdown items'));
+      }
+    }
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+});
 
 module.exports = mongoose.model('Transaction', transactionSchema);

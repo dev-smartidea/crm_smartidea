@@ -55,6 +55,8 @@ export default function AllTransactionPage() {
   // collapse/expand state for service entries
   const [expandedEntries, setExpandedEntries] = useState(new Set([0]));
   const [isVerifyingSlip, setIsVerifyingSlip] = useState(false);
+  const [slipVerificationFailed, setSlipVerificationFailed] = useState(false);
+  const [managerReviewChecked, setManagerReviewChecked] = useState(false);
   const [allRecentTransactions, setAllRecentTransactions] = useState([]);
 
   const VAT_CODES = ['12', '13', '17', '19'];
@@ -461,6 +463,11 @@ export default function AllTransactionPage() {
       }
     }
 
+    if (slipVerificationFailed && !managerReviewChecked) {
+      alert('ตรวจสลิปไม่ผ่าน กรุณาติ๊ก "ให้ manager ตรวจสอบเพิ่มเติม" ก่อนบันทึก');
+      return;
+    }
+
     let sharedSlipUrl = null;
     let sharedCloudinaryId = null;
     let sharedSlipUrl2 = null;
@@ -472,11 +479,20 @@ export default function AllTransactionPage() {
       for (let i = 0; i < form.serviceEntries.length; i++) {
         const entry = form.serviceEntries[i];
         const formData = new FormData();
+        const reviewNote = 'ต้องให้ manager ตรวจสอบเพิ่มเติม (ตรวจสลิปอัตโนมัติไม่ผ่าน)';
+        const shouldAppendReviewNote = slipVerificationFailed && managerReviewChecked;
+        const normalizedNotes = (form.notes || '').trim();
+        const finalNotes = shouldAppendReviewNote
+          ? (normalizedNotes.includes(reviewNote)
+            ? normalizedNotes
+            : (normalizedNotes ? `${normalizedNotes} | ${reviewNote}` : reviewNote))
+          : normalizedNotes;
         formData.append('amount', parseFloat(entry.amount));
         formData.append('transactionDate', form.transactionDate);
         if (form.transactionTime) formData.append('transactionTime', form.transactionTime);
         if (form.transactionTime2) formData.append('transactionTime2', form.transactionTime2);
-        formData.append('notes', form.notes || '');
+        formData.append('notes', finalNotes);
+        formData.append('needsManagerReview', shouldAppendReviewNote ? 'true' : 'false');
         formData.append('bank', form.bank);
 
         // attach up to two slip files for the first entry; otherwise reuse shared URLs
@@ -575,6 +591,8 @@ export default function AllTransactionPage() {
     setSlipPreview2(null);
     setFormCustomerQuery('');
     setExpandedEntries(new Set([0]));
+    setSlipVerificationFailed(false);
+    setManagerReviewChecked(false);
   };
 
   const handleVerifySlip = async (file) => {
@@ -592,6 +610,8 @@ export default function AllTransactionPage() {
       });
 
       if (res.data && res.data.success) {
+        setSlipVerificationFailed(false);
+        setManagerReviewChecked(false);
         const { transDate, transTime, receiverBank, amount } = res.data;
 
         // Format transTime to HH:MM if it is numeric like "1630" or "930"
@@ -659,6 +679,7 @@ export default function AllTransactionPage() {
         });
       }
     } catch (err) {
+      setSlipVerificationFailed(true);
       console.error('Verify slip failed:', err);
       alert(err?.response?.data?.error || 'ไม่สามารถดึงข้อมูลจากสลิปได้ กรุณากรอกข้อมูลเอง');
     } finally {
@@ -1773,6 +1794,29 @@ export default function AllTransactionPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {slipVerificationFailed && (
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '12px 14px',
+                    border: '1px solid #fca5a5',
+                    background: '#fff1f2',
+                    borderRadius: '10px',
+                    color: '#9f1239'
+                  }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: '600', marginBottom: '8px' }}>
+                      ตรวจสลิปอัตโนมัติไม่ผ่าน กรุณาให้ผู้จัดการตรวจสอบเพิ่มเติมก่อนบันทึก
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={managerReviewChecked}
+                        onChange={(e) => setManagerReviewChecked(e.target.checked)}
+                      />
+                      ให้ manager ตรวจสอบเพิ่มเติม
+                    </label>
                   </div>
                 )}
               </div>

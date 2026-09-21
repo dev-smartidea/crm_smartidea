@@ -588,7 +588,8 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    const { amount, transactionDate, transactionTime, transactionTime2, notes, bank } = req.body || {};
+    const { amount, transactionDate, transactionTime, transactionTime2, notes, bank, needsManagerReview } = req.body || {};
+    const parsedNeedsManagerReview = String(needsManagerReview).toLowerCase() === 'true';
     // แปลง breakdowns จาก string -> array (ถ้ามี)
     let breakdowns = [];
     if (req.body && typeof req.body.breakdowns !== 'undefined') {
@@ -682,6 +683,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
       slipImage2,
       cloudinaryId2,
       bank,
+      needsManagerReview: parsedNeedsManagerReview,
       breakdowns: breakdowns && breakdowns.length ? breakdowns : undefined
     });
 
