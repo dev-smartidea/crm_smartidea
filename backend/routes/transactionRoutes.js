@@ -752,7 +752,7 @@ router.post('/services/:serviceId/transactions', optionalUploadSlip, async (req,
     console.error('=== Backend Create transaction error ===');
     console.error('Error:', err);
     console.error('Stack:', err.stack);
-    res.status(400).json({ error: 'Create failed' });
+    res.status(400).json({ error: err.message || 'Create failed' });
   }
 });
 

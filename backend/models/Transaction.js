@@ -30,7 +30,7 @@ const transactionSchema = new mongoose.Schema({
   // แยกสัดส่วนการโอนเงินตามรายการที่ผู้ใช้เลือก (optional)
   breakdowns: [{
     code: { type: String, enum: ALLOWED_BREAKDOWN_CODES, required: true }, // รหัส
-    amount: { type: Number, required: true, min: 0 }, // ยอดเงินของรายการย่อย
+    amount: { type: Number, required: true }, // ยอดเงินของรายการย่อย (รองรับค่าติดลบสำหรับ หัก ณ ที่จ่าย)
     statusNote: { type: String, enum: ['รอบันทึกบัญชี', 'ค่าคลิกที่ยังไม่ต้องเติม'], required: true }, // สถานะ/หมายเหตุ
     isAutoVat: { type: Boolean, default: false } // ระบุว่ารายการนี้ถูกสร้างอัตโนมัติจากการคำนวณ VAT หรือไม่
   }],
