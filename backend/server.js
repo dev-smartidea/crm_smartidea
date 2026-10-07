@@ -7,6 +7,7 @@ const connectDB = require('./config/database');
 const http = require('http');
 const { setupSocket } = require('./socket');
 const mongoose = require('mongoose');
+const lineRoutes = require('./routes/lineRoutes');
 
 
 const app = express();
@@ -57,6 +58,9 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
+
+// LINE webhook ต้องรับ raw body เพื่อใช้ตรวจสอบ x-line-signature
+app.use('/api/line', express.raw({ type: 'application/json', limit: '1mb' }), lineRoutes);
 
 // Custom Sanitize Middleware - ป้องกัน NoSQL Injection
 // แทน express-mongo-sanitize ที่ไม่รองรับ Node.js ใหม่
