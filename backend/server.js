@@ -62,6 +62,10 @@ app.use(limiter);
 // LINE webhook ต้องรับ raw body เพื่อใช้ตรวจสอบ x-line-signature
 app.use('/api/line', express.raw({ type: 'application/json', limit: '1mb' }), lineRoutes);
 
+// LINE User Mapping routes (CRUD mapping สำหรับ admin)
+const lineUserMappingRoutes = require('./routes/lineUserMappingRoutes');
+app.use('/api/line', lineUserMappingRoutes); // /api/line/mappings
+
 // Custom Sanitize Middleware - ป้องกัน NoSQL Injection
 // แทน express-mongo-sanitize ที่ไม่รองรับ Node.js ใหม่
 app.use((req, res, next) => {
