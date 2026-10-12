@@ -55,6 +55,17 @@ router.post('/webhook', (req, res) => {
   const events = Array.isArray(body.events) ? body.events : [];
   if (events.length > 0) {
     console.log(`[LINE] Received ${events.length} event(s)`);
+    // DEBUG: Log event details for mapping setup
+    events.forEach((event, idx) => {
+      console.log(`[LINE] Event ${idx}:`, {
+        type: event.type,
+        groupId: event.source?.groupId || null,
+        userId: event.source?.userId || null,
+        displayName: event.source?.displayName || null,
+        messageType: event.message?.type || null,
+        timestamp: event.timestamp,
+      });
+    });
   }
 
   // TODO: Add topup classification/OCR/Google Sheet/CRM pipeline here.
