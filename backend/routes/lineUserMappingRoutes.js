@@ -3,6 +3,9 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const LineUserMapping = require('../models/LineUserMapping');
 
+// Middleware: Parse JSON body
+router.use(express.json());
+
 // Helper: ตรวจสอบ JWT และดึง user info
 function getUserFromReq(req) {
   const token = req.headers.authorization?.split(' ')[1];
