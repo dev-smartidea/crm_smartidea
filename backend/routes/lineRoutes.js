@@ -19,11 +19,10 @@ function isValidLineSignature(rawBodyBuffer, signature, secret) {
   return safeCompare(signature, expected);
 }
 
-router.get('/webhook', (req, res) => {
-  return res.status(200).json({ ok: true, message: 'LINE webhook endpoint is ready' });
-});
+// Middleware: แปลง raw body เป็น Buffer เมื่อเป็น webhook POST เท่านั้น
+router.post('/webhook', express.raw({ type: 'application/json', limit: '1mb' }), handleWebhook);
 
-router.post('/webhook', (req, res) => {
+function handleWebhook(req, res) {
   const secret = process.env.LINE_CHANNEL_SECRET;
   const signature = req.headers['x-line-signature'];
   const rawBody = req.body;
@@ -39,7 +38,6 @@ router.post('/webhook', (req, res) => {
     const valid = isValidLineSignature(rawBody, signature, secret);
     if (!valid) {
       console.warn('[LINE] Signature verification failed. Request ignored.');
-      // Return 200 so LINE verify flow does not fail on temporary secret mismatch.
       return res.status(200).json({ ok: true, ignored: true, reason: 'invalid_signature' });
     }
   }
@@ -70,6 +68,10 @@ router.post('/webhook', (req, res) => {
 
   // TODO: Add topup classification/OCR/Google Sheet/CRM pipeline here.
   return res.status(200).json({ ok: true, receivedEvents: events.length });
+}
+
+router.get('/webhook', (req, res) => {
+  return res.status(200).json({ ok: true, message: 'LINE webhook endpoint is ready' });
 });
 
 module.exports = router;

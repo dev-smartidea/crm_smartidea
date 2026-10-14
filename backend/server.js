@@ -60,9 +60,10 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // LINE webhook ต้องรับ raw body เพื่อใช้ตรวจสอบ x-line-signature
-app.use('/api/line', express.raw({ type: 'application/json', limit: '1mb' }), lineRoutes);
+// lineRoutes.js เองจะจัดการ raw body middleware สำหรับ webhook POST เท่านั้น
+app.use('/api/line', lineRoutes);
 
-// LINE User Mapping routes (CRUD mapping สำหรับ admin)
+// LINE User Mapping routes (CRUD mapping สำหรับ admin) - ใช้ JSON parser ปกติ
 const lineUserMappingRoutes = require('./routes/lineUserMappingRoutes');
 app.use('/api/line', lineUserMappingRoutes); // /api/line/mappings
 
