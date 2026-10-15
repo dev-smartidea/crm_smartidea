@@ -1,5 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
+const LineUserMapping = require('../models/LineUserMapping');
+const { classifyTopupRequest } = require('../utils/messageClassifier');
 
 const router = express.Router();
 
@@ -22,7 +24,7 @@ function isValidLineSignature(rawBodyBuffer, signature, secret) {
 // Middleware: แปลง raw body เป็น Buffer เมื่อเป็น webhook POST เท่านั้น
 router.post('/webhook', express.raw({ type: 'application/json', limit: '1mb' }), handleWebhook);
 
-function handleWebhook(req, res) {
+async function handleWebhook(req, res) {
   const secret = process.env.LINE_CHANNEL_SECRET;
   const signature = req.headers['x-line-signature'];
   const rawBody = req.body;
@@ -53,21 +55,102 @@ function handleWebhook(req, res) {
   const events = Array.isArray(body.events) ? body.events : [];
   if (events.length > 0) {
     console.log(`[LINE] Received ${events.length} event(s)`);
-    // DEBUG: Log event details for mapping setup
-    events.forEach((event, idx) => {
-      console.log(`[LINE] Event ${idx}:`, {
-        type: event.type,
-        groupId: event.source?.groupId || null,
-        userId: event.source?.userId || null,
-        displayName: event.source?.displayName || null,
-        messageType: event.message?.type || null,
-        timestamp: event.timestamp,
-      });
-    });
+
+    // Process each event asynchronously
+    for (let idx = 0; idx < events.length; idx++) {
+      const event = events[idx];
+      try {
+        await processLineEvent(event, idx);
+      } catch (err) {
+        console.error(`[LINE] Error processing event ${idx}:`, err.message);
+      }
+    }
   }
 
-  // TODO: Add topup classification/OCR/Google Sheet/CRM pipeline here.
   return res.status(200).json({ ok: true, receivedEvents: events.length });
+}
+
+/**
+ * Process a single LINE webhook event
+ */
+async function processLineEvent(event, idx) {
+  const eventLog = {
+    type: event.type,
+    groupId: event.source?.groupId || null,
+    userId: event.source?.userId || null,
+    displayName: event.source?.displayName || null,
+    messageType: event.message?.type || null,
+    timestamp: event.timestamp,
+  };
+
+  console.log(`[LINE] Event ${idx}:`, eventLog);
+
+  // Only process message events for now
+  if (event.type !== 'message') {
+    return;
+  }
+
+  const lineUserId = event.source?.userId;
+  const displayName = event.source?.displayName || 'Unknown';
+  const messageText = event.message?.text || '';
+  const messageId = event.message?.id;
+
+  if (!lineUserId) {
+    console.warn(`[LINE] Event ${idx} has no userId`);
+    return;
+  }
+
+  // Look up mapping: lineUserId -> crmUserId
+  let mapping = null;
+  try {
+    mapping = await LineUserMapping.findOne({ lineUserId });
+  } catch (err) {
+    console.error(`[LINE] Error looking up mapping for ${lineUserId}:`, err.message);
+    return;
+  }
+
+  if (!mapping) {
+    console.warn(`[LINE] No mapping found for lineUserId: ${lineUserId}`);
+    // TODO: Auto-create pending mapping or ask admin to approve
+    return;
+  }
+
+  // Update last used timestamp
+  try {
+    mapping.lastUsedAt = new Date();
+    await mapping.save();
+  } catch (err) {
+    console.error(`[LINE] Error updating lastUsedAt for ${lineUserId}:`, err.message);
+  }
+
+  console.log(`[LINE] Event ${idx} mapped to crmUserId: ${mapping.crmUserId}`);
+
+  // Classify message: is this a topup request?
+  if (event.message.type === 'text' && messageText) {
+    console.log(`[LINE] Classifying message: "${messageText}"`);
+    const classification = await classifyTopupRequest(messageText, displayName);
+    console.log(`[LINE] Classification result:`, classification);
+
+    if (classification.isTopupRequest && classification.confidence >= 60) {
+      console.log(`[LINE] ✅ Topup request detected (confidence: ${classification.confidence}%)`);
+      console.log(`[LINE] Message: "${messageText}"`);
+      console.log(`[LINE] Sender: ${displayName} (${lineUserId})`);
+      console.log(`[LINE] CRM User: ${mapping.crmUserId}`);
+
+      // TODO: Extract amount, bank details from message
+      // TODO: If has image/receipt: run OCR to extract details
+      // TODO: Log to Google Sheets
+      // TODO: Auto-create transaction in CRM
+    } else {
+      console.log(`[LINE] ⊘ Not a topup request (confidence: ${classification.confidence}%)`);
+    }
+  } else if (event.message.type === 'image') {
+    console.log(`[LINE] Event ${idx} is an image - potential receipt for OCR`);
+    console.log(`[LINE] TODO: Download image, run OCR, extract payment details`);
+    // TODO: Download image from LINE
+    // TODO: Run OCR (Tesseract.js or Google Vision API)
+    // TODO: Extract: amount, bank, timestamp
+  }
 }
 
 router.get('/webhook', (req, res) => {
