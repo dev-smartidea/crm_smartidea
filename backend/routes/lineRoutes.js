@@ -105,7 +105,7 @@ async function processLineEvent(event, idx) {
   // Look up mapping: lineUserId -> crmUserId
   let mapping = null;
   try {
-    mapping = await LineUserMapping.findOne({ lineUserId });
+    mapping = await LineUserMapping.findOne({ lineUserId }).populate('crmUserId', 'name username');
   } catch (err) {
     console.error(`[LINE] Error looking up mapping for ${lineUserId}:`, err.message);
     return;
@@ -125,19 +125,26 @@ async function processLineEvent(event, idx) {
     console.error(`[LINE] Error updating lastUsedAt for ${lineUserId}:`, err.message);
   }
 
-  console.log(`[LINE] Event ${idx} mapped to crmUserId: ${mapping.crmUserId}`);
+  const crmUserIdStr = (mapping.crmUserId?._id || mapping.crmUserId)?.toString() || '';
+  const senderDisplayName =
+    event.source?.displayName ||
+    mapping.lineDisplayName ||
+    mapping.crmUserId?.name ||
+    'Unknown';
+
+  console.log(`[LINE] Event ${idx} mapped to crmUserId: ${crmUserIdStr} (${senderDisplayName})`);
 
   // Classify message: is this a topup request?
   if (event.message.type === 'text' && messageText) {
     console.log(`[LINE] Classifying message: "${messageText}"`);
-    const classification = await classifyTopupRequest(messageText, displayName);
+    const classification = await classifyTopupRequest(messageText, senderDisplayName);
     console.log(`[LINE] Classification result:`, classification);
 
     if (classification.isTopupRequest && classification.confidence >= 60) {
       console.log(`[LINE] ✅ Topup request detected (confidence: ${classification.confidence}%)`);
       console.log(`[LINE] Message: "${messageText}"`);
-      console.log(`[LINE] Sender: ${displayName} (${lineUserId})`);
-      console.log(`[LINE] CRM User: ${mapping.crmUserId}`);
+      console.log(`[LINE] Sender: ${senderDisplayName} (${lineUserId})`);
+      console.log(`[LINE] CRM User: ${crmUserIdStr}`);
 
       // Extract amount from message
       console.log(`[LINE] Extracting amount from message...`);
@@ -150,9 +157,9 @@ async function processLineEvent(event, idx) {
         
         // Log to Google Sheets
         const sheetsLogged = await logToGoogleSheets({
-          displayName: displayName,
+          displayName: senderDisplayName,
           lineUserId: lineUserId,
-          crmUserId: mapping.crmUserId.toString(),
+          crmUserId: crmUserIdStr,
           messageText: messageText,
           amount: amountData.amount,
           currency: amountData.currency,
@@ -170,9 +177,9 @@ async function processLineEvent(event, idx) {
         
         // Log to Google Sheets even without amount (for tracking)
         const sheetsLogged = await logToGoogleSheets({
-          displayName: displayName,
+          displayName: senderDisplayName,
           lineUserId: lineUserId,
-          crmUserId: mapping.crmUserId.toString(),
+          crmUserId: crmUserIdStr,
           messageText: messageText,
           amount: null,
           currency: 'THB',
