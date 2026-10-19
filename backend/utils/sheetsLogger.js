@@ -57,6 +57,10 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
         'Message',
         'Amount',
         'Currency',
+        'Service Type',
+        'Customer Name',
+        'CID',
+        'Withholding',
         'Confidence',
         'Status',
       ];
@@ -64,7 +68,7 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
       const escapedName = targetTabName.replace(/'/g, "''");
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `'${escapedName}'!A1:I1`,
+        range: `'${escapedName}'!A1:M1`,
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [headers],
@@ -92,6 +96,14 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
 /**
  * Log topup request to Google Sheets
  * @param {Object} data - topup request data
+ * @param {number} data.amount - Amount
+ * @param {string} data.currency - Currency (default: THB)
+ * @param {string} data.serviceType - Service type (google, facebook, domain, etc.)
+ * @param {string} data.customerName - Customer name
+ * @param {string} data.cid - Customer/Service ID
+ * @param {boolean} data.withholding - WHT flag
+ * @param {number} data.confidence - Confidence level
+ * @param {string} data.status - Status (confirmed, pending_review, etc.)
  * @returns {Promise<boolean>} - success or failure
  */
 async function logToGoogleSheets(data) {
@@ -135,6 +147,10 @@ async function logToGoogleSheets(data) {
       data.messageText || '',
       data.amount !== null && data.amount !== undefined ? data.amount : '',
       data.currency || 'THB',
+      data.serviceType || '',
+      data.customerName || '',
+      data.cid || '',
+      data.withholding ? 'Yes' : 'No',
       data.confidence !== null && data.confidence !== undefined ? data.confidence : '',
       data.status || 'pending',
     ];
@@ -142,7 +158,7 @@ async function logToGoogleSheets(data) {
     // Append row to sheet (enclosed in single quotes for spaces)
     const result = await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A:I`,
+      range: `'${escapedTabName}'!A:M`,
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [row],

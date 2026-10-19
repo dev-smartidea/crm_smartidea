@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const LineUserMapping = require('../models/LineUserMapping');
 const { classifyTopupRequest } = require('../utils/messageClassifier');
-const { extractAmount } = require('../utils/amountExtractor');
+const { extractMessageDetails } = require('../utils/messageDetailExtractor');
 const { logToGoogleSheets } = require('../utils/sheetsLogger');
 
 const router = express.Router();
@@ -146,14 +146,18 @@ async function processLineEvent(event, idx) {
       console.log(`[LINE] Sender: ${senderDisplayName} (${lineUserId})`);
       console.log(`[LINE] CRM User: ${crmUserIdStr}`);
 
-      // Extract amount from message
-      console.log(`[LINE] Extracting amount from message...`);
-      const amountData = await extractAmount(messageText);
-      console.log(`[LINE] Amount extraction result:`, amountData);
+      // Extract detailed message information (amount, service type, customer name, CID, etc.)
+      console.log(`[LINE] Extracting message details...`);
+      const messageDetails = await extractMessageDetails(messageText);
+      console.log(`[LINE] Message details extraction result:`, messageDetails);
 
-      if (amountData.amount && amountData.confidence >= 50) {
-        console.log(`[LINE] ✅ Amount extracted: ${amountData.amount} ${amountData.currency} (confidence: ${amountData.confidence}%)`);
-        console.log(`[LINE] Ready for transaction creation. Amount: ${amountData.amount}`);
+      if (messageDetails.amount && messageDetails.confidence >= 50) {
+        console.log(`[LINE] ✅ Details extracted (confidence: ${messageDetails.confidence}%)`);
+        console.log(`[LINE]   Amount: ${messageDetails.amount} ${messageDetails.currency}`);
+        console.log(`[LINE]   Service Type: ${messageDetails.serviceType || 'unknown'}`);
+        console.log(`[LINE]   Customer Name: ${messageDetails.customerName || 'not specified'}`);
+        console.log(`[LINE]   CID: ${messageDetails.cid || 'not specified'}`);
+        console.log(`[LINE]   Withholding: ${messageDetails.withholding ? 'yes' : 'no'}`);
         
         // Log to Google Sheets
         const sheetsLogged = await logToGoogleSheets({
@@ -161,9 +165,13 @@ async function processLineEvent(event, idx) {
           lineUserId: lineUserId,
           crmUserId: crmUserIdStr,
           messageText: messageText,
-          amount: amountData.amount,
-          currency: amountData.currency,
-          confidence: amountData.confidence,
+          amount: messageDetails.amount,
+          currency: messageDetails.currency,
+          serviceType: messageDetails.serviceType || 'unknown',
+          customerName: messageDetails.customerName || '',
+          cid: messageDetails.cid || '',
+          withholding: messageDetails.withholding,
+          confidence: messageDetails.confidence,
           status: 'confirmed'
         });
         if (sheetsLogged) {
@@ -172,22 +180,26 @@ async function processLineEvent(event, idx) {
         
         // TODO: Auto-create transaction in CRM
       } else {
-        console.log(`[LINE] ⚠️ Could not extract amount (confidence: ${amountData.confidence}%)`);
-        console.log(`[LINE] Manual review needed - no amount found`);
+        console.log(`[LINE] ⚠️ Could not extract complete details (confidence: ${messageDetails.confidence}%)`);
+        console.log(`[LINE] Manual review needed`);
         
-        // Log to Google Sheets even without amount (for tracking)
+        // Log to Google Sheets even without full details (for tracking)
         const sheetsLogged = await logToGoogleSheets({
           displayName: senderDisplayName,
           lineUserId: lineUserId,
           crmUserId: crmUserIdStr,
           messageText: messageText,
-          amount: null,
-          currency: 'THB',
-          confidence: 0,
-          status: 'pending_amount'
+          amount: messageDetails.amount || null,
+          currency: messageDetails.currency,
+          serviceType: messageDetails.serviceType || '',
+          customerName: messageDetails.customerName || '',
+          cid: messageDetails.cid || '',
+          withholding: messageDetails.withholding,
+          confidence: messageDetails.confidence,
+          status: 'pending_review'
         });
         if (sheetsLogged) {
-          console.log(`[LINE] ✅ Logged to Google Sheets (status: pending_amount)`);
+          console.log(`[LINE] ✅ Logged to Google Sheets (status: pending_review)`);
         }
       }
 
