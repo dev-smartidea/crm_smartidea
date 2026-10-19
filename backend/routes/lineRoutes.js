@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const LineUserMapping = require('../models/LineUserMapping');
 const { classifyTopupRequest } = require('../utils/messageClassifier');
+const { extractAmount } = require('../utils/amountExtractor');
 
 const router = express.Router();
 
@@ -137,10 +138,22 @@ async function processLineEvent(event, idx) {
       console.log(`[LINE] Sender: ${displayName} (${lineUserId})`);
       console.log(`[LINE] CRM User: ${mapping.crmUserId}`);
 
-      // TODO: Extract amount, bank details from message
+      // Extract amount from message
+      console.log(`[LINE] Extracting amount from message...`);
+      const amountData = await extractAmount(messageText);
+      console.log(`[LINE] Amount extraction result:`, amountData);
+
+      if (amountData.amount && amountData.confidence >= 50) {
+        console.log(`[LINE] ✅ Amount extracted: ${amountData.amount} ${amountData.currency} (confidence: ${amountData.confidence}%)`);
+        console.log(`[LINE] Ready for transaction creation. Amount: ${amountData.amount}`);
+        // TODO: Auto-create transaction in CRM
+      } else {
+        console.log(`[LINE] ⚠️ Could not extract amount (confidence: ${amountData.confidence}%)`);
+        console.log(`[LINE] Manual review needed - no amount found`);
+      }
+
       // TODO: If has image/receipt: run OCR to extract details
       // TODO: Log to Google Sheets
-      // TODO: Auto-create transaction in CRM
     } else {
       console.log(`[LINE] ⊘ Not a topup request (confidence: ${classification.confidence}%)`);
     }
