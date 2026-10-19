@@ -40,7 +40,7 @@ async function logToGoogleSheets(data) {
     // Append row to sheet
     const result = await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: "'LINE Topup Requests'!A:I", // Append to columns A-I
+      range: 'LINE Topup Requests!A:I', // Sheet name + range (no quotes needed)
       valueInputOption: 'RAW',
       resource: {
         values: [row],
