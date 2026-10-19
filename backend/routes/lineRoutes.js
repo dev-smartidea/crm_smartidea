@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const LineUserMapping = require('../models/LineUserMapping');
 const { classifyTopupRequest } = require('../utils/messageClassifier');
 const { extractAmount } = require('../utils/amountExtractor');
+const { logToGoogleSheets } = require('../utils/sheetsLogger');
 
 const router = express.Router();
 
@@ -146,14 +147,44 @@ async function processLineEvent(event, idx) {
       if (amountData.amount && amountData.confidence >= 50) {
         console.log(`[LINE] ✅ Amount extracted: ${amountData.amount} ${amountData.currency} (confidence: ${amountData.confidence}%)`);
         console.log(`[LINE] Ready for transaction creation. Amount: ${amountData.amount}`);
+        
+        // Log to Google Sheets
+        const sheetsLogged = await logToGoogleSheets({
+          displayName: displayName,
+          lineUserId: lineUserId,
+          crmUserId: mapping.crmUserId.toString(),
+          messageText: messageText,
+          amount: amountData.amount,
+          currency: amountData.currency,
+          confidence: amountData.confidence,
+          status: 'confirmed'
+        });
+        if (sheetsLogged) {
+          console.log(`[LINE] ✅ Logged to Google Sheets (status: confirmed)`);
+        }
+        
         // TODO: Auto-create transaction in CRM
       } else {
         console.log(`[LINE] ⚠️ Could not extract amount (confidence: ${amountData.confidence}%)`);
         console.log(`[LINE] Manual review needed - no amount found`);
+        
+        // Log to Google Sheets even without amount (for tracking)
+        const sheetsLogged = await logToGoogleSheets({
+          displayName: displayName,
+          lineUserId: lineUserId,
+          crmUserId: mapping.crmUserId.toString(),
+          messageText: messageText,
+          amount: null,
+          currency: 'THB',
+          confidence: 0,
+          status: 'pending_amount'
+        });
+        if (sheetsLogged) {
+          console.log(`[LINE] ✅ Logged to Google Sheets (status: pending_amount)`);
+        }
       }
 
       // TODO: If has image/receipt: run OCR to extract details
-      // TODO: Log to Google Sheets
     } else {
       console.log(`[LINE] ⊘ Not a topup request (confidence: ${classification.confidence}%)`);
     }
