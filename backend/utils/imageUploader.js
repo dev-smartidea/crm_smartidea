@@ -20,6 +20,12 @@ async function uploadToCloudinary(imageBuffer, fileName = 'receipt', folder = 'l
       return { url: null, public_id: null, success: false, error: 'Cloudinary not configured' };
     }
 
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
     console.log(`[imageUploader] Uploading image to Cloudinary (folder: ${folder})...`);
 
     // Upload using Cloudinary's upload stream API

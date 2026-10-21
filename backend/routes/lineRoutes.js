@@ -6,8 +6,23 @@ const { extractMessageDetails } = require('../utils/messageDetailExtractor');
 const { logToGoogleSheets } = require('../utils/sheetsLogger');
 const { downloadLineImage } = require('../utils/lineImageDownloader');
 const { uploadToCloudinary } = require('../utils/imageUploader');
+const { extractSlipDetails } = require('../utils/slipExtractor');
+const { autoCreateTransaction } = require('../utils/transactionAutoCreator');
 
 const router = express.Router();
+
+// In-memory cache to pair Text + Slip events from the same user (15-minute TTL)
+const pendingTopupEvents = new Map();
+
+function cleanExpiredPendingEvents() {
+  const maxAge = 15 * 60 * 1000;
+  const now = Date.now();
+  for (const [key, value] of pendingTopupEvents.entries()) {
+    if (now - (value.timestamp || 0) > maxAge) {
+      pendingTopupEvents.delete(key);
+    }
+  }
+}
 
 function safeCompare(a, b) {
   const aBuf = Buffer.from(String(a || ''), 'utf8');
@@ -95,7 +110,6 @@ async function processLineEvent(event, idx) {
   }
 
   const lineUserId = event.source?.userId;
-  const displayName = event.source?.displayName || 'Unknown';
   const messageText = event.message?.text || '';
   const messageId = event.message?.id;
 
@@ -110,121 +124,186 @@ async function processLineEvent(event, idx) {
     mapping = await LineUserMapping.findOne({ lineUserId }).populate('crmUserId', 'name username');
   } catch (err) {
     console.error(`[LINE] Error looking up mapping for ${lineUserId}:`, err.message);
-    return;
   }
 
-  if (!mapping) {
-    console.warn(`[LINE] No mapping found for lineUserId: ${lineUserId}`);
-    // TODO: Auto-create pending mapping or ask admin to approve
-    return;
+  if (mapping) {
+    // Update last used timestamp
+    try {
+      mapping.lastUsedAt = new Date();
+      await mapping.save();
+    } catch (err) {
+      console.error(`[LINE] Error updating lastUsedAt for ${lineUserId}:`, err.message);
+    }
+  } else {
+    console.log(`[LINE] No pre-existing mapping for lineUserId: ${lineUserId} (will proceed with LINE info)`);
   }
 
-  // Update last used timestamp
+const profileCache = new Map();
+
+async function fetchLineDisplayName(source, fallbackName) {
+  if (fallbackName && fallbackName !== 'LINE User' && fallbackName !== 'Unknown') return fallbackName;
+  if (!source?.userId) return fallbackName || 'LINE User';
+  if (profileCache.has(source.userId)) {
+    return profileCache.get(source.userId);
+  }
+
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) return fallbackName || 'LINE User';
+
   try {
-    mapping.lastUsedAt = new Date();
-    await mapping.save();
+    let url = `https://api.line.me/v2/bot/profile/${source.userId}`;
+    if (source.type === 'group' && source.groupId) {
+      url = `https://api.line.me/v2/bot/group/${source.groupId}/member/${source.userId}`;
+    } else if (source.type === 'room' && source.roomId) {
+      url = `https://api.line.me/v2/bot/room/${source.roomId}/member/${source.userId}`;
+    }
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.displayName) {
+        profileCache.set(source.userId, data.displayName);
+        return data.displayName;
+      }
+    }
   } catch (err) {
-    console.error(`[LINE] Error updating lastUsedAt for ${lineUserId}:`, err.message);
+    console.warn('[LINE] Could not fetch profile for user:', err.message);
   }
 
-  const crmUserIdStr = (mapping.crmUserId?._id || mapping.crmUserId)?.toString() || '';
-  const senderDisplayName =
-    event.source?.displayName ||
-    mapping.lineDisplayName ||
-    mapping.crmUserId?.name ||
-    'Unknown';
+  return fallbackName || 'LINE User';
+}
 
-  console.log(`[LINE] Event ${idx} mapped to crmUserId: ${crmUserIdStr} (${senderDisplayName})`);
+  const crmUserIdStr = (mapping?.crmUserId?._id || mapping?.crmUserId)?.toString() || '';
+  const knownName = mapping?.lineDisplayName || mapping?.crmUserId?.name || null;
+  const senderDisplayName = await fetchLineDisplayName(event.source, knownName);
 
-  // Classify message: is this a topup request?
+  console.log(`[LINE] Event ${idx} from: ${senderDisplayName} (${lineUserId}), type: ${event.source?.type || 'user'}, crmUserId: ${crmUserIdStr || 'none'}`);
+
+  // Handle Text Message
   if (event.message.type === 'text' && messageText) {
+    cleanExpiredPendingEvents();
     console.log(`[LINE] Classifying message: "${messageText}"`);
     const classification = await classifyTopupRequest(messageText, senderDisplayName);
     console.log(`[LINE] Classification result:`, classification);
 
-    if (classification.isTopupRequest && classification.confidence >= 60) {
+    if (classification.isTopupRequest && classification.confidence >= 50) {
       console.log(`[LINE] ✅ Topup request detected (confidence: ${classification.confidence}%)`);
-      console.log(`[LINE] Message: "${messageText}"`);
-      console.log(`[LINE] Sender: ${senderDisplayName} (${lineUserId})`);
-      console.log(`[LINE] CRM User: ${crmUserIdStr}`);
-
-      // Extract detailed message information (amount, service type, customer name, CID, etc.)
       console.log(`[LINE] Extracting message details...`);
       const messageDetails = await extractMessageDetails(messageText);
-      console.log(`[LINE] Message details extraction result:`, messageDetails);
+      console.log(`[LINE] Message details:`, messageDetails);
 
-      if (messageDetails.amount && messageDetails.confidence >= 50) {
-        console.log(`[LINE] ✅ Details extracted (confidence: ${messageDetails.confidence}%)`);
-        console.log(`[LINE]   Amount: ${messageDetails.amount} ${messageDetails.currency}`);
-        console.log(`[LINE]   Service Type: ${messageDetails.serviceType || 'unknown'}`);
-        console.log(`[LINE]   Customer Name: ${messageDetails.customerName || 'not specified'}`);
-        console.log(`[LINE]   CID: ${messageDetails.cid || 'not specified'}`);
-        console.log(`[LINE]   Withholding: ${messageDetails.withholding ? 'yes' : 'no'}`);
-        
-        // Log to Google Sheets
-        const sheetsLogged = await logToGoogleSheets({
-          displayName: senderDisplayName,
-          lineUserId: lineUserId,
+      // Check if this user recently uploaded a slip image
+      const pendingImageKey = `${lineUserId}:image`;
+      const pendingImage = pendingTopupEvents.get(pendingImageKey);
+      if (pendingImage) {
+        console.log(`[LINE] 🔗 Found matching pending slip image for ${lineUserId}! Pairing text with slip.`);
+        pendingTopupEvents.delete(pendingImageKey);
+      }
+
+      const effectiveAmount = messageDetails.amount || pendingImage?.slipDetails?.amount || null;
+      const effectiveBank = pendingImage?.slipDetails?.bank || null;
+      const effectiveDate = pendingImage?.slipDetails?.transDate || null;
+      const effectiveTime = pendingImage?.slipDetails?.transTime || null;
+      const effectiveImageUrl = pendingImage?.imageUrl || null;
+      const effectiveCloudinaryId = pendingImage?.cloudinaryId || null;
+
+      let txCreated = false;
+      let txResult = null;
+
+      // Auto-create Transaction in CRM if we have amount and CID/Customer
+      if (effectiveAmount && (messageDetails.cid || messageDetails.customerName)) {
+        txResult = await autoCreateTransaction({
+          lineUserId,
           crmUserId: crmUserIdStr,
-          messageText: messageText,
-          amount: messageDetails.amount,
-          currency: messageDetails.currency,
-          serviceType: messageDetails.serviceType || 'unknown',
-          customerName: messageDetails.customerName || '',
-          cid: messageDetails.cid || '',
+          displayName: senderDisplayName,
+          amount: effectiveAmount,
+          serviceType: messageDetails.serviceType,
+          customerName: messageDetails.customerName,
+          cid: messageDetails.cid,
           withholding: messageDetails.withholding,
-          confidence: messageDetails.confidence,
-          status: 'confirmed'
+          slipImage: effectiveImageUrl,
+          cloudinaryId: effectiveCloudinaryId,
+          transDate: effectiveDate,
+          transTime: effectiveTime,
+          bank: effectiveBank,
+          notes: `สร้างอัตโนมัติจาก LINE: "${messageText}"`,
         });
-        if (sheetsLogged) {
-          console.log(`[LINE] ✅ Logged to Google Sheets (status: confirmed)`);
+
+        if (txResult.success) {
+          txCreated = true;
+          console.log(`[LINE] ✅ CRM Transaction auto-created (${txResult.transaction?._id}) with slip: ${Boolean(effectiveImageUrl)}`);
         }
-        
-        // TODO: Auto-create transaction in CRM
-      } else {
-        console.log(`[LINE] ⚠️ Could not extract complete details (confidence: ${messageDetails.confidence}%)`);
-        console.log(`[LINE] Manual review needed`);
-        
-        // Log to Google Sheets even without full details (for tracking)
-        const sheetsLogged = await logToGoogleSheets({
+      }
+
+      const status = txCreated
+        ? 'created_in_crm'
+        : (effectiveImageUrl ? 'confirmed' : 'pending_slip');
+
+      // Update recent row in Google Sheets if pending image row exists, or append new row
+      let sheetLogged = false;
+      if (effectiveImageUrl) {
+        sheetLogged = await updateLatestRowForUser(lineUserId, {
           displayName: senderDisplayName,
-          lineUserId: lineUserId,
           crmUserId: crmUserIdStr,
           messageText: messageText,
-          amount: messageDetails.amount || null,
+          amount: effectiveAmount,
           currency: messageDetails.currency,
           serviceType: messageDetails.serviceType || '',
           customerName: messageDetails.customerName || '',
           cid: messageDetails.cid || '',
           withholding: messageDetails.withholding,
           confidence: messageDetails.confidence,
-          status: 'pending_review'
+          imageUrl: effectiveImageUrl,
+          status,
         });
-        if (sheetsLogged) {
-          console.log(`[LINE] ✅ Logged to Google Sheets (status: pending_review)`);
-        }
       }
 
-      // TODO: If has image/receipt: run OCR to extract details
+      if (!sheetLogged) {
+        await logToGoogleSheets({
+          displayName: senderDisplayName,
+          lineUserId: lineUserId,
+          crmUserId: crmUserIdStr,
+          messageText: messageText,
+          amount: effectiveAmount,
+          currency: messageDetails.currency,
+          serviceType: messageDetails.serviceType || '',
+          customerName: messageDetails.customerName || '',
+          cid: messageDetails.cid || '',
+          withholding: messageDetails.withholding,
+          confidence: messageDetails.confidence,
+          imageUrl: effectiveImageUrl,
+          status,
+        });
+      }
+
+      // If no slip image yet, save text in pending buffer waiting for slip image
+      if (!effectiveImageUrl) {
+        pendingTopupEvents.set(`${lineUserId}:text`, {
+          messageText,
+          messageDetails,
+          timestamp: Date.now(),
+        });
+      }
     } else {
       console.log(`[LINE] ⊘ Not a topup request (confidence: ${classification.confidence}%)`);
     }
-  } else if (event.message.type === 'image') {
-    console.log(`[LINE] Event ${idx} is an image - attempting to download and process`);
-    
-    const messageId = event.message.id;
-    const lineUserId = event.source?.userId;
-    const senderDisplayName = event.source?.displayName || mapping?.lineDisplayName || 'Unknown';
+  }
+  // Handle Image Message (Slip / Receipt)
+  else if (event.message.type === 'image') {
+    cleanExpiredPendingEvents();
+    console.log(`[LINE] Event ${idx} is an image - downloading and processing`);
 
     if (!messageId) {
       console.warn(`[LINE] Image event ${idx} has no messageId`);
       return;
     }
 
-    // Step 1: Download image from LINE
+    // Step 1: Download image from LINE Messaging API
     console.log(`[LINE] Downloading image from LINE (messageId: ${messageId})...`);
     const imageBuffer = await downloadLineImage(messageId);
-    
+
     if (!imageBuffer) {
       console.warn(`[LINE] Failed to download image for event ${idx}`);
       return;
@@ -233,41 +312,111 @@ async function processLineEvent(event, idx) {
     // Step 2: Upload to Cloudinary
     console.log(`[LINE] Uploading image to Cloudinary...`);
     const uploadResult = await uploadToCloudinary(imageBuffer, `receipt-${lineUserId}`, 'line-receipts');
-    
+
     if (!uploadResult.success || !uploadResult.url) {
       console.warn(`[LINE] Failed to upload image to Cloudinary: ${uploadResult.error}`);
       return;
     }
 
     const imageUrl = uploadResult.url;
+    const cloudinaryId = uploadResult.public_id;
     console.log(`[LINE] ✅ Image uploaded successfully: ${imageUrl}`);
 
-    // Step 3: Log to Google Sheets with image URL
-    const sheetsLogged = await logToGoogleSheets({
-      displayName: senderDisplayName,
-      lineUserId: lineUserId,
-      crmUserId: mapping?.crmUserId?.toString() || '',
-      messageText: '[Image Receipt/Slip]',
-      amount: null,
-      currency: 'THB',
-      serviceType: '',
-      customerName: '',
-      cid: '',
-      withholding: false,
-      confidence: 0,
-      imageUrl: imageUrl,
-      status: 'image_pending_review'
-    });
-    
-    if (sheetsLogged) {
-      console.log(`[LINE] ✅ Image logged to Google Sheets (status: image_pending_review)`);
+    // Step 3: Extract slip details (Amount, Date, Time, Bank)
+    const slipDetails = await extractSlipDetails(imageBuffer);
+    console.log(`[LINE] Slip details extracted:`, slipDetails);
+
+    // Step 4: Check if there is a pending text message from this user
+    const pendingTextKey = `${lineUserId}:text`;
+    const pendingText = pendingTopupEvents.get(pendingTextKey);
+    if (pendingText) {
+      console.log(`[LINE] 🔗 Found matching pending text message for ${lineUserId}! Pairing slip with text.`);
+      pendingTopupEvents.delete(pendingTextKey);
     }
 
-    // TODO: Future enhancement - Run OCR (Google Vision API or Tesseract.js) to extract:
-    // - Amount from receipt
-    // - Bank information
-    // - Transaction timestamp
-    // - Auto-create transaction if all details extracted successfully
+    const effectiveAmount = pendingText?.messageDetails?.amount || slipDetails.amount || null;
+    const effectiveServiceType = pendingText?.messageDetails?.serviceType || '';
+    const effectiveCustomerName = pendingText?.messageDetails?.customerName || '';
+    const effectiveCid = pendingText?.messageDetails?.cid || '';
+    const effectiveWithholding = pendingText?.messageDetails?.withholding || false;
+    const effectiveMessageText = pendingText?.messageText || '[Image Receipt/Slip]';
+    const effectiveConfidence = pendingText?.messageDetails?.confidence || (slipDetails.success ? 80 : 0);
+
+    let txCreated = false;
+    if (effectiveAmount && (effectiveCid || effectiveCustomerName)) {
+      const txResult = await autoCreateTransaction({
+        lineUserId,
+        crmUserId: crmUserIdStr,
+        displayName: senderDisplayName,
+        amount: effectiveAmount,
+        serviceType: effectiveServiceType,
+        customerName: effectiveCustomerName,
+        cid: effectiveCid,
+        withholding: effectiveWithholding,
+        slipImage: imageUrl,
+        cloudinaryId,
+        transDate: slipDetails.transDate,
+        transTime: slipDetails.transTime,
+        bank: slipDetails.bank,
+        notes: `สร้างอัตโนมัติจาก LINE: "${effectiveMessageText}" พร้อมสลิป`,
+      });
+
+      if (txResult.success) {
+        txCreated = true;
+        console.log(`[LINE] ✅ CRM Transaction auto-created from Slip + Text (${txResult.transaction?._id})`);
+      }
+    }
+
+    const status = txCreated
+      ? 'created_in_crm'
+      : (pendingText ? 'confirmed' : 'image_pending_review');
+
+    // Step 5: Update recent Google Sheets row if pending text row exists, or append new row
+    let sheetUpdated = false;
+    if (pendingText) {
+      sheetUpdated = await updateLatestRowForUser(lineUserId, {
+        displayName: senderDisplayName,
+        crmUserId: crmUserIdStr,
+        messageText: effectiveMessageText,
+        amount: effectiveAmount,
+        currency: 'THB',
+        serviceType: effectiveServiceType,
+        customerName: effectiveCustomerName,
+        cid: effectiveCid,
+        withholding: effectiveWithholding,
+        confidence: effectiveConfidence,
+        imageUrl: imageUrl,
+        status,
+      });
+    }
+
+    if (!sheetUpdated) {
+      await logToGoogleSheets({
+        displayName: senderDisplayName,
+        lineUserId: lineUserId,
+        crmUserId: crmUserIdStr,
+        messageText: effectiveMessageText,
+        amount: effectiveAmount,
+        currency: 'THB',
+        serviceType: effectiveServiceType,
+        customerName: effectiveCustomerName,
+        cid: effectiveCid,
+        withholding: effectiveWithholding,
+        confidence: effectiveConfidence,
+        imageUrl: imageUrl,
+        status,
+      });
+    }
+
+    // If no text was matched yet, store this image in pending buffer
+    if (!pendingText) {
+      pendingTopupEvents.set(`${lineUserId}:image`, {
+        imageUrl,
+        cloudinaryId,
+        slipDetails,
+        timestamp: Date.now(),
+      });
+    }
   }
 }
 
