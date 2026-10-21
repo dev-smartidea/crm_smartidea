@@ -62,13 +62,14 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
         'CID',
         'Withholding',
         'Confidence',
+        'Image URL',
         'Status',
       ];
 
       const escapedName = targetTabName.replace(/'/g, "''");
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `'${escapedName}'!A1:M1`,
+        range: `'${escapedName}'!A1:N1`,
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [headers],
@@ -103,6 +104,7 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  * @param {string} data.cid - Customer/Service ID
  * @param {boolean} data.withholding - WHT flag
  * @param {number} data.confidence - Confidence level
+ * @param {string} data.imageUrl - Cloudinary image URL (receipt/slip)
  * @param {string} data.status - Status (confirmed, pending_review, etc.)
  * @returns {Promise<boolean>} - success or failure
  */
@@ -152,13 +154,14 @@ async function logToGoogleSheets(data) {
       data.cid || '',
       data.withholding ? 'Yes' : 'No',
       data.confidence !== null && data.confidence !== undefined ? data.confidence : '',
+      data.imageUrl || '',
       data.status || 'pending',
     ];
 
     // Append row to sheet (enclosed in single quotes for spaces)
     const result = await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A:M`,
+      range: `'${escapedTabName}'!A:N`,
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [row],

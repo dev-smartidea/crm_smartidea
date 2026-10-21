@@ -4,6 +4,8 @@ const LineUserMapping = require('../models/LineUserMapping');
 const { classifyTopupRequest } = require('../utils/messageClassifier');
 const { extractMessageDetails } = require('../utils/messageDetailExtractor');
 const { logToGoogleSheets } = require('../utils/sheetsLogger');
+const { downloadLineImage } = require('../utils/lineImageDownloader');
+const { uploadToCloudinary } = require('../utils/imageUploader');
 
 const router = express.Router();
 
@@ -208,11 +210,64 @@ async function processLineEvent(event, idx) {
       console.log(`[LINE] ⊘ Not a topup request (confidence: ${classification.confidence}%)`);
     }
   } else if (event.message.type === 'image') {
-    console.log(`[LINE] Event ${idx} is an image - potential receipt for OCR`);
-    console.log(`[LINE] TODO: Download image, run OCR, extract payment details`);
-    // TODO: Download image from LINE
-    // TODO: Run OCR (Tesseract.js or Google Vision API)
-    // TODO: Extract: amount, bank, timestamp
+    console.log(`[LINE] Event ${idx} is an image - attempting to download and process`);
+    
+    const messageId = event.message.id;
+    const lineUserId = event.source?.userId;
+    const senderDisplayName = event.source?.displayName || mapping?.lineDisplayName || 'Unknown';
+
+    if (!messageId) {
+      console.warn(`[LINE] Image event ${idx} has no messageId`);
+      return;
+    }
+
+    // Step 1: Download image from LINE
+    console.log(`[LINE] Downloading image from LINE (messageId: ${messageId})...`);
+    const imageBuffer = await downloadLineImage(messageId);
+    
+    if (!imageBuffer) {
+      console.warn(`[LINE] Failed to download image for event ${idx}`);
+      return;
+    }
+
+    // Step 2: Upload to Cloudinary
+    console.log(`[LINE] Uploading image to Cloudinary...`);
+    const uploadResult = await uploadToCloudinary(imageBuffer, `receipt-${lineUserId}`, 'line-receipts');
+    
+    if (!uploadResult.success || !uploadResult.url) {
+      console.warn(`[LINE] Failed to upload image to Cloudinary: ${uploadResult.error}`);
+      return;
+    }
+
+    const imageUrl = uploadResult.url;
+    console.log(`[LINE] ✅ Image uploaded successfully: ${imageUrl}`);
+
+    // Step 3: Log to Google Sheets with image URL
+    const sheetsLogged = await logToGoogleSheets({
+      displayName: senderDisplayName,
+      lineUserId: lineUserId,
+      crmUserId: mapping?.crmUserId?.toString() || '',
+      messageText: '[Image Receipt/Slip]',
+      amount: null,
+      currency: 'THB',
+      serviceType: '',
+      customerName: '',
+      cid: '',
+      withholding: false,
+      confidence: 0,
+      imageUrl: imageUrl,
+      status: 'image_pending_review'
+    });
+    
+    if (sheetsLogged) {
+      console.log(`[LINE] ✅ Image logged to Google Sheets (status: image_pending_review)`);
+    }
+
+    // TODO: Future enhancement - Run OCR (Google Vision API or Tesseract.js) to extract:
+    // - Amount from receipt
+    // - Bank information
+    // - Transaction timestamp
+    // - Auto-create transaction if all details extracted successfully
   }
 }
 
