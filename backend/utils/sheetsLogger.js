@@ -1,5 +1,23 @@
 const { google } = require('googleapis');
 
+const EXCLUDED_LINE_USER_IDS = new Set(['U774900367ac4f1e841649458af6650e5']);
+const EXCLUDED_TEXT_PATTERNS = ['acc.smartidea'];
+
+function shouldSkipGoogleSheetEntry(data = {}) {
+  const lineUserId = String(data.lineUserId || '').trim();
+  const messageText = String(data.messageText || '').trim();
+  const displayName = String(data.displayName || '').trim();
+  const customerName = String(data.customerName || '').trim();
+
+  if (EXCLUDED_LINE_USER_IDS.has(lineUserId)) {
+    return true;
+  }
+
+  const haystacks = [messageText, displayName, customerName];
+  const normalized = haystacks.map((value) => value.toLowerCase());
+  return normalized.some((value) => EXCLUDED_TEXT_PATTERNS.some((pattern) => value.includes(pattern)));
+}
+
 // Cache verified sheet tabs in memory to avoid calling get/batchUpdate on every request
 const verifiedSheets = new Set();
 
@@ -110,6 +128,11 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  */
 async function logToGoogleSheets(data) {
   try {
+    if (shouldSkipGoogleSheetEntry(data)) {
+      console.log('[sheetsLogger] Skipping Google Sheet write for excluded LINE User ID or acc.smartidea text.');
+      return false;
+    }
+
     const keyJson = process.env.GOOGLE_SHEETS_KEY_JSON;
     const sheetId = process.env.GOOGLE_SHEET_ID;
     const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || 'LINE Topup Requests';
@@ -194,6 +217,16 @@ async function logToGoogleSheets(data) {
  */
 async function updateLatestRowForUser(lineUserId, updateData) {
   try {
+    if (shouldSkipGoogleSheetEntry({
+      lineUserId,
+      messageText: updateData?.messageText,
+      displayName: updateData?.displayName,
+      customerName: updateData?.customerName,
+    })) {
+      console.log('[sheetsLogger] Skipping Google Sheet row update for excluded LINE User ID or acc.smartidea text.');
+      return false;
+    }
+
     const keyJson = process.env.GOOGLE_SHEETS_KEY_JSON;
     const sheetId = process.env.GOOGLE_SHEET_ID;
     const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || 'LINE Topup Requests';
