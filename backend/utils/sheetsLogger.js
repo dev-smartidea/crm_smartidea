@@ -1,7 +1,105 @@
 const { google } = require('googleapis');
+const Customer = require('../models/Customer');
+const Service = require('../models/Service');
 
 const EXCLUDED_LINE_USER_IDS = new Set(['U774900367ac4f1e841649458af6650e5']);
 const EXCLUDED_TEXT_PATTERNS = ['acc.smartidea'];
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function enrichSheetMessageText({ messageText, customerName, cid }) {
+  const rawMessageText = String(messageText || '').trim();
+  const rawCustomerName = String(customerName || '').trim();
+  const rawCid = String(cid || '').trim();
+
+  if (!rawMessageText && !rawCustomerName && !rawCid) {
+    return rawMessageText;
+  }
+
+  let matchedCustomer = null;
+  let matchedService = null;
+
+  if (rawCid) {
+    const cleanDigits = rawCid.replace(/\D/g, '');
+    const cidQueries = [
+      { cid: rawCid },
+      { customerIdField: rawCid },
+    ];
+
+    if (cleanDigits) {
+      cidQueries.push({ cid: cleanDigits }, { customerIdField: cleanDigits });
+      if (cleanDigits.length === 10) {
+        const formatted = `${cleanDigits.slice(0, 3)}-${cleanDigits.slice(3, 6)}-${cleanDigits.slice(6)}`;
+        cidQueries.push({ cid: formatted }, { customerIdField: formatted });
+      }
+    }
+
+    try {
+      matchedService = await Service.findOne({ $or: cidQueries }).populate('customerId');
+    } catch (err) {
+      console.warn('[sheetsLogger] CID lookup failed while enriching sheet message text:', err.message);
+    }
+
+    if (!matchedService && rawCustomerName) {
+      const normalizedName = rawCustomerName
+        .replace(/^(บริษัท|บจก\.|หจก\.|บมจ\.)\s*/i, '')
+        .replace(/\s*(จำกัด|มหาชน)$/i, '')
+        .trim();
+
+      try {
+        matchedCustomer = await Customer.findOne({
+          $or: [
+            { name: new RegExp(escapeRegex(rawCustomerName), 'i') },
+            ...(normalizedName && normalizedName !== rawCustomerName ? [{ name: new RegExp(escapeRegex(normalizedName), 'i') }] : []),
+          ],
+        });
+      } catch (err) {
+        console.warn('[sheetsLogger] Customer lookup failed while enriching sheet message text:', err.message);
+      }
+
+      if (matchedCustomer) {
+        try {
+          matchedService = await Service.findOne({ customerId: matchedCustomer._id }).populate('customerId');
+        } catch (err) {
+          console.warn('[sheetsLogger] Service lookup by customer failed while enriching sheet message text:', err.message);
+        }
+      }
+    }
+  } else if (rawCustomerName) {
+    const normalizedName = rawCustomerName
+      .replace(/^(บริษัท|บจก\.|หจก\.|บมจ\.)\s*/i, '')
+      .replace(/\s*(จำกัด|มหาชน)$/i, '')
+      .trim();
+
+    try {
+      matchedCustomer = await Customer.findOne({
+        $or: [
+          { name: new RegExp(escapeRegex(rawCustomerName), 'i') },
+          ...(normalizedName && normalizedName !== rawCustomerName ? [{ name: new RegExp(escapeRegex(normalizedName), 'i') }] : []),
+        ],
+      });
+    } catch (err) {
+      console.warn('[sheetsLogger] Customer lookup failed while enriching sheet message text:', err.message);
+    }
+  }
+
+  const resolvedCustomer = matchedService?.customerId || matchedCustomer;
+  const resolvedCid = matchedService?.cid || matchedService?.customerIdField || rawCid || null;
+  const resolvedCustomerName = resolvedCustomer?.name || rawCustomerName || null;
+
+  if (!resolvedCustomerName && !resolvedCid) {
+    return rawMessageText;
+  }
+
+  const labelParts = [];
+  if (resolvedCustomerName) labelParts.push(`Customer: ${resolvedCustomerName}`);
+  if (resolvedCid) labelParts.push(`CID: ${resolvedCid}`);
+
+  const suffix = labelParts.join(' | ');
+  return rawMessageText ? `${rawMessageText} | ${suffix}` : suffix;
+}
 
 function shouldSkipGoogleSheetEntry(data = {}) {
   const lineUserId = String(data.lineUserId || '').trim();
@@ -172,12 +270,17 @@ async function logToGoogleSheets(data) {
 
     // Prepare row data
     const timestamp = new Date().toISOString();
+    const resolvedMessageText = await enrichSheetMessageText({
+      messageText: data.messageText,
+      customerName: data.customerName,
+      cid: data.cid,
+    });
     const row = [
       timestamp,
       data.displayName || 'Unknown',
       data.lineUserId || '',
       data.crmUserId || '',
-      data.messageText || '',
+      resolvedMessageText,
       data.amount !== null && data.amount !== undefined ? data.amount : '',
       data.currency || 'THB',
       data.serviceType || '',
@@ -281,6 +384,11 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     }
 
     const currentRow = rows[targetRowIndex - 1];
+    const resolvedMessageText = await enrichSheetMessageText({
+      messageText: updateData.messageText || currentRow[4] || '',
+      customerName: updateData.customerName || currentRow[8] || '',
+      cid: updateData.cid || currentRow[9] || '',
+    });
 
     let formattedImage = currentRow[12] || '';
     if (updateData.imageUrl) {
@@ -294,7 +402,7 @@ async function updateLatestRowForUser(lineUserId, updateData) {
       updateData.displayName || currentRow[1] || 'Unknown',
       currentRow[2], // LINE User ID
       updateData.crmUserId || currentRow[3] || '',
-      updateData.messageText || currentRow[4] || '',
+      resolvedMessageText,
       updateData.amount !== null && updateData.amount !== undefined ? updateData.amount : (currentRow[5] || ''),
       updateData.currency || currentRow[6] || 'THB',
       updateData.serviceType || currentRow[7] || '',
