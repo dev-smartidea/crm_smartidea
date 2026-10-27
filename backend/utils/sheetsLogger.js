@@ -4,6 +4,14 @@ const Service = require('../models/Service');
 
 const EXCLUDED_LINE_USER_IDS = new Set(['U774900367ac4f1e841649458af6650e5']);
 const EXCLUDED_TEXT_PATTERNS = ['acc.smartidea'];
+const READY_STATUS_VALUES = new Set(['ready', 'confirmed', 'image_pending_review', 'created_in_crm', 'pending_slip', 'pending_review']);
+
+function normalizeSheetStatus(status) {
+  const value = String(status || '').trim().toLowerCase();
+  if (!value) return 'ready';
+  if (READY_STATUS_VALUES.has(value)) return 'ready';
+  return value;
+}
 
 function escapeRegex(text) {
   return String(text || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
@@ -219,6 +227,12 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  */
 async function logToGoogleSheets(data) {
   try {
+    const normalizedStatus = normalizeSheetStatus(data?.status);
+    const normalizedData = {
+      ...data,
+      status: normalizedStatus,
+    };
+
     const resolvedContext = await resolveCustomerContext({
       customerName: data.customerName,
       cid: data.cid,
@@ -226,14 +240,14 @@ async function logToGoogleSheets(data) {
       serviceType: data.serviceType,
     });
 
-    const normalizedData = {
-      ...data,
+    const enrichedData = {
+      ...normalizedData,
       customerName: resolvedContext.customerName || data.customerName || '',
       cid: resolvedContext.cid || data.cid || '',
       messageText: resolvedContext.messageText || data.messageText || '',
     };
 
-    if (shouldSkipGoogleSheetEntry(normalizedData)) {
+    if (shouldSkipGoogleSheetEntry(enrichedData)) {
       console.log('[sheetsLogger] Skipping Google Sheet write for excluded LINE User ID or acc.smartidea text.');
       return false;
     }
@@ -279,19 +293,19 @@ async function logToGoogleSheets(data) {
     const timestamp = new Date().toISOString();
     const row = [
       timestamp,
-      normalizedData.displayName || 'Unknown',
-      normalizedData.lineUserId || '',
-      normalizedData.crmUserId || '',
-      normalizedData.messageText || '',
-      normalizedData.amount !== null && normalizedData.amount !== undefined ? normalizedData.amount : '',
-      normalizedData.currency || 'THB',
-      normalizedData.serviceType || '',
-      normalizedData.customerName || '',
-      normalizedData.cid || '',
-      normalizedData.withholding ? 'Yes' : 'No',
-      normalizedData.confidence !== null && normalizedData.confidence !== undefined ? normalizedData.confidence : '',
+      enrichedData.displayName || 'Unknown',
+      enrichedData.lineUserId || '',
+      enrichedData.crmUserId || '',
+      enrichedData.messageText || '',
+      enrichedData.amount !== null && enrichedData.amount !== undefined ? enrichedData.amount : '',
+      enrichedData.currency || 'THB',
+      enrichedData.serviceType || '',
+      enrichedData.customerName || '',
+      enrichedData.cid || '',
+      enrichedData.withholding ? 'Yes' : 'No',
+      enrichedData.confidence !== null && enrichedData.confidence !== undefined ? enrichedData.confidence : '',
       formattedImage,
-      normalizedData.status || 'pending',
+      enrichedData.status || 'ready',
     ];
 
     // Append row to sheet (enclosed in single quotes for spaces)
@@ -322,6 +336,12 @@ async function logToGoogleSheets(data) {
  */
 async function updateLatestRowForUser(lineUserId, updateData) {
   try {
+    const normalizedStatus = normalizeSheetStatus(updateData?.status);
+    const normalizedUpdateData = {
+      ...updateData,
+      status: normalizedStatus,
+    };
+
     const resolvedContext = await resolveCustomerContext({
       customerName: updateData?.customerName,
       cid: updateData?.cid,
@@ -329,8 +349,8 @@ async function updateLatestRowForUser(lineUserId, updateData) {
       serviceType: updateData?.serviceType,
     });
 
-    const normalizedData = {
-      ...updateData,
+    const enrichedUpdateData = {
+      ...normalizedUpdateData,
       customerName: resolvedContext.customerName || updateData?.customerName || '',
       cid: resolvedContext.cid || updateData?.cid || '',
       messageText: resolvedContext.messageText || updateData?.messageText || '',
@@ -338,9 +358,9 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     if (shouldSkipGoogleSheetEntry({
       lineUserId,
-      messageText: normalizedData.messageText,
-      displayName: normalizedData.displayName,
-      customerName: normalizedData.customerName,
+      messageText: enrichedUpdateData.messageText,
+      displayName: enrichedUpdateData.displayName,
+      customerName: enrichedUpdateData.customerName,
     })) {
       console.log('[sheetsLogger] Skipping Google Sheet row update for excluded LINE User ID or acc.smartidea text.');
       return false;
@@ -410,19 +430,19 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     const updatedRow = [
       currentRow[0], // Keep original timestamp
-      normalizedData.displayName || currentRow[1] || 'Unknown',
+      enrichedUpdateData.displayName || currentRow[1] || 'Unknown',
       currentRow[2], // LINE User ID
-      normalizedData.crmUserId || currentRow[3] || '',
-      normalizedData.messageText || currentRow[4] || '',
-      normalizedData.amount !== null && normalizedData.amount !== undefined ? normalizedData.amount : (currentRow[5] || ''),
-      normalizedData.currency || currentRow[6] || 'THB',
-      normalizedData.serviceType || currentRow[7] || '',
-      normalizedData.customerName || currentRow[8] || '',
-      normalizedData.cid || currentRow[9] || '',
-      normalizedData.withholding !== undefined ? (normalizedData.withholding ? 'Yes' : 'No') : (currentRow[10] || 'No'),
-      normalizedData.confidence !== null && normalizedData.confidence !== undefined ? normalizedData.confidence : (currentRow[11] || ''),
+      enrichedUpdateData.crmUserId || currentRow[3] || '',
+      enrichedUpdateData.messageText || currentRow[4] || '',
+      enrichedUpdateData.amount !== null && enrichedUpdateData.amount !== undefined ? enrichedUpdateData.amount : (currentRow[5] || ''),
+      enrichedUpdateData.currency || currentRow[6] || 'THB',
+      enrichedUpdateData.serviceType || currentRow[7] || '',
+      enrichedUpdateData.customerName || currentRow[8] || '',
+      enrichedUpdateData.cid || currentRow[9] || '',
+      enrichedUpdateData.withholding !== undefined ? (enrichedUpdateData.withholding ? 'Yes' : 'No') : (currentRow[10] || 'No'),
+      enrichedUpdateData.confidence !== null && enrichedUpdateData.confidence !== undefined ? enrichedUpdateData.confidence : (currentRow[11] || ''),
       formattedImage,
-      normalizedData.status || currentRow[13] || 'pending',
+      enrichedUpdateData.status || currentRow[13] || 'ready',
     ];
 
     await sheets.spreadsheets.values.update({

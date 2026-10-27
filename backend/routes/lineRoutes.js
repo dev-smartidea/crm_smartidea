@@ -7,7 +7,6 @@ const { logToGoogleSheets, updateLatestRowForUser } = require('../utils/sheetsLo
 const { downloadLineImage } = require('../utils/lineImageDownloader');
 const { uploadToCloudinary } = require('../utils/imageUploader');
 const { extractSlipDetails } = require('../utils/slipExtractor');
-const { autoCreateTransaction } = require('../utils/transactionAutoCreator');
 
 const router = express.Router();
 
@@ -209,37 +208,7 @@ async function fetchLineDisplayName(source, fallbackName) {
       const effectiveImageUrl = pendingImage?.imageUrl || null;
       const effectiveCloudinaryId = pendingImage?.cloudinaryId || null;
 
-      let txCreated = false;
-      let txResult = null;
-
-      // Auto-create Transaction in CRM if we have amount and CID/Customer
-      if (effectiveAmount && (messageDetails.cid || messageDetails.customerName)) {
-        txResult = await autoCreateTransaction({
-          lineUserId,
-          crmUserId: crmUserIdStr,
-          displayName: senderDisplayName,
-          amount: effectiveAmount,
-          serviceType: messageDetails.serviceType,
-          customerName: messageDetails.customerName,
-          cid: messageDetails.cid,
-          withholding: messageDetails.withholding,
-          slipImage: effectiveImageUrl,
-          cloudinaryId: effectiveCloudinaryId,
-          transDate: effectiveDate,
-          transTime: effectiveTime,
-          bank: effectiveBank,
-          notes: `สร้างอัตโนมัติจาก LINE: "${messageText}"`,
-        });
-
-        if (txResult.success) {
-          txCreated = true;
-          console.log(`[LINE] ✅ CRM Transaction auto-created (${txResult.transaction?._id}) with slip: ${Boolean(effectiveImageUrl)}`);
-        }
-      }
-
-      const status = txCreated
-        ? 'created_in_crm'
-        : (effectiveImageUrl ? 'confirmed' : 'pending_slip');
+      const status = 'ready';
 
       // Update recent row in Google Sheets if pending image row exists, or append new row
       let sheetLogged = false;
@@ -342,34 +311,7 @@ async function fetchLineDisplayName(source, fallbackName) {
     const effectiveMessageText = pendingText?.messageText || '[Image Receipt/Slip]';
     const effectiveConfidence = pendingText?.messageDetails?.confidence || (slipDetails.success ? 80 : 0);
 
-    let txCreated = false;
-    if (effectiveAmount && (effectiveCid || effectiveCustomerName)) {
-      const txResult = await autoCreateTransaction({
-        lineUserId,
-        crmUserId: crmUserIdStr,
-        displayName: senderDisplayName,
-        amount: effectiveAmount,
-        serviceType: effectiveServiceType,
-        customerName: effectiveCustomerName,
-        cid: effectiveCid,
-        withholding: effectiveWithholding,
-        slipImage: imageUrl,
-        cloudinaryId,
-        transDate: slipDetails.transDate,
-        transTime: slipDetails.transTime,
-        bank: slipDetails.bank,
-        notes: `สร้างอัตโนมัติจาก LINE: "${effectiveMessageText}" พร้อมสลิป`,
-      });
-
-      if (txResult.success) {
-        txCreated = true;
-        console.log(`[LINE] ✅ CRM Transaction auto-created from Slip + Text (${txResult.transaction?._id})`);
-      }
-    }
-
-    const status = txCreated
-      ? 'created_in_crm'
-      : (pendingText ? 'confirmed' : 'image_pending_review');
+    const status = 'ready';
 
     // Step 5: Update recent Google Sheets row if pending text row exists, or append new row
     let sheetUpdated = false;
