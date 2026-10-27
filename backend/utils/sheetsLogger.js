@@ -5,100 +5,93 @@ const Service = require('../models/Service');
 const EXCLUDED_LINE_USER_IDS = new Set(['U774900367ac4f1e841649458af6650e5']);
 const EXCLUDED_TEXT_PATTERNS = ['acc.smartidea'];
 
-function escapeRegex(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function escapeRegex(text) {
+  return String(text || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
 
-async function enrichSheetMessageText({ messageText, customerName, cid }) {
-  const rawMessageText = String(messageText || '').trim();
-  const rawCustomerName = String(customerName || '').trim();
-  const rawCid = String(cid || '').trim();
+async function resolveCustomerContext({ customerName, cid, messageText, serviceType }) {
+  let resolvedCustomerName = customerName || null;
+  let resolvedCid = cid || null;
 
-  if (!rawMessageText && !rawCustomerName && !rawCid) {
-    return rawMessageText;
-  }
+  try {
+    if (cid) {
+      const rawCid = String(cid).trim();
+      const cleanDigits = rawCid.replace(/\D/g, '');
+      const cidQueries = [
+        { cid: rawCid },
+        { customerIdField: rawCid },
+      ];
 
-  let matchedCustomer = null;
-  let matchedService = null;
+      if (cleanDigits) {
+        cidQueries.push({ cid: cleanDigits }, { customerIdField: cleanDigits });
+        if (cleanDigits.length === 10) {
+          const formatted = `${cleanDigits.slice(0, 3)}-${cleanDigits.slice(3, 6)}-${cleanDigits.slice(6)}`;
+          cidQueries.push({ cid: formatted }, { customerIdField: formatted });
+        }
+      }
 
-  if (rawCid) {
-    const cleanDigits = rawCid.replace(/\D/g, '');
-    const cidQueries = [
-      { cid: rawCid },
-      { customerIdField: rawCid },
-    ];
-
-    if (cleanDigits) {
-      cidQueries.push({ cid: cleanDigits }, { customerIdField: cleanDigits });
-      if (cleanDigits.length === 10) {
-        const formatted = `${cleanDigits.slice(0, 3)}-${cleanDigits.slice(3, 6)}-${cleanDigits.slice(6)}`;
-        cidQueries.push({ cid: formatted }, { customerIdField: formatted });
+      const service = await Service.findOne({ $or: cidQueries }).populate('customerId');
+      if (service?.customerId) {
+        resolvedCustomerName = service.customerId.name || resolvedCustomerName;
+        resolvedCid = service.cid || service.customerIdField || resolvedCid;
       }
     }
 
-    try {
-      matchedService = await Service.findOne({ $or: cidQueries }).populate('customerId');
-    } catch (err) {
-      console.warn('[sheetsLogger] CID lookup failed while enriching sheet message text:', err.message);
-    }
-
-    if (!matchedService && rawCustomerName) {
-      const normalizedName = rawCustomerName
+    if (!resolvedCustomerName && customerName) {
+      const trimmed = String(customerName).trim();
+      const coreName = trimmed
         .replace(/^(บริษัท|บจก\.|หจก\.|บมจ\.)\s*/i, '')
         .replace(/\s*(จำกัด|มหาชน)$/i, '')
         .trim();
 
-      try {
-        matchedCustomer = await Customer.findOne({
-          $or: [
-            { name: new RegExp(escapeRegex(rawCustomerName), 'i') },
-            ...(normalizedName && normalizedName !== rawCustomerName ? [{ name: new RegExp(escapeRegex(normalizedName), 'i') }] : []),
-          ],
-        });
-      } catch (err) {
-        console.warn('[sheetsLogger] Customer lookup failed while enriching sheet message text:', err.message);
+      const customerQueries = [{ name: new RegExp(escapeRegex(trimmed), 'i') }];
+      if (coreName.length >= 2 && coreName !== trimmed) {
+        customerQueries.push({ name: new RegExp(escapeRegex(coreName), 'i') });
       }
 
-      if (matchedCustomer) {
-        try {
-          matchedService = await Service.findOne({ customerId: matchedCustomer._id }).populate('customerId');
-        } catch (err) {
-          console.warn('[sheetsLogger] Service lookup by customer failed while enriching sheet message text:', err.message);
+      const customer = await Customer.findOne({ $or: customerQueries });
+      if (customer) {
+        resolvedCustomerName = customer.name || resolvedCustomerName;
+        const matchedService = await Service.findOne({ customerId: customer._id }).populate('customerId');
+        if (matchedService) {
+          resolvedCid = matchedService.cid || matchedService.customerIdField || resolvedCid;
         }
       }
     }
-  } else if (rawCustomerName) {
-    const normalizedName = rawCustomerName
-      .replace(/^(บริษัท|บจก\.|หจก\.|บมจ\.)\s*/i, '')
-      .replace(/\s*(จำกัด|มหาชน)$/i, '')
-      .trim();
 
-    try {
-      matchedCustomer = await Customer.findOne({
-        $or: [
-          { name: new RegExp(escapeRegex(rawCustomerName), 'i') },
-          ...(normalizedName && normalizedName !== rawCustomerName ? [{ name: new RegExp(escapeRegex(normalizedName), 'i') }] : []),
-        ],
-      });
-    } catch (err) {
-      console.warn('[sheetsLogger] Customer lookup failed while enriching sheet message text:', err.message);
+    if (!resolvedCustomerName && !resolvedCid && messageText) {
+      const rawText = String(messageText);
+      const nameMatch = rawText.match(/ลูกค้า\s*[:\-]?\s*([A-Za-z0-9ก-๙\s().,-]+)/i);
+      const cidMatch = rawText.match(/(?:CID|cid|customerId|customer id|Service ID|service id)\s*[:\-]?\s*([A-Za-z0-9\-]+)/i);
+      if (nameMatch?.[1]) resolvedCustomerName = nameMatch[1].trim();
+      if (cidMatch?.[1]) resolvedCid = cidMatch[1].trim();
     }
+  } catch (error) {
+    console.warn('[sheetsLogger] Could not resolve customer context from DB:', error.message);
   }
 
-  const resolvedCustomer = matchedService?.customerId || matchedCustomer;
-  const resolvedCid = matchedService?.cid || matchedService?.customerIdField || rawCid || null;
-  const resolvedCustomerName = resolvedCustomer?.name || rawCustomerName || null;
-
-  if (!resolvedCustomerName && !resolvedCid) {
-    return rawMessageText;
+  const messageSegments = [];
+  if (messageText && String(messageText).trim()) {
+    messageSegments.push(String(messageText).trim());
   }
 
-  const labelParts = [];
-  if (resolvedCustomerName) labelParts.push(`Customer: ${resolvedCustomerName}`);
-  if (resolvedCid) labelParts.push(`CID: ${resolvedCid}`);
+  const resolvedMessage = String(messageText || '').trim();
+  const hasCustomerName = resolvedCustomerName && !resolvedMessage.toLowerCase().includes(String(resolvedCustomerName).toLowerCase());
+  const hasCid = resolvedCid && !resolvedMessage.includes(String(resolvedCid));
 
-  const suffix = labelParts.join(' | ');
-  return rawMessageText ? `${rawMessageText} | ${suffix}` : suffix;
+  if (resolvedCustomerName && hasCustomerName) {
+    messageSegments.push(`ลูกค้า: ${resolvedCustomerName}`);
+  }
+  if (resolvedCid && hasCid) {
+    messageSegments.push(`CID: ${resolvedCid}`);
+  }
+
+  return {
+    customerName: resolvedCustomerName,
+    cid: resolvedCid,
+    messageText: messageSegments.join(' | '),
+    serviceType: serviceType || null,
+  };
 }
 
 function shouldSkipGoogleSheetEntry(data = {}) {
@@ -226,7 +219,21 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  */
 async function logToGoogleSheets(data) {
   try {
-    if (shouldSkipGoogleSheetEntry(data)) {
+    const resolvedContext = await resolveCustomerContext({
+      customerName: data.customerName,
+      cid: data.cid,
+      messageText: data.messageText,
+      serviceType: data.serviceType,
+    });
+
+    const normalizedData = {
+      ...data,
+      customerName: resolvedContext.customerName || data.customerName || '',
+      cid: resolvedContext.cid || data.cid || '',
+      messageText: resolvedContext.messageText || data.messageText || '',
+    };
+
+    if (shouldSkipGoogleSheetEntry(normalizedData)) {
       console.log('[sheetsLogger] Skipping Google Sheet write for excluded LINE User ID or acc.smartidea text.');
       return false;
     }
@@ -270,26 +277,21 @@ async function logToGoogleSheets(data) {
 
     // Prepare row data
     const timestamp = new Date().toISOString();
-    const resolvedMessageText = await enrichSheetMessageText({
-      messageText: data.messageText,
-      customerName: data.customerName,
-      cid: data.cid,
-    });
     const row = [
       timestamp,
-      data.displayName || 'Unknown',
-      data.lineUserId || '',
-      data.crmUserId || '',
-      resolvedMessageText,
-      data.amount !== null && data.amount !== undefined ? data.amount : '',
-      data.currency || 'THB',
-      data.serviceType || '',
-      data.customerName || '',
-      data.cid || '',
-      data.withholding ? 'Yes' : 'No',
-      data.confidence !== null && data.confidence !== undefined ? data.confidence : '',
+      normalizedData.displayName || 'Unknown',
+      normalizedData.lineUserId || '',
+      normalizedData.crmUserId || '',
+      normalizedData.messageText || '',
+      normalizedData.amount !== null && normalizedData.amount !== undefined ? normalizedData.amount : '',
+      normalizedData.currency || 'THB',
+      normalizedData.serviceType || '',
+      normalizedData.customerName || '',
+      normalizedData.cid || '',
+      normalizedData.withholding ? 'Yes' : 'No',
+      normalizedData.confidence !== null && normalizedData.confidence !== undefined ? normalizedData.confidence : '',
       formattedImage,
-      data.status || 'pending',
+      normalizedData.status || 'pending',
     ];
 
     // Append row to sheet (enclosed in single quotes for spaces)
@@ -320,11 +322,25 @@ async function logToGoogleSheets(data) {
  */
 async function updateLatestRowForUser(lineUserId, updateData) {
   try {
+    const resolvedContext = await resolveCustomerContext({
+      customerName: updateData?.customerName,
+      cid: updateData?.cid,
+      messageText: updateData?.messageText,
+      serviceType: updateData?.serviceType,
+    });
+
+    const normalizedData = {
+      ...updateData,
+      customerName: resolvedContext.customerName || updateData?.customerName || '',
+      cid: resolvedContext.cid || updateData?.cid || '',
+      messageText: resolvedContext.messageText || updateData?.messageText || '',
+    };
+
     if (shouldSkipGoogleSheetEntry({
       lineUserId,
-      messageText: updateData?.messageText,
-      displayName: updateData?.displayName,
-      customerName: updateData?.customerName,
+      messageText: normalizedData.messageText,
+      displayName: normalizedData.displayName,
+      customerName: normalizedData.customerName,
     })) {
       console.log('[sheetsLogger] Skipping Google Sheet row update for excluded LINE User ID or acc.smartidea text.');
       return false;
@@ -384,11 +400,6 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     }
 
     const currentRow = rows[targetRowIndex - 1];
-    const resolvedMessageText = await enrichSheetMessageText({
-      messageText: updateData.messageText || currentRow[4] || '',
-      customerName: updateData.customerName || currentRow[8] || '',
-      cid: updateData.cid || currentRow[9] || '',
-    });
 
     let formattedImage = currentRow[12] || '';
     if (updateData.imageUrl) {
@@ -399,19 +410,19 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     const updatedRow = [
       currentRow[0], // Keep original timestamp
-      updateData.displayName || currentRow[1] || 'Unknown',
+      normalizedData.displayName || currentRow[1] || 'Unknown',
       currentRow[2], // LINE User ID
-      updateData.crmUserId || currentRow[3] || '',
-      resolvedMessageText,
-      updateData.amount !== null && updateData.amount !== undefined ? updateData.amount : (currentRow[5] || ''),
-      updateData.currency || currentRow[6] || 'THB',
-      updateData.serviceType || currentRow[7] || '',
-      updateData.customerName || currentRow[8] || '',
-      updateData.cid || currentRow[9] || '',
-      updateData.withholding !== undefined ? (updateData.withholding ? 'Yes' : 'No') : (currentRow[10] || 'No'),
-      updateData.confidence !== null && updateData.confidence !== undefined ? updateData.confidence : (currentRow[11] || ''),
+      normalizedData.crmUserId || currentRow[3] || '',
+      normalizedData.messageText || currentRow[4] || '',
+      normalizedData.amount !== null && normalizedData.amount !== undefined ? normalizedData.amount : (currentRow[5] || ''),
+      normalizedData.currency || currentRow[6] || 'THB',
+      normalizedData.serviceType || currentRow[7] || '',
+      normalizedData.customerName || currentRow[8] || '',
+      normalizedData.cid || currentRow[9] || '',
+      normalizedData.withholding !== undefined ? (normalizedData.withholding ? 'Yes' : 'No') : (currentRow[10] || 'No'),
+      normalizedData.confidence !== null && normalizedData.confidence !== undefined ? normalizedData.confidence : (currentRow[11] || ''),
       formattedImage,
-      updateData.status || currentRow[13] || 'pending',
+      normalizedData.status || currentRow[13] || 'pending',
     ];
 
     await sheets.spreadsheets.values.update({
