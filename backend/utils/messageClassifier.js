@@ -1,8 +1,67 @@
 const OpenAI = require('openai');
+const mongoose = require('mongoose');
+const Transaction = require('../models/Transaction');
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+async function getRecentTopupExamples(limit = 6) {
+  try {
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      return '';
+    }
+
+    const transactions = await Transaction.find({
+      amount: { $gt: 0 },
+      createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const examples = transactions
+      .map((tx) => {
+        const note = String(tx.notes || '').replace(/\s+/g, ' ').trim();
+        if (!note) return null;
+        return `- "${note}" -> topup request`;
+      })
+      .filter(Boolean);
+
+    if (!examples.length) {
+      return '';
+    }
+
+    return `
+Recent topup examples already in CRM:
+${examples.join('\n')}
+`;
+  } catch (error) {
+    console.warn('[messageClassifier] Could not load recent topup examples:', error.message);
+    return '';
+  }
+}
+
+function heuristicClassifyTopupRequest(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text) {
+    return null;
+  }
+
+  const hasAmount = /(\d[\d,]*(\.?\d+)?\s*(บาท|฿|thb|bht)|\b\d{2,}(?:[.,]\d{2})?\b)/.test(text);
+  const hasServiceKeyword = /(ค่าบริการ|ค่าแอด|ค่าโฆษณา|ค่าใช้จ่าย|topup|top up|service fee|advertising|ads|การโอน|โอนเงิน|จ่ายเงิน|ชำระ|ราคานี้|ยอดเงิน)/.test(text);
+  const hasRequestKeyword = /(ขอ|อยาก|please|กรุณา|โอน|จ่าย|ชำระ|เติม|pay|transfer)/.test(text);
+
+  if (hasAmount && hasServiceKeyword && (hasRequestKeyword || text.includes('ค่า'))) {
+    return {
+      isTopupRequest: true,
+      confidence: 80,
+      reason: 'Detected invoice/service-fee amount pattern consistent with a payment request.',
+    };
+  }
+
+  return null;
+}
 
 /**
  * จำแนกข้อความว่าเป็น topup request หรือไม่
@@ -12,6 +71,11 @@ const client = new OpenAI({
  */
 async function classifyTopupRequest(message, displayName = 'Unknown') {
   try {
+    const heuristic = heuristicClassifyTopupRequest(message);
+    if (heuristic) {
+      return heuristic;
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       console.warn('[messageClassifier] OPENAI_API_KEY not set. Defaulting to false.');
       return {
@@ -21,9 +85,13 @@ async function classifyTopupRequest(message, displayName = 'Unknown') {
       };
     }
 
+    const historicalExamples = await getRecentTopupExamples();
+
     const systemPrompt = `You are a LINE group message classifier specialized in identifying topup requests.
 
 Your task: Analyze the message and determine if it's a topup request (โอนเงิน, ขอโอน, ขอจ่าย, topup, top up, etc.)
+
+Use the historical CRM data below as prior examples of real topup patterns. If a message resembles the same pattern of service fees + payment amounts, classify it as a topup request even if it is slightly less explicit.
 
 Respond in JSON format:
 {
@@ -39,8 +107,12 @@ Consider these signs of a topup request:
 - Contains bank names or payment methods
 - Contains receipt images or payment proof
 - Contains keywords: โอนเงิน, ขอโอน, ขอจ่าย, topup, top up, ส่ง, เงิน, บาท, ฿
+- Common service fee wording: ค่าบริการ, ค่าแอด, ค่าใช้จ่าย, ค่าธรรมเนียม, ad spend, campaign spend
+- Real topup messages often combine a service name and a money amount together
 
-Important: Be strict - only return true for CLEAR topup requests, not general chat.`;
+Important: Be strict but use these patterns as real-world evidence of payment requests, not just general chat.
+
+${historicalExamples}`;
 
     const userPrompt = `Classify this message from "${displayName}":
 "${message}"`;
