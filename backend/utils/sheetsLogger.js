@@ -6,6 +6,12 @@ const EXCLUDED_LINE_USER_IDS = new Set(['U774900367ac4f1e841649458af6650e5']);
 const EXCLUDED_TEXT_PATTERNS = ['acc.smartidea'];
 const READY_STATUS_VALUES = new Set(['ready', 'confirmed', 'image_pending_review', 'created_in_crm', 'pending_slip', 'pending_review']);
 
+function getMonthlySheetTabName(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `LINE_${year}-${month}`;
+}
+
 function normalizeSheetStatus(status) {
   const value = String(status || '').trim().toLowerCase();
   if (!value) return 'ready';
@@ -254,7 +260,7 @@ async function logToGoogleSheets(data) {
 
     const keyJson = process.env.GOOGLE_SHEETS_KEY_JSON;
     const sheetId = process.env.GOOGLE_SHEET_ID;
-    const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || 'LINE Topup Requests';
+    const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || getMonthlySheetTabName();
 
     if (!keyJson || !sheetId) {
       console.warn('[sheetsLogger] Missing GOOGLE_SHEETS_KEY_JSON or GOOGLE_SHEET_ID');
@@ -368,7 +374,7 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     const keyJson = process.env.GOOGLE_SHEETS_KEY_JSON;
     const sheetId = process.env.GOOGLE_SHEET_ID;
-    const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || 'LINE Topup Requests';
+    const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || getMonthlySheetTabName();
 
     if (!keyJson || !sheetId || !lineUserId) return false;
 
