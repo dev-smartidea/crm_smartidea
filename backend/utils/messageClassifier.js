@@ -49,10 +49,20 @@ function heuristicClassifyTopupRequest(message) {
   }
 
   const hasAmount = /(\d[\d,]*(\.?\d+)?\s*(บาท|฿|thb|bht)|\b\d{2,}(?:[.,]\d{2})?\b)/.test(text);
-  const hasServiceKeyword = /(ค่าบริการ|ค่าแอด|ค่าโฆษณา|ค่าใช้จ่าย|ค่าคลิก|topup|top up|service fee|advertising|ads|การโอน|โอนเงิน|จ่ายเงิน|ชำระ|ราคานี้|ยอดเงิน)/.test(text);
+  const hasServiceKeyword = /(ค่าบริการ|ค่าแอด|ค่าโฆษณา|ค่าใช้จ่าย|ค่าคลิก|topup|top up|service fee|advertising|ads|การโอน|โอนเงิน|จ่ายเงิน|ชำระ|ราคานี้|ยอดเงิน|ค่าเปิด|ค่า setup|ค่าโดเมน|ค่าบริการโดเมน)/.test(text);
   const hasRequestKeyword = /(ขอ|อยาก|please|กรุณา|โอน|จ่าย|ชำระ|เติม|pay|transfer)/.test(text);
   const hasCid = /(?:cid|บัญชี)\s*[:\-]?\s*\d+/.test(text);
   const hasDomain = /(www\.|\.com|\.co\.|domain|website|เว็บ|site)/.test(text);
+  const mentionsPersonalShopping = /(ซื้อ|ขนม|เซเว่น|ร้าน|อาหาร|ตลาด|มือถือ|เติมเงินมือถือ|ไปซื้อ|ซื้อของ)/.test(text);
+  const explicitBusinessContext = hasCid || hasDomain || hasServiceKeyword;
+
+  if (mentionsPersonalShopping && !explicitBusinessContext) {
+    return {
+      isTopupRequest: false,
+      confidence: 10,
+      reason: 'General personal shopping or small personal spending is not a business topup request.',
+    };
+  }
 
   if (hasAmount && hasServiceKeyword && (hasRequestKeyword || text.includes('ค่า'))) {
     return {
@@ -67,6 +77,14 @@ function heuristicClassifyTopupRequest(message) {
       isTopupRequest: true,
       confidence: 75,
       reason: 'Detected a customer/service record with a website and service cost, which matches a topup request pattern.',
+    };
+  }
+
+  if ((text.includes('เติมเงิน') || text.includes('topup')) && explicitBusinessContext) {
+    return {
+      isTopupRequest: true,
+      confidence: 75,
+      reason: 'Detected explicit top-up wording tied to a business/service context.',
     };
   }
 
