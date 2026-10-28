@@ -115,30 +115,32 @@ async function classifyTopupRequest(message, displayName = 'Unknown') {
 
     const historicalExamples = await getRecentTopupExamples();
 
-    const systemPrompt = `You are a LINE group message classifier specialized in identifying topup requests.
+    const systemPrompt = `You are a LINE group message classifier specialized in identifying only business-related topup requests.
 
-Your task: Analyze the message and determine if it's a topup request (โอนเงิน, ขอโอน, ขอจ่าย, topup, top up, etc.)
+ภารกิจของคุณ: เลือกเฉพาะข้อความที่เกี่ยวข้องกับคำขอเติมเงิน/โอนเงินสำหรับธุรกิจเท่านั้น เพื่อใช้ใน CRM tracking
 
-Use the historical CRM data below as prior examples of real topup patterns. If a message resembles the same pattern of service fees + payment amounts, classify it as a topup request even if it is slightly less explicit.
+ข้อความที่ถือว่าเป็น topup request ที่ถูกต้องมักมีสัญญาณด้านธุรกิจอย่างน้อยหนึ่งอย่าง เช่น:
+- มีเลขหรือข้อมูลลูกค้า/บริการ เช่น CID, customer name, account, project name
+- มีคำที่เกี่ยวกับบริการ เช่น ค่าบริการ, ค่าแอด, ค่าคลิก, ค่าโฆษณา, domain, website, ad spend, service fee
+- มีคำสั่งชัดเจนเรื่องการชำระเงิน เช่น โอน, จ่าย, เติมเงิน, topup, transfer, remit
+- เป็นบริบทธุรกิจ/เอเจนซี่ ไม่ใช่ค่าใช้จ่ายส่วนตัวหรือชีวิตประจำวัน
 
-Respond in JSON format:
+ไม่ควรจัดว่าเป็น topup request:
+- ค่าใช้จ่ายส่วนตัว เช่น ซื้อขนม, ซื้ออาหาร, เซเว่น, เติมเงินมือถือ, ค่าน้ำมัน, ค่ารถ
+- การสนทนาแบบทั่วไป, การพูดแซว, หรือข้อความที่มีตัวเลขแต่ไม่มีเจตนาธุรกิจ
+- ข้อความที่มีแค่ตัวเลขหรือค่าใช้จ่าย แต่ไม่มีบริบทธุรกิจ/การชำระเงิน
+- ข้อความเกี่ยวกับการเติมเงินมือถือส่วนตัว, ค่าครองชีพ หรือค่าใช้จ่ายทั่วไป
+
+ใช้ข้อมูลประวัติจาก CRM ด้านล่างเป็นตัวอย่างของรูปแบบคำขอเติมเงินจริงๆ เท่านั้น หากข้อความไม่เหมือนรูปแบบธุรกิจ/บริการ ให้ปฏิเสธ
+
+ตอบในรูปแบบ JSON เท่านั้น:
 {
   "isTopupRequest": boolean,
   "confidence": number (0-100),
-  "reason": "brief explanation"
+  "reason": "คำอธิบายสั้น"
 }
 
-Consider these signs of a topup request:
-- Mentions money transfer, payment, or topup
-- References amounts or prices
-- Contains slang like โอน, ขอ, ประมาณ, ประมาณเท่าไร
-- Contains bank names or payment methods
-- Contains receipt images or payment proof
-- Contains keywords: โอนเงิน, ขอโอน, ขอจ่าย, topup, top up, ส่ง, เงิน, บาท, ฿
-- Common service fee wording: ค่าบริการ, ค่าแอด, ค่าใช้จ่าย, ค่าธรรมเนียม, ad spend, campaign spend
-- Real topup messages often combine a service name and a money amount together
-
-Important: Be strict but use these patterns as real-world evidence of payment requests, not just general chat.
+สิ่งสำคัญ: ต้องระมัดระวังมาก ให้เลือกเฉพาะที่แน่ใจจริงๆ หากไม่แน่ใจ ให้คืนค่า false
 
 ${historicalExamples}`;
 
