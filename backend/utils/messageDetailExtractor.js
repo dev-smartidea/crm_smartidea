@@ -4,6 +4,33 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+function parseJsonResponse(content) {
+  if (!content) return null;
+
+  let cleaned = String(content).trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    const compact = cleaned.replace(/,\s*([}\]])/g, '$1');
+    if (compact !== cleaned) {
+      try {
+        return JSON.parse(compact);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 /**
  * Extract detailed information from topup request message
  * @param {string} message - ข้อความจาก LINE
@@ -38,7 +65,7 @@ async function extractMessageDetails(message) {
 
 Your task: Extract structured information from Thai messages about payment/topup requests.
 
-Respond in JSON format:
+Return only valid JSON in this exact format, with no markdown fences and no surrounding text:
 {
   "amount": number or null,
   "currency": "THB" or other,
@@ -82,7 +109,7 @@ Be smart about context:
     });
 
     const content = response.choices[0]?.message?.content || '{}';
-    const rawExtraction = JSON.parse(content);
+    const rawExtraction = parseJsonResponse(content) || {};
 
     // Normalize and validate results
     return {
