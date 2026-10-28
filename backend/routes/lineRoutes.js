@@ -39,6 +39,13 @@ function isValidLineSignature(rawBodyBuffer, signature, secret) {
   return safeCompare(signature, expected);
 }
 
+function amountMatches(a, b, tolerance = 1) {
+  const aNum = Number(a);
+  const bNum = Number(b);
+  if (!Number.isFinite(aNum) || !Number.isFinite(bNum)) return false;
+  return Math.abs(aNum - bNum) <= tolerance;
+}
+
 // Middleware: แปลง raw body เป็น Buffer เมื่อเป็น webhook POST เท่านั้น
 router.post('/webhook', express.raw({ type: 'application/json', limit: '1mb' }), handleWebhook);
 
@@ -201,18 +208,25 @@ async function fetchLineDisplayName(source, fallbackName) {
         pendingTopupEvents.delete(pendingImageKey);
       }
 
-      const effectiveAmount = messageDetails.amount || pendingImage?.slipDetails?.amount || null;
+      const slipAmount = pendingImage?.slipDetails?.amount ?? null;
+      const extractedTextAmount = messageDetails.amount ?? null;
+      const isAmountMatched = !slipAmount || !extractedTextAmount || amountMatches(extractedTextAmount, slipAmount, 1);
+      const effectiveAmount = extractedTextAmount || slipAmount || null;
       const effectiveBank = pendingImage?.slipDetails?.bank || null;
       const effectiveDate = pendingImage?.slipDetails?.transDate || null;
       const effectiveTime = pendingImage?.slipDetails?.transTime || null;
       const effectiveImageUrl = pendingImage?.imageUrl || null;
       const effectiveCloudinaryId = pendingImage?.cloudinaryId || null;
 
+      if (slipAmount && extractedTextAmount && !isAmountMatched) {
+        console.warn(`[LINE] Amount mismatch: text=${extractedTextAmount} vs slip=${slipAmount}. Keeping text but not pairing as confirmed match.`);
+      }
+
       const status = 'ready';
 
       // Update recent row in Google Sheets if pending image row exists, or append new row
       let sheetLogged = false;
-      if (effectiveImageUrl) {
+      if (effectiveImageUrl && isAmountMatched) {
         sheetLogged = await updateLatestRowForUser(lineUserId, {
           displayName: senderDisplayName,
           crmUserId: crmUserIdStr,
@@ -303,7 +317,10 @@ async function fetchLineDisplayName(source, fallbackName) {
       pendingTopupEvents.delete(pendingTextKey);
     }
 
-    const effectiveAmount = pendingText?.messageDetails?.amount || slipDetails.amount || null;
+    const textAmount = pendingText?.messageDetails?.amount ?? null;
+    const slipAmount = slipDetails.amount ?? null;
+    const canPairTextAndSlip = !textAmount || !slipAmount || amountMatches(textAmount, slipAmount, 1);
+    const effectiveAmount = textAmount || slipAmount || null;
     const effectiveServiceType = pendingText?.messageDetails?.serviceType || '';
     const effectiveCustomerName = pendingText?.messageDetails?.customerName || '';
     const effectiveCid = pendingText?.messageDetails?.cid || '';
@@ -311,11 +328,15 @@ async function fetchLineDisplayName(source, fallbackName) {
     const effectiveMessageText = pendingText?.messageText || '[Image Receipt/Slip]';
     const effectiveConfidence = pendingText?.messageDetails?.confidence || (slipDetails.success ? 80 : 0);
 
+    if (textAmount && slipAmount && !canPairTextAndSlip) {
+      console.warn(`[LINE] Image/text amount mismatch for ${lineUserId}: text=${textAmount}, slip=${slipAmount}. Keeping as separate pending record.`);
+    }
+
     const status = 'ready';
 
     // Step 5: Update recent Google Sheets row if pending text row exists, or append new row
     let sheetUpdated = false;
-    if (pendingText) {
+    if (pendingText && canPairTextAndSlip) {
       sheetUpdated = await updateLatestRowForUser(lineUserId, {
         displayName: senderDisplayName,
         crmUserId: crmUserIdStr,
@@ -350,8 +371,8 @@ async function fetchLineDisplayName(source, fallbackName) {
       });
     }
 
-    // If no text was matched yet, store this image in pending buffer
-    if (!pendingText) {
+    // If no text was matched yet, or the amounts do not match, keep image pending for later review.
+    if (!pendingText || !canPairTextAndSlip) {
       pendingTopupEvents.set(`${lineUserId}:image`, {
         imageUrl,
         cloudinaryId,

@@ -49,14 +49,24 @@ function heuristicClassifyTopupRequest(message) {
   }
 
   const hasAmount = /(\d[\d,]*(\.?\d+)?\s*(บาท|฿|thb|bht)|\b\d{2,}(?:[.,]\d{2})?\b)/.test(text);
-  const hasServiceKeyword = /(ค่าบริการ|ค่าแอด|ค่าโฆษณา|ค่าใช้จ่าย|topup|top up|service fee|advertising|ads|การโอน|โอนเงิน|จ่ายเงิน|ชำระ|ราคานี้|ยอดเงิน)/.test(text);
+  const hasServiceKeyword = /(ค่าบริการ|ค่าแอด|ค่าโฆษณา|ค่าใช้จ่าย|ค่าคลิก|topup|top up|service fee|advertising|ads|การโอน|โอนเงิน|จ่ายเงิน|ชำระ|ราคานี้|ยอดเงิน)/.test(text);
   const hasRequestKeyword = /(ขอ|อยาก|please|กรุณา|โอน|จ่าย|ชำระ|เติม|pay|transfer)/.test(text);
+  const hasCid = /(?:cid|บัญชี)\s*[:\-]?\s*\d+/.test(text);
+  const hasDomain = /(www\.|\.com|\.co\.|domain|website|เว็บ|site)/.test(text);
 
   if (hasAmount && hasServiceKeyword && (hasRequestKeyword || text.includes('ค่า'))) {
     return {
       isTopupRequest: true,
       confidence: 80,
       reason: 'Detected invoice/service-fee amount pattern consistent with a payment request.',
+    };
+  }
+
+  if (hasCid && hasDomain && hasServiceKeyword) {
+    return {
+      isTopupRequest: true,
+      confidence: 75,
+      reason: 'Detected a customer/service record with a website and service cost, which matches a topup request pattern.',
     };
   }
 
