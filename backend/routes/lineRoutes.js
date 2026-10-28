@@ -12,6 +12,17 @@ const router = express.Router();
 
 // In-memory cache to pair Text + Slip events from the same user (15-minute TTL)
 const pendingTopupEvents = new Map();
+const KNOWN_GROUP_DISPLAY_NAME_TO_CRM_USER_ID = {
+  'น้ำ admin smartidea': '6a2b7819e3ea12ab437922f9',
+  'ครีม - Smartidea': '6a2b77ece3ea12ab437922eb',
+  'บิว SmartiDeaGroup': '6a2b7853e3ea12ab43792307',
+};
+
+function getKnownDisplayNameMapping(displayName) {
+  if (!displayName) return null;
+  const normalized = String(displayName).trim();
+  return KNOWN_GROUP_DISPLAY_NAME_TO_CRM_USER_ID[normalized] || null;
+}
 
 function cleanExpiredPendingEvents() {
   const maxAge = 15 * 60 * 1000;
@@ -181,9 +192,17 @@ async function fetchLineDisplayName(source, fallbackName) {
   return fallbackName || 'LINE User';
 }
 
-  const crmUserIdStr = (mapping?.crmUserId?._id || mapping?.crmUserId)?.toString() || '';
+  const fallbackDisplayName = event.source?.displayName || null;
+  const fallbackCrmUserId = getKnownDisplayNameMapping(fallbackDisplayName);
   const knownName = mapping?.lineDisplayName || mapping?.crmUserId?.name || null;
   const senderDisplayName = await fetchLineDisplayName(event.source, knownName);
+  const senderDisplayNameFallback = senderDisplayName || fallbackDisplayName || null;
+  const mappedDisplayNameCrmUserId = getKnownDisplayNameMapping(senderDisplayNameFallback);
+  const crmUserIdStr = (mapping?.crmUserId?._id || mapping?.crmUserId)?.toString() || fallbackCrmUserId || mappedDisplayNameCrmUserId || '';
+
+  if (!mapping && mappedDisplayNameCrmUserId) {
+    console.log(`[LINE] Matched known display name to CRM user: ${senderDisplayNameFallback} -> ${mappedDisplayNameCrmUserId}`);
+  }
 
   console.log(`[LINE] Event ${idx} from: ${senderDisplayName} (${lineUserId}), type: ${event.source?.type || 'user'}, crmUserId: ${crmUserIdStr || 'none'}`);
 
