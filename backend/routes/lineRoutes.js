@@ -229,23 +229,35 @@ async function fetchLineDisplayName(source, fallbackName) {
 
       const slipAmount = pendingImage?.slipDetails?.amount ?? null;
       const extractedTextAmount = messageDetails.amount ?? null;
-      const isAmountMatched = !slipAmount || !extractedTextAmount || amountMatches(extractedTextAmount, slipAmount, 1);
-      const effectiveAmount = extractedTextAmount || slipAmount || null;
+      const hasTextAmount = extractedTextAmount !== null && extractedTextAmount !== undefined;
+      const hasSlipAmount = slipAmount !== null && slipAmount !== undefined;
+      const isAmountMatched = !hasSlipAmount || !hasTextAmount || amountMatches(extractedTextAmount, slipAmount, 1);
+
+      let effectiveAmount = null;
+      if (hasTextAmount && hasSlipAmount) {
+        effectiveAmount = isAmountMatched ? slipAmount : null;
+      } else if (hasTextAmount) {
+        effectiveAmount = extractedTextAmount;
+      } else if (hasSlipAmount) {
+        effectiveAmount = slipAmount;
+      }
+
       const effectiveBank = pendingImage?.slipDetails?.bank || null;
       const effectiveDate = pendingImage?.slipDetails?.transDate || null;
       const effectiveTime = pendingImage?.slipDetails?.transTime || null;
       const effectiveImageUrl = pendingImage?.imageUrl || null;
       const effectiveCloudinaryId = pendingImage?.cloudinaryId || null;
+      const shouldAttachSlipImage = Boolean(effectiveImageUrl) && isAmountMatched;
 
-      if (slipAmount && extractedTextAmount && !isAmountMatched) {
-        console.warn(`[LINE] Amount mismatch: text=${extractedTextAmount} vs slip=${slipAmount}. Keeping text but not pairing as confirmed match.`);
+      if (hasTextAmount && hasSlipAmount && !isAmountMatched) {
+        console.warn(`[LINE] Amount mismatch: text=${extractedTextAmount} vs slip=${slipAmount}. Rejecting slip pairing and clearing amount to avoid mismatched image row.`);
       }
 
       const status = 'ready';
 
       // Update recent row in Google Sheets if pending image row exists, or append new row
       let sheetLogged = false;
-      if (effectiveImageUrl && isAmountMatched) {
+      if (shouldAttachSlipImage) {
         sheetLogged = await updateLatestRowForUser(lineUserId, {
           displayName: senderDisplayName,
           crmUserId: crmUserIdStr,
@@ -275,7 +287,7 @@ async function fetchLineDisplayName(source, fallbackName) {
           cid: messageDetails.cid || '',
           withholding: messageDetails.withholding,
           confidence: messageDetails.confidence,
-          imageUrl: effectiveImageUrl,
+          imageUrl: shouldAttachSlipImage ? effectiveImageUrl : null,
           status,
         });
       }
