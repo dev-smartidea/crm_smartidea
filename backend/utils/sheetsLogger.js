@@ -23,6 +23,26 @@ function escapeRegex(text) {
   return String(text || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
 
+function formatCustomerDisplayName(extractedCustomerName, databaseCustomerName) {
+  const extracted = String(extractedCustomerName || '').trim();
+  const database = String(databaseCustomerName || '').trim();
+
+  if (!extracted && !database) return '';
+  if (!extracted) return database;
+  if (!database) return extracted;
+
+  const sameName = extracted.localeCompare(database, 'th', { sensitivity: 'base' }) === 0;
+  if (sameName) return extracted;
+
+  const extractedNormalized = extracted.replace(/\s+/g, ' ').trim();
+  const databaseNormalized = database.replace(/\s+/g, ' ').trim();
+  if (extractedNormalized.includes(databaseNormalized) || databaseNormalized.includes(extractedNormalized)) {
+    return extractedNormalized;
+  }
+
+  return `${extractedNormalized} (${databaseNormalized})`;
+}
+
 async function resolveCustomerContext({ customerName, cid, messageText, serviceType }) {
   let resolvedCustomerName = customerName || null;
   let resolvedCid = cid || null;
@@ -46,7 +66,8 @@ async function resolveCustomerContext({ customerName, cid, messageText, serviceT
 
       const service = await Service.findOne({ $or: cidQueries }).populate('customerId');
       if (service?.customerId) {
-        resolvedCustomerName = service.customerId.name || resolvedCustomerName;
+        const databaseCustomerName = service.customerId.name || null;
+        resolvedCustomerName = formatCustomerDisplayName(resolvedCustomerName, databaseCustomerName);
         resolvedCid = service.cid || service.customerIdField || resolvedCid;
       }
     }
@@ -65,7 +86,7 @@ async function resolveCustomerContext({ customerName, cid, messageText, serviceT
 
       const customer = await Customer.findOne({ $or: customerQueries });
       if (customer) {
-        resolvedCustomerName = customer.name || resolvedCustomerName;
+        resolvedCustomerName = formatCustomerDisplayName(resolvedCustomerName, customer.name);
         const matchedService = await Service.findOne({ customerId: customer._id }).populate('customerId');
         if (matchedService) {
           resolvedCid = matchedService.cid || matchedService.customerIdField || resolvedCid;
