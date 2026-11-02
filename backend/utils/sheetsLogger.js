@@ -86,10 +86,31 @@ async function resolveCustomerContext({ customerName, cid, messageText, serviceT
 
       const customer = await Customer.findOne({ $or: customerQueries });
       if (customer) {
-        resolvedCustomerName = formatCustomerDisplayName(resolvedCustomerName, customer.name);
+        resolvedCustomerName = formatCustomerDisplayName(resolvedCustomerName || trimmed, customer.name);
         const matchedService = await Service.findOne({ customerId: customer._id }).populate('customerId');
         if (matchedService) {
           resolvedCid = matchedService.cid || matchedService.customerIdField || resolvedCid;
+        }
+      }
+    }
+
+    if (!resolvedCustomerName && messageText) {
+      const rawText = String(messageText);
+      const textNameMatch = rawText.match(/(?:ลูกค้า|customer|company|ชื่อบริษัท|ชื่อลูกค้า)\s*[:\-]?\s*([A-Za-z0-9ก-๙\s().,-]+)/i);
+      const candidateName = textNameMatch?.[1]?.trim();
+      if (candidateName) {
+        const trimmed = candidateName.trim();
+        const customer = await Customer.findOne({
+          name: new RegExp(escapeRegex(trimmed), 'i')
+        });
+        if (customer) {
+          resolvedCustomerName = formatCustomerDisplayName(trimmed, customer.name);
+          const matchedService = await Service.findOne({ customerId: customer._id }).populate('customerId');
+          if (matchedService) {
+            resolvedCid = matchedService.cid || matchedService.customerIdField || resolvedCid;
+          }
+        } else {
+          resolvedCustomerName = trimmed;
         }
       }
     }
