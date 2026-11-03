@@ -4,7 +4,6 @@ const Service = require('../models/Service');
 
 const EXCLUDED_LINE_USER_IDS = new Set(['U774900367ac4f1e841649458af6650e5']);
 const EXCLUDED_TEXT_PATTERNS = ['acc.smartidea'];
-const READY_STATUS_VALUES = new Set(['ready', 'confirmed', 'image_pending_review', 'created_in_crm', 'pending_slip', 'pending_review']);
 
 function getMonthlySheetTabName(date = new Date()) {
   const year = date.getFullYear();
@@ -12,11 +11,14 @@ function getMonthlySheetTabName(date = new Date()) {
   return `LINE_${year}-${month}`;
 }
 
-function normalizeSheetStatus(status) {
-  const value = String(status || '').trim().toLowerCase();
-  if (!value) return 'ready';
-  if (READY_STATUS_VALUES.has(value)) return 'ready';
-  return value;
+function getSheetStatus({ amount, customerName, cid, imageUrl }) {
+  const parsedAmount = Number(String(amount ?? '').replace(/,/g, '').trim());
+  const hasAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const hasCustomerName = Boolean(String(customerName || '').trim());
+  const hasCid = Boolean(String(cid || '').trim());
+  const hasImage = Boolean(String(imageUrl || '').trim());
+
+  return hasAmount && hasCustomerName && hasCid && hasImage ? 'ready' : 'incomplete';
 }
 
 function escapeRegex(text) {
@@ -270,17 +272,11 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  * @param {boolean} data.withholding - WHT flag
  * @param {number} data.confidence - Confidence level
  * @param {string} data.imageUrl - Cloudinary image URL (receipt/slip)
- * @param {string} data.status - Status (confirmed, pending_review, etc.)
+ * @param {string} data.status - Status is calculated as ready or incomplete from required fields
  * @returns {Promise<boolean>} - success or failure
  */
 async function logToGoogleSheets(data) {
   try {
-    const normalizedStatus = normalizeSheetStatus(data?.status);
-    const normalizedData = {
-      ...data,
-      status: normalizedStatus,
-    };
-
     const resolvedContext = await resolveCustomerContext({
       customerName: data.customerName,
       cid: data.cid,
@@ -289,11 +285,12 @@ async function logToGoogleSheets(data) {
     });
 
     const enrichedData = {
-      ...normalizedData,
+      ...data,
       customerName: resolvedContext.customerName || data.customerName || '',
       cid: resolvedContext.cid || data.cid || '',
       messageText: resolvedContext.messageText || data.messageText || '',
     };
+    enrichedData.status = getSheetStatus(enrichedData);
 
     if (shouldSkipGoogleSheetEntry(enrichedData)) {
       console.log('[sheetsLogger] Skipping Google Sheet write for excluded LINE User ID or acc.smartidea text.');
@@ -353,7 +350,7 @@ async function logToGoogleSheets(data) {
       enrichedData.withholding ? 'Yes' : 'No',
       enrichedData.confidence !== null && enrichedData.confidence !== undefined ? enrichedData.confidence : '',
       formattedImage,
-      enrichedData.status || 'ready',
+      enrichedData.status,
     ];
 
     // Append row to sheet (enclosed in single quotes for spaces)
@@ -384,12 +381,6 @@ async function logToGoogleSheets(data) {
  */
 async function updateLatestRowForUser(lineUserId, updateData) {
   try {
-    const normalizedStatus = normalizeSheetStatus(updateData?.status);
-    const normalizedUpdateData = {
-      ...updateData,
-      status: normalizedStatus,
-    };
-
     const resolvedContext = await resolveCustomerContext({
       customerName: updateData?.customerName,
       cid: updateData?.cid,
@@ -398,7 +389,7 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     });
 
     const enrichedUpdateData = {
-      ...normalizedUpdateData,
+      ...updateData,
       customerName: resolvedContext.customerName || updateData?.customerName || '',
       cid: resolvedContext.cid || updateData?.cid || '',
       messageText: resolvedContext.messageText || updateData?.messageText || '',
@@ -490,8 +481,14 @@ async function updateLatestRowForUser(lineUserId, updateData) {
       enrichedUpdateData.withholding !== undefined ? (enrichedUpdateData.withholding ? 'Yes' : 'No') : (currentRow[10] || 'No'),
       enrichedUpdateData.confidence !== null && enrichedUpdateData.confidence !== undefined ? enrichedUpdateData.confidence : (currentRow[11] || ''),
       formattedImage,
-      enrichedUpdateData.status || currentRow[13] || 'ready',
+      '',
     ];
+    updatedRow[13] = getSheetStatus({
+      amount: updatedRow[5],
+      customerName: updatedRow[8],
+      cid: updatedRow[9],
+      imageUrl: updatedRow[12],
+    });
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
