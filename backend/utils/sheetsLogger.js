@@ -4,6 +4,23 @@ const Service = require('../models/Service');
 
 const EXCLUDED_LINE_USER_IDS = new Set(['U774900367ac4f1e841649458af6650e5']);
 const EXCLUDED_TEXT_PATTERNS = ['acc.smartidea'];
+const SHEET_HEADERS = [
+  'Timestamp',
+  'เวลาที่ส่ง',
+  'Display Name',
+  'LINE User ID',
+  'CRM User ID',
+  'Message',
+  'Amount',
+  'Currency',
+  'Service Type',
+  'Customer Name',
+  'CID',
+  'Withholding',
+  'Confidence',
+  'Image URL',
+  'Status',
+];
 
 function getMonthlySheetTabName(date = new Date()) {
   const year = date.getFullYear();
@@ -19,6 +36,24 @@ function getSheetStatus({ amount, customerName, cid, imageUrl }) {
   const hasImage = Boolean(String(imageUrl || '').trim());
 
   return hasAmount && hasCustomerName && hasCid && hasImage ? 'ready' : 'incomplete';
+}
+
+function formatSendTime(timestamp) {
+  if (timestamp === null || timestamp === undefined || timestamp === '') return '';
+  const timestampValue = String(timestamp).trim();
+  const dateValue = typeof timestamp === 'number' || /^\d{10,13}$/.test(timestampValue)
+    ? Number(timestamp)
+    : timestamp;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(date);
 }
 
 function escapeRegex(text) {
@@ -193,6 +228,45 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
     );
 
     if (found) {
+      const escapedName = targetTabName.replace(/'/g, "''");
+      const headerResult = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${escapedName}'!A1:B1`,
+      });
+      const currentHeaders = headerResult.data.values?.[0] || [];
+      const secondHeader = String(currentHeaders[1] || '').trim().toLowerCase();
+
+      if (secondHeader === 'display name') {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          resource: {
+            requests: [{
+              insertDimension: {
+                range: {
+                  sheetId: found.properties.sheetId,
+                  dimension: 'COLUMNS',
+                  startIndex: 1,
+                  endIndex: 2,
+                },
+              },
+            }],
+          },
+        });
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${escapedName}'!A1:O1`,
+          valueInputOption: 'USER_ENTERED',
+          resource: { values: [SHEET_HEADERS] },
+        });
+      } else if (currentHeaders.length === 0) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${escapedName}'!A1:O1`,
+          valueInputOption: 'USER_ENTERED',
+          resource: { values: [SHEET_HEADERS] },
+        });
+      }
+
       verifiedSheets.add(cacheKey);
       return targetTabName;
     }
@@ -216,30 +290,13 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
       });
 
       // Add standard column headers
-      const headers = [
-        'Timestamp',
-        'Display Name',
-        'LINE User ID',
-        'CRM User ID',
-        'Message',
-        'Amount',
-        'Currency',
-        'Service Type',
-        'Customer Name',
-        'CID',
-        'Withholding',
-        'Confidence',
-        'Image URL',
-        'Status',
-      ];
-
       const escapedName = targetTabName.replace(/'/g, "''");
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `'${escapedName}'!A1:N1`,
+        range: `'${escapedName}'!A1:O1`,
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [headers],
+          values: [SHEET_HEADERS],
         },
       });
 
@@ -273,6 +330,7 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  * @param {number} data.confidence - Confidence level
  * @param {string} data.imageUrl - Cloudinary image URL (receipt/slip)
  * @param {string} data.status - Status is calculated as ready or incomplete from required fields
+ * @param {number|string} data.sentAt - LINE event timestamp
  * @returns {Promise<boolean>} - success or failure
  */
 async function logToGoogleSheets(data) {
@@ -338,6 +396,7 @@ async function logToGoogleSheets(data) {
     const timestamp = new Date().toISOString();
     const row = [
       timestamp,
+      formatSendTime(enrichedData.sentAt),
       enrichedData.displayName || 'Unknown',
       enrichedData.lineUserId || '',
       enrichedData.crmUserId || '',
@@ -356,7 +415,7 @@ async function logToGoogleSheets(data) {
     // Append row to sheet (enclosed in single quotes for spaces)
     const result = await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A:N`,
+      range: `'${escapedTabName}'!A:O`,
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [row],
@@ -430,20 +489,20 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     // Fetch existing rows
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A:N`,
+      range: `'${escapedTabName}'!A:O`,
     });
 
     const rows = res.data.values || [];
     if (rows.length <= 1) return false;
 
-    // Search from bottom up for matching lineUserId (Column C, index 2) within last 30 minutes
+    // Search from bottom up for matching lineUserId (Column D, index 3) within last 30 minutes
     let targetRowIndex = -1;
     const now = Date.now();
     const maxAgeMs = 30 * 60 * 1000;
 
     for (let i = rows.length - 1; i >= 1; i--) {
       const row = rows[i];
-      const rowUserId = row[2];
+      const rowUserId = row[3];
       const rowTime = new Date(row[0]).getTime();
 
       if (rowUserId === lineUserId) {
@@ -460,7 +519,7 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     const currentRow = rows[targetRowIndex - 1];
 
-    let formattedImage = currentRow[12] || '';
+    let formattedImage = currentRow[13] || '';
     if (updateData.imageUrl) {
       formattedImage = String(updateData.imageUrl).startsWith('=')
         ? updateData.imageUrl
@@ -469,30 +528,31 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     const updatedRow = [
       currentRow[0], // Keep original timestamp
-      enrichedUpdateData.displayName || currentRow[1] || 'Unknown',
-      currentRow[2], // LINE User ID
-      enrichedUpdateData.crmUserId || currentRow[3] || '',
-      enrichedUpdateData.messageText || currentRow[4] || '',
-      enrichedUpdateData.amount !== null && enrichedUpdateData.amount !== undefined ? enrichedUpdateData.amount : (currentRow[5] || ''),
-      enrichedUpdateData.currency || currentRow[6] || 'THB',
-      enrichedUpdateData.serviceType || currentRow[7] || '',
-      enrichedUpdateData.customerName || currentRow[8] || '',
-      enrichedUpdateData.cid || currentRow[9] || '',
-      enrichedUpdateData.withholding !== undefined ? (enrichedUpdateData.withholding ? 'Yes' : 'No') : (currentRow[10] || 'No'),
-      enrichedUpdateData.confidence !== null && enrichedUpdateData.confidence !== undefined ? enrichedUpdateData.confidence : (currentRow[11] || ''),
+      formatSendTime(enrichedUpdateData.sentAt) || currentRow[1] || '',
+      enrichedUpdateData.displayName || currentRow[2] || 'Unknown',
+      currentRow[3], // LINE User ID
+      enrichedUpdateData.crmUserId || currentRow[4] || '',
+      enrichedUpdateData.messageText || currentRow[5] || '',
+      enrichedUpdateData.amount !== null && enrichedUpdateData.amount !== undefined ? enrichedUpdateData.amount : (currentRow[6] || ''),
+      enrichedUpdateData.currency || currentRow[7] || 'THB',
+      enrichedUpdateData.serviceType || currentRow[8] || '',
+      enrichedUpdateData.customerName || currentRow[9] || '',
+      enrichedUpdateData.cid || currentRow[10] || '',
+      enrichedUpdateData.withholding !== undefined ? (enrichedUpdateData.withholding ? 'Yes' : 'No') : (currentRow[11] || 'No'),
+      enrichedUpdateData.confidence !== null && enrichedUpdateData.confidence !== undefined ? enrichedUpdateData.confidence : (currentRow[12] || ''),
       formattedImage,
       '',
     ];
-    updatedRow[13] = getSheetStatus({
-      amount: updatedRow[5],
-      customerName: updatedRow[8],
-      cid: updatedRow[9],
-      imageUrl: updatedRow[12],
+    updatedRow[14] = getSheetStatus({
+      amount: updatedRow[6],
+      customerName: updatedRow[9],
+      cid: updatedRow[10],
+      imageUrl: updatedRow[13],
     });
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A${targetRowIndex}:N${targetRowIndex}`,
+      range: `'${escapedTabName}'!A${targetRowIndex}:O${targetRowIndex}`,
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [updatedRow],

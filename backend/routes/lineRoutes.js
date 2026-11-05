@@ -259,6 +259,7 @@ async function fetchLineDisplayName(source, fallbackName) {
       let sheetLogged = false;
       if (shouldAttachSlipImage) {
         sheetLogged = await updateLatestRowForUser(lineUserId, {
+          sentAt: event.timestamp,
           displayName: senderDisplayName,
           crmUserId: crmUserIdStr,
           messageText: messageText,
@@ -276,6 +277,7 @@ async function fetchLineDisplayName(source, fallbackName) {
 
       if (!sheetLogged) {
         await logToGoogleSheets({
+          sentAt: event.timestamp,
           displayName: senderDisplayName,
           lineUserId: lineUserId,
           crmUserId: crmUserIdStr,
@@ -297,6 +299,7 @@ async function fetchLineDisplayName(source, fallbackName) {
         pendingTopupEvents.set(`${lineUserId}:text`, {
           messageText,
           messageDetails,
+          sentAt: event.timestamp,
           timestamp: Date.now(),
         });
       }
@@ -358,6 +361,7 @@ async function fetchLineDisplayName(source, fallbackName) {
     const effectiveWithholding = pendingText?.messageDetails?.withholding || false;
     const effectiveMessageText = pendingText?.messageText || '[Image Receipt/Slip]';
     const effectiveConfidence = pendingText?.messageDetails?.confidence || (slipDetails.success ? 80 : 0);
+    const effectiveSentAt = pendingText?.sentAt || event.timestamp;
 
     if (textAmount && slipAmount && !canPairTextAndSlip) {
       console.warn(`[LINE] Image/text amount mismatch for ${lineUserId}: text=${textAmount}, slip=${slipAmount}. Keeping as separate pending record.`);
@@ -369,6 +373,7 @@ async function fetchLineDisplayName(source, fallbackName) {
     let sheetUpdated = false;
     if (pendingText && canPairTextAndSlip) {
       sheetUpdated = await updateLatestRowForUser(lineUserId, {
+        sentAt: effectiveSentAt,
         displayName: senderDisplayName,
         crmUserId: crmUserIdStr,
         messageText: effectiveMessageText,
@@ -386,6 +391,7 @@ async function fetchLineDisplayName(source, fallbackName) {
 
     if (!sheetUpdated) {
       await logToGoogleSheets({
+        sentAt: effectiveSentAt,
         displayName: senderDisplayName,
         lineUserId: lineUserId,
         crmUserId: crmUserIdStr,
