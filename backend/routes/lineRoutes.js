@@ -7,15 +7,18 @@ const { logToGoogleSheets, updateLatestRowForUser } = require('../utils/sheetsLo
 const { downloadLineImage } = require('../utils/lineImageDownloader');
 const { uploadToCloudinary } = require('../utils/imageUploader');
 const { extractSlipDetails } = require('../utils/slipExtractor');
+const { autoCreateTransaction } = require('../utils/transactionAutoCreator');
 
 const router = express.Router();
 
 // In-memory cache to pair Text + Slip events from the same user (15-minute TTL)
 const pendingTopupEvents = new Map();
+const CARD_ADMIN_CRM_USER_ID = '6aed34fdfe6fdbd73573fd03';
 const KNOWN_GROUP_DISPLAY_NAME_TO_CRM_USER_ID = {
   'น้ำ admin smartidea': '6a2b7819e3ea12ab437922f9',
   'ครีม - Smartidea': '6a2b77ece3ea12ab437922eb',
   'บิว SmartiDeaGroup': '6a2b7853e3ea12ab43792307',
+  'card-admin': CARD_ADMIN_CRM_USER_ID,
 };
 
 function getKnownDisplayNameMapping(displayName) {
@@ -55,6 +58,64 @@ function amountMatches(a, b, tolerance = 1) {
   const bNum = Number(b);
   if (!Number.isFinite(aNum) || !Number.isFinite(bNum)) return false;
   return Math.abs(aNum - bNum) <= tolerance;
+}
+
+async function autoCreateCardAdminTransactionIfReady({
+  crmUserId,
+  lineUserId,
+  displayName,
+  textAmount,
+  slipAmount,
+  amount,
+  serviceType,
+  customerName,
+  cid,
+  withholding,
+  slipImage,
+  cloudinaryId,
+  transDate,
+  transTime,
+  bank,
+  notes,
+}) {
+  if (crmUserId !== CARD_ADMIN_CRM_USER_ID) return;
+
+  if (!textAmount || !slipAmount || !amountMatches(textAmount, slipAmount, 1)) {
+    console.warn('[LINE] card-admin CRM auto-create skipped: text amount and slip amount are missing or do not match.');
+    return;
+  }
+  if (!amount || !customerName || !cid || !slipImage) {
+    console.warn('[LINE] card-admin CRM auto-create skipped: amount, customer name, CID, or slip image is missing.');
+    return;
+  }
+
+  try {
+    const result = await autoCreateTransaction({
+      lineUserId,
+      crmUserId,
+      displayName,
+      amount,
+      serviceType,
+      customerName,
+      cid,
+      withholding,
+      slipImage,
+      cloudinaryId,
+      transDate,
+      transTime,
+      bank,
+      notes,
+    });
+
+    if (!result.success) {
+      console.warn(`[LINE] card-admin CRM auto-create failed: ${result.reason || 'unknown_error'}`);
+      return;
+    }
+
+    console.log(`[LINE] card-admin CRM transaction ${result.isDuplicate ? 'already exists' : 'created'}: ${result.transaction?._id || 'unknown'}`);
+  } catch (error) {
+    console.error('[LINE] card-admin CRM auto-create error:', error.message);
+  }
 }
 
 // Middleware: แปลง raw body เป็น Buffer เมื่อเป็น webhook POST เท่านั้น
@@ -198,7 +259,9 @@ async function fetchLineDisplayName(source, fallbackName) {
   const senderDisplayName = await fetchLineDisplayName(event.source, knownName);
   const senderDisplayNameFallback = senderDisplayName || fallbackDisplayName || null;
   const mappedDisplayNameCrmUserId = getKnownDisplayNameMapping(senderDisplayNameFallback);
-  const crmUserIdStr = (mapping?.crmUserId?._id || mapping?.crmUserId)?.toString() || fallbackCrmUserId || mappedDisplayNameCrmUserId || '';
+  const crmUserIdStr = mappedDisplayNameCrmUserId === CARD_ADMIN_CRM_USER_ID
+    ? CARD_ADMIN_CRM_USER_ID
+    : (mapping?.crmUserId?._id || mapping?.crmUserId)?.toString() || fallbackCrmUserId || mappedDisplayNameCrmUserId || '';
 
   if (!mapping && mappedDisplayNameCrmUserId) {
     console.log(`[LINE] Matched known display name to CRM user: ${senderDisplayNameFallback} -> ${mappedDisplayNameCrmUserId}`);
@@ -291,6 +354,27 @@ async function fetchLineDisplayName(source, fallbackName) {
           confidence: messageDetails.confidence,
           imageUrl: shouldAttachSlipImage ? effectiveImageUrl : null,
           status,
+        });
+      }
+
+      if (shouldAttachSlipImage) {
+        await autoCreateCardAdminTransactionIfReady({
+          crmUserId: crmUserIdStr,
+          lineUserId,
+          displayName: senderDisplayName,
+          textAmount: extractedTextAmount,
+          slipAmount,
+          amount: effectiveAmount,
+          serviceType: messageDetails.serviceType,
+          customerName: messageDetails.customerName,
+          cid: messageDetails.cid,
+          withholding: messageDetails.withholding,
+          slipImage: effectiveImageUrl,
+          cloudinaryId: effectiveCloudinaryId,
+          transDate: effectiveDate,
+          transTime: effectiveTime,
+          bank: effectiveBank,
+          notes: messageText,
         });
       }
 
@@ -405,6 +489,27 @@ async function fetchLineDisplayName(source, fallbackName) {
         confidence: effectiveConfidence,
         imageUrl: imageUrl,
         status,
+      });
+    }
+
+    if (pendingText && canPairTextAndSlip) {
+      await autoCreateCardAdminTransactionIfReady({
+        crmUserId: crmUserIdStr,
+        lineUserId,
+        displayName: senderDisplayName,
+        textAmount,
+        slipAmount,
+        amount: effectiveAmount,
+        serviceType: effectiveServiceType,
+        customerName: effectiveCustomerName,
+        cid: effectiveCid,
+        withholding: effectiveWithholding,
+        slipImage: imageUrl,
+        cloudinaryId,
+        transDate: slipDetails.transDate,
+        transTime: slipDetails.transTime,
+        bank: slipDetails.bank,
+        notes: effectiveMessageText,
       });
     }
 
