@@ -34,6 +34,7 @@ function normalizeBank(bankStr) {
  * @param {string} [params.customerName]
  * @param {string} [params.cid]
  * @param {boolean} [params.withholding]
+ * @param {Array<{code: string, amount: number, statusNote: string, isAutoVat: boolean}>} [params.breakdowns]
  * @param {string} [params.slipImage]
  * @param {string} [params.cloudinaryId]
  * @param {string|Date} [params.transDate]
@@ -52,6 +53,7 @@ async function autoCreateTransaction(params) {
     customerName,
     cid,
     withholding,
+    breakdowns: requestedBreakdowns,
     slipImage,
     cloudinaryId,
     transDate,
@@ -174,7 +176,7 @@ async function autoCreateTransaction(params) {
 
   // Step 4: Prepare Transaction Data
   const normalizedBank = normalizeBank(bank);
-  const breakdowns = [
+  const breakdowns = requestedBreakdowns || [
     {
       code: '11', // ค่าคลิก
       amount: numAmount,
@@ -182,6 +184,11 @@ async function autoCreateTransaction(params) {
       isAutoVat: false,
     },
   ];
+  const breakdownTotal = breakdowns.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  if (Math.abs(breakdownTotal - numAmount) > 0.01) {
+    console.warn(`[transactionAutoCreator] Breakdown total ${breakdownTotal} does not match transaction amount ${numAmount}`);
+    return { success: false, reason: 'breakdown_amount_mismatch', service };
+  }
 
   const parsedTxDate = transDate ? new Date(transDate) : new Date();
   const txNotes = notes || `สร้างอัตโนมัติจาก LINE (${displayName || 'LINE User'})`;

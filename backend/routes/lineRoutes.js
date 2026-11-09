@@ -60,6 +60,58 @@ function amountMatches(a, b, tolerance = 1) {
   return Math.abs(aNum - bNum) <= tolerance;
 }
 
+function getCardAdminPaymentMatch({ crmUserId, messageText, textAmount, slipAmount }) {
+  const hasTextAmount = textAmount !== null && textAmount !== undefined;
+  const hasSlipAmount = slipAmount !== null && slipAmount !== undefined;
+  const googleServiceFee = /(?:ค่าบริการ|service fee)/i.test(messageText)
+    && /google/i.test(messageText)
+    && !/ค่าคลิก/i.test(messageText);
+  const withholdingThreePercent = /(?:หัก\s*ณ\s*ที่จ่าย|หักภาษี|withholding|wht)[^\d]{0,20}3\s*%|3\s*%[^\n]{0,20}(?:หัก|withholding|wht)/i.test(messageText);
+  const isGoogleServiceWithholding = crmUserId === CARD_ADMIN_CRM_USER_ID
+    && googleServiceFee
+    && withholdingThreePercent;
+
+  if (isGoogleServiceWithholding && hasSlipAmount) {
+    const grossMatch = String(messageText).match(
+      /ค่าบริการ(?:\s*Google(?:\s*Ads)?)?\s*ก่อนหัก(?:\s*ณ\s*ที่จ่าย)?(?:\s*3\s*%)?\s*[:：]?\s*([\d,]+(?:\.\d{1,2})?)/i
+    );
+    const grossAmount = grossMatch ? Number(grossMatch[1].replace(/,/g, '')) : null;
+
+    if (Number.isFinite(grossAmount) && grossAmount > 0) {
+      const withholdingAmount = Math.round(grossAmount * 0.03 * 100) / 100;
+      const expectedNetAmount = Math.round((grossAmount - withholdingAmount) * 100) / 100;
+      if (amountMatches(expectedNetAmount, slipAmount, 0.02)) {
+        return {
+          isAmountMatched: true,
+          amount: slipAmount,
+          serviceFeeGrossAmount: grossAmount,
+          withholdingAmount,
+          isGoogleServiceWithholding: true,
+        };
+      }
+    }
+
+    return {
+      isAmountMatched: false,
+      amount: null,
+      serviceFeeGrossAmount: null,
+      withholdingAmount: null,
+      isGoogleServiceWithholding: true,
+    };
+  }
+
+  const isAmountMatched = !hasSlipAmount || !hasTextAmount || amountMatches(textAmount, slipAmount, 1);
+  return {
+    isAmountMatched,
+    amount: !hasTextAmount && hasSlipAmount
+      ? slipAmount
+      : (hasTextAmount && !hasSlipAmount ? textAmount : (isAmountMatched ? slipAmount : null)),
+    serviceFeeGrossAmount: null,
+    withholdingAmount: null,
+    isGoogleServiceWithholding,
+  };
+}
+
 async function autoCreateCardAdminTransactionIfReady({
   crmUserId,
   lineUserId,
@@ -77,17 +129,31 @@ async function autoCreateCardAdminTransactionIfReady({
   transTime,
   bank,
   notes,
+  serviceFeeGrossAmount,
+  withholdingAmount,
+  isGoogleServiceWithholding,
 }) {
   if (crmUserId !== CARD_ADMIN_CRM_USER_ID) return;
 
-  if (!textAmount || !slipAmount || !amountMatches(textAmount, slipAmount, 1)) {
+  if (!textAmount || !slipAmount || (!serviceFeeGrossAmount && !amountMatches(textAmount, slipAmount, 1))) {
     console.warn('[LINE] card-admin CRM auto-create skipped: text amount and slip amount are missing or do not match.');
+    return;
+  }
+  if (isGoogleServiceWithholding && (!serviceFeeGrossAmount || withholdingAmount === null || withholdingAmount === undefined)) {
+    console.warn('[LINE] card-admin CRM auto-create skipped: Google service fee and 3% withholding breakdown could not be verified.');
     return;
   }
   if (!amount || !customerName || !cid || !slipImage) {
     console.warn('[LINE] card-admin CRM auto-create skipped: amount, customer name, CID, or slip image is missing.');
     return;
   }
+
+  const breakdowns = serviceFeeGrossAmount
+    ? [
+      { code: '14', amount: serviceFeeGrossAmount, statusNote: 'รอบันทึกบัญชี', isAutoVat: false },
+      { code: '10', amount: -withholdingAmount, statusNote: 'รอบันทึกบัญชี', isAutoVat: false },
+    ]
+    : undefined;
 
   try {
     const result = await autoCreateTransaction({
@@ -105,6 +171,7 @@ async function autoCreateCardAdminTransactionIfReady({
       transTime,
       bank,
       notes,
+      breakdowns,
     });
 
     if (!result.success) {
@@ -294,16 +361,15 @@ async function fetchLineDisplayName(source, fallbackName) {
       const extractedTextAmount = messageDetails.amount ?? null;
       const hasTextAmount = extractedTextAmount !== null && extractedTextAmount !== undefined;
       const hasSlipAmount = slipAmount !== null && slipAmount !== undefined;
-      const isAmountMatched = !hasSlipAmount || !hasTextAmount || amountMatches(extractedTextAmount, slipAmount, 1);
-
-      let effectiveAmount = null;
-      if (hasTextAmount && hasSlipAmount) {
-        effectiveAmount = isAmountMatched ? slipAmount : null;
-      } else if (hasTextAmount) {
-        effectiveAmount = extractedTextAmount;
-      } else if (hasSlipAmount) {
-        effectiveAmount = slipAmount;
-      }
+      const paymentMatch = getCardAdminPaymentMatch({
+        crmUserId: crmUserIdStr,
+        messageText,
+        textAmount: extractedTextAmount,
+        slipAmount,
+      });
+      const isAmountMatched = paymentMatch.isAmountMatched;
+      const effectiveAmount = paymentMatch.amount;
+      const effectiveWithholding = messageDetails.withholding || paymentMatch.isGoogleServiceWithholding;
 
       const effectiveBank = pendingImage?.slipDetails?.bank || null;
       const effectiveDate = pendingImage?.slipDetails?.transDate || null;
@@ -331,7 +397,7 @@ async function fetchLineDisplayName(source, fallbackName) {
           serviceType: messageDetails.serviceType || '',
           customerName: messageDetails.customerName || '',
           cid: messageDetails.cid || '',
-          withholding: messageDetails.withholding,
+          withholding: effectiveWithholding,
           confidence: messageDetails.confidence,
           imageUrl: effectiveImageUrl,
           status,
@@ -339,7 +405,7 @@ async function fetchLineDisplayName(source, fallbackName) {
       }
 
       if (!sheetLogged) {
-        await logToGoogleSheets({
+        sheetLogged = await logToGoogleSheets({
           sentAt: event.timestamp,
           displayName: senderDisplayName,
           lineUserId: lineUserId,
@@ -350,31 +416,34 @@ async function fetchLineDisplayName(source, fallbackName) {
           serviceType: messageDetails.serviceType || '',
           customerName: messageDetails.customerName || '',
           cid: messageDetails.cid || '',
-          withholding: messageDetails.withholding,
+          withholding: effectiveWithholding,
           confidence: messageDetails.confidence,
           imageUrl: shouldAttachSlipImage ? effectiveImageUrl : null,
           status,
         });
       }
 
-      if (shouldAttachSlipImage) {
+      if (shouldAttachSlipImage && sheetLogged) {
         await autoCreateCardAdminTransactionIfReady({
           crmUserId: crmUserIdStr,
           lineUserId,
           displayName: senderDisplayName,
-          textAmount: extractedTextAmount,
+          textAmount: paymentMatch.serviceFeeGrossAmount || extractedTextAmount,
           slipAmount,
           amount: effectiveAmount,
           serviceType: messageDetails.serviceType,
           customerName: messageDetails.customerName,
           cid: messageDetails.cid,
-          withholding: messageDetails.withholding,
+          withholding: effectiveWithholding,
           slipImage: effectiveImageUrl,
           cloudinaryId: effectiveCloudinaryId,
           transDate: effectiveDate,
           transTime: effectiveTime,
           bank: effectiveBank,
           notes: messageText,
+          serviceFeeGrossAmount: paymentMatch.serviceFeeGrossAmount,
+          withholdingAmount: paymentMatch.withholdingAmount,
+          isGoogleServiceWithholding: paymentMatch.isGoogleServiceWithholding,
         });
       }
 
@@ -437,13 +506,19 @@ async function fetchLineDisplayName(source, fallbackName) {
 
     const textAmount = pendingText?.messageDetails?.amount ?? null;
     const slipAmount = slipDetails.amount ?? null;
-    const canPairTextAndSlip = !textAmount || !slipAmount || amountMatches(textAmount, slipAmount, 1);
-    const effectiveAmount = textAmount || slipAmount || null;
+    const effectiveMessageText = pendingText?.messageText || '[Image Receipt/Slip]';
+    const paymentMatch = getCardAdminPaymentMatch({
+      crmUserId: crmUserIdStr,
+      messageText: effectiveMessageText,
+      textAmount,
+      slipAmount,
+    });
+    const canPairTextAndSlip = paymentMatch.isAmountMatched;
+    const effectiveAmount = paymentMatch.amount;
     const effectiveServiceType = pendingText?.messageDetails?.serviceType || '';
     const effectiveCustomerName = pendingText?.messageDetails?.customerName || '';
     const effectiveCid = pendingText?.messageDetails?.cid || '';
-    const effectiveWithholding = pendingText?.messageDetails?.withholding || false;
-    const effectiveMessageText = pendingText?.messageText || '[Image Receipt/Slip]';
+    const effectiveWithholding = pendingText?.messageDetails?.withholding || paymentMatch.isGoogleServiceWithholding;
     const effectiveConfidence = pendingText?.messageDetails?.confidence || (slipDetails.success ? 80 : 0);
     const effectiveSentAt = pendingText?.sentAt || event.timestamp;
 
@@ -474,7 +549,7 @@ async function fetchLineDisplayName(source, fallbackName) {
     }
 
     if (!sheetUpdated) {
-      await logToGoogleSheets({
+      sheetUpdated = await logToGoogleSheets({
         sentAt: effectiveSentAt,
         displayName: senderDisplayName,
         lineUserId: lineUserId,
@@ -492,12 +567,12 @@ async function fetchLineDisplayName(source, fallbackName) {
       });
     }
 
-    if (pendingText && canPairTextAndSlip) {
+    if (pendingText && canPairTextAndSlip && sheetUpdated) {
       await autoCreateCardAdminTransactionIfReady({
         crmUserId: crmUserIdStr,
         lineUserId,
         displayName: senderDisplayName,
-        textAmount,
+        textAmount: paymentMatch.serviceFeeGrossAmount || textAmount,
         slipAmount,
         amount: effectiveAmount,
         serviceType: effectiveServiceType,
@@ -510,6 +585,9 @@ async function fetchLineDisplayName(source, fallbackName) {
         transTime: slipDetails.transTime,
         bank: slipDetails.bank,
         notes: effectiveMessageText,
+        serviceFeeGrossAmount: paymentMatch.serviceFeeGrossAmount,
+        withholdingAmount: paymentMatch.withholdingAmount,
+        isGoogleServiceWithholding: paymentMatch.isGoogleServiceWithholding,
       });
     }
 

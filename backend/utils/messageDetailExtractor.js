@@ -72,7 +72,7 @@ Return only valid JSON in this exact format, with no markdown fences and no surr
   "serviceType": "google" | "facebook" | "domain" | "hosting" | "other" | null,
   "customerName": "customer name" or null,
   "cid": "CID/Service ID" or null,
-  "withholding": boolean (true if message mentions หักนำ, WHT, tax deduction),
+  "withholding": boolean (true if message mentions หัก ณ ที่จ่าย, หักนำ, WHT, or tax deduction),
   "confidence": number (0-100),
   "extractionNotes": "explanation of extraction"
 }
@@ -81,14 +81,15 @@ Service Type Indicators:
 - "google" or "gg" → Google Ads (ค่าคลิก google, google ads)
 - "facebook" or "fb" → Facebook Ads (ค่าคลิก facebook, facebook ads)
 - "domain" or "hosting" or "web" → Domain/Hosting services
-- "wht" or "หักนำ" or "tax deduction" → Withholding tax (also set withholding: true)
+- "wht", "หัก ณ ที่จ่าย", "หักนำ", or "tax deduction" → Withholding tax (also set withholding: true)
 
 Extract from these patterns:
 - Amount: numbers + baht (บาท, ฿, THB)
+- If a message explicitly labels "ค่าบริการก่อนหัก", extract that amount as the service-fee amount, not the withholding or net-transfer amount.
 - Service Type: keywords like google, facebook, domain, hosting
 - Customer Name: company names or person names (avoid generic words)
 - CID: patterns like "CID 1234" or "cid 1234" or explicit service ID numbers
-- Withholding: keywords หักนำ, WHT, tax deduction
+- Withholding: keywords หัก ณ ที่จ่าย, หักนำ, WHT, tax deduction
 
 Be smart about context:
 - If message says "ค่าคลิก google 3000" → amount: 3000, serviceType: "google"
@@ -118,7 +119,8 @@ Be smart about context:
       serviceType: validateServiceType(rawExtraction.serviceType),
       customerName: normalizeCustomerName(rawExtraction.customerName),
       cid: normalizeCid(rawExtraction.cid),
-      withholding: Boolean(rawExtraction.withholding),
+      withholding: Boolean(rawExtraction.withholding)
+        || /หัก\s*ณ\s*ที่จ่าย|หักนำ|withholding|\bwht\b/i.test(message),
       confidence: Math.min(Math.max(rawExtraction.confidence || 0, 0), 100),
       rawExtraction: rawExtraction
     };
