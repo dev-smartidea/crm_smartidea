@@ -91,6 +91,16 @@ function getCardAdminPaymentMatch({ crmUserId, messageText, textAmount, slipAmou
       }
     }
 
+    if (hasTextAmount && amountMatches(textAmount, slipAmount, 1)) {
+      return {
+        isAmountMatched: true,
+        amount: slipAmount,
+        serviceFeeGrossAmount: null,
+        withholdingAmount: null,
+        isGoogleServiceWithholding: true,
+      };
+    }
+
     return {
       isAmountMatched: false,
       amount: null,
