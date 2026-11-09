@@ -23,6 +23,29 @@ function normalizeBank(bankStr) {
   return 'KBANK';
 }
 
+function normalizeTransactionTime(value) {
+  if (value === null || value === undefined || value === '') return undefined;
+
+  const rawTime = String(value).trim();
+  const colonTime = rawTime.match(/^(\d{1,2}):(\d{2})$/);
+  const compactTime = rawTime.match(/^\d{3,4}$/);
+  if (!colonTime && !compactTime) return undefined;
+
+  let hours;
+  let minutes;
+  if (colonTime) {
+    hours = Number(colonTime[1]);
+    minutes = Number(colonTime[2]);
+  } else {
+    const digits = rawTime.padStart(4, '0');
+    hours = Number(digits.slice(0, 2));
+    minutes = Number(digits.slice(2));
+  }
+  if (hours > 23 || minutes > 59) return undefined;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 /**
  * Auto-create Transaction in CRM from LINE topup details & slip
  * @param {Object} params
@@ -69,6 +92,10 @@ async function autoCreateTransaction(params) {
   if (!numAmount || Number.isNaN(numAmount) || numAmount <= 0) {
     console.warn(`[transactionAutoCreator] Invalid amount: ${amount}`);
     return { success: false, reason: 'invalid_amount' };
+  }
+  const transactionTime = normalizeTransactionTime(transTime);
+  if (transTime && !transactionTime) {
+    console.warn(`[transactionAutoCreator] Invalid transfer time from slip: ${transTime}`);
   }
 
   // Step 1: Find matching Service
@@ -154,12 +181,19 @@ async function autoCreateTransaction(params) {
 
     if (existingTx) {
       console.log(`[transactionAutoCreator] Duplicate transaction detected within 10m: ${existingTx._id}`);
-      // If the existing transaction didn't have a slipImage, but now we have one, update it!
+      let updated = false;
       if (!existingTx.slipImage && slipImage) {
         existingTx.slipImage = slipImage;
         existingTx.cloudinaryId = cloudinaryId || null;
+        updated = true;
+      }
+      if (!existingTx.transactionTime && transactionTime) {
+        existingTx.transactionTime = transactionTime;
+        updated = true;
+      }
+      if (updated) {
         await existingTx.save();
-        console.log(`[transactionAutoCreator] ✅ Updated existing transaction with slipImage!`);
+        console.log('[transactionAutoCreator] ✅ Updated existing transaction with slip and/or transfer time.');
       }
       return { success: true, transaction: existingTx, service, isDuplicate: true };
     }
@@ -200,7 +234,7 @@ async function autoCreateTransaction(params) {
       userId: ownerUserId,
       amount: numAmount,
       transactionDate: parsedTxDate,
-      transactionTime: transTime || undefined,
+      transactionTime,
       bank: normalizedBank,
       slipImage: slipImage || undefined,
       cloudinaryId: cloudinaryId || undefined,
