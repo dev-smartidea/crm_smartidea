@@ -190,6 +190,10 @@ async function autoCreateCardAdminTransactionIfReady({
     }
 
     console.log(`[LINE] card-admin CRM transaction ${result.isDuplicate ? 'already exists' : 'created'}: ${result.transaction?._id || 'unknown'}`);
+    const sheetStatusUpdated = await updateLatestRowForUser(lineUserId, { crmCreated: true });
+    if (!sheetStatusUpdated) {
+      console.warn('[LINE] CRM transaction exists, but its Google Sheet row could not be marked created_in_crm.');
+    }
   } catch (error) {
     console.error('[LINE] card-admin CRM auto-create error:', error.message);
   }

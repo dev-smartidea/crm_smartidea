@@ -28,14 +28,15 @@ function getMonthlySheetTabName(date = new Date()) {
   return `LINE_${year}-${month}`;
 }
 
-function getSheetStatus({ amount, customerName, cid, imageUrl }) {
+function getSheetStatus({ amount, customerName, cid, imageUrl, crmCreated = false }) {
   const parsedAmount = Number(String(amount ?? '').replace(/,/g, '').trim());
   const hasAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const hasCustomerName = Boolean(String(customerName || '').trim());
   const hasCid = Boolean(String(cid || '').trim());
   const hasImage = Boolean(String(imageUrl || '').trim());
 
-  return hasAmount && hasCustomerName && hasCid && hasImage ? 'ready' : 'incomplete';
+  if (!hasAmount || !hasCustomerName || !hasCid || !hasImage) return 'incomplete';
+  return crmCreated ? 'created_in_crm' : 'ready';
 }
 
 function formatSendTime(timestamp) {
@@ -548,6 +549,7 @@ async function updateLatestRowForUser(lineUserId, updateData) {
       customerName: updatedRow[9],
       cid: updatedRow[10],
       imageUrl: updatedRow[13],
+      crmCreated: updateData.crmCreated === true || currentRow[14] === 'created_in_crm',
     });
 
     await sheets.spreadsheets.values.update({
