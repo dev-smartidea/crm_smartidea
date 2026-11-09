@@ -225,7 +225,10 @@ async function autoCreateTransaction(params) {
   }
 
   const parsedTxDate = transDate ? new Date(transDate) : new Date();
-  const txNotes = notes || `สร้างอัตโนมัติจาก LINE (${displayName || 'LINE User'})`;
+  const automationNote = `สร้างอัตโนมัติจาก LINE (${displayName || 'LINE User'})`;
+  const txNotes = notes
+    ? `${automationNote} | ${String(notes).trim()}`
+    : automationNote;
 
   try {
     const newTx = new Transaction({
