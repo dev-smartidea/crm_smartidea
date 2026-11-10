@@ -12,6 +12,7 @@ const transactionSchema = new mongoose.Schema({
   transactionDate: { type: Date, required: true }, // วันที่โอน
   transactionTime: { type: String }, // เวลาที่โอน (เช่น "10:30")
   transactionTime2: { type: String }, // เวลาที่โอน (สลิปที่ 2)
+  sourceLineMessageId: { type: String }, // LINE message ID used for webhook idempotency
   cardNumber: { type: String }, // บัตรเลขที่
   cardTime: { type: String }, // เวลาที่ตัดบัตร
   notes: { type: String }, // หมายเหตุ
@@ -62,6 +63,7 @@ transactionSchema.index({ submissionStatus: 1, transactionDate: -1 });
 transactionSchema.index({ cardCharged: 1, transactionDate: -1 }); // สำหรับ filter card charged transactions
 transactionSchema.index({ fbToppedUp: 1, transactionDate: -1 }); // สำหรับ Facebook topup flow
 transactionSchema.index({ serviceId: 1, submissionStatus: 1 }); // compound index สำหรับ filter by service + status
+transactionSchema.index({ sourceLineMessageId: 1 }, { unique: true, sparse: true });
 
 // Index on breakdowns.code for fast lookup/filtering by code
 transactionSchema.index({ 'breakdowns.code': 1 });

@@ -50,6 +50,7 @@ function normalizeTransactionTime(value) {
  * Auto-create Transaction in CRM from LINE topup details & slip
  * @param {Object} params
  * @param {string} params.lineUserId
+ * @param {string} params.sourceLineMessageId - LINE slip message ID for idempotent creation
  * @param {string} [params.crmUserId]
  * @param {string} [params.displayName]
  * @param {number} params.amount
@@ -69,6 +70,7 @@ function normalizeTransactionTime(value) {
 async function autoCreateTransaction(params) {
   const {
     lineUserId,
+    sourceLineMessageId,
     crmUserId,
     displayName,
     amount,
@@ -92,6 +94,10 @@ async function autoCreateTransaction(params) {
   if (!numAmount || Number.isNaN(numAmount) || numAmount <= 0) {
     console.warn(`[transactionAutoCreator] Invalid amount: ${amount}`);
     return { success: false, reason: 'invalid_amount' };
+  }
+  if (!sourceLineMessageId) {
+    console.warn('[transactionAutoCreator] Missing LINE source message ID; refusing non-idempotent auto-creation.');
+    return { success: false, reason: 'missing_source_message_id' };
   }
   const transactionTime = normalizeTransactionTime(transTime);
   if (transTime && !transactionTime) {
@@ -170,17 +176,12 @@ async function autoCreateTransaction(params) {
     return { success: false, reason: 'service_not_found' };
   }
 
-  // Step 2: Check for duplicate transaction within last 10 minutes to prevent webhook replay duplication
+  // Step 2: Use the LINE message ID for idempotency without conflating equal payments.
   try {
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const existingTx = await Transaction.findOne({
-      serviceId: service._id,
-      amount: numAmount,
-      createdAt: { $gte: tenMinutesAgo },
-    });
+    const existingTx = await Transaction.findOne({ sourceLineMessageId });
 
     if (existingTx) {
-      console.log(`[transactionAutoCreator] Duplicate transaction detected within 10m: ${existingTx._id}`);
+      console.log(`[transactionAutoCreator] Duplicate LINE message detected: ${existingTx._id}`);
       let updated = false;
       if (!existingTx.slipImage && slipImage) {
         existingTx.slipImage = slipImage;
@@ -238,6 +239,7 @@ async function autoCreateTransaction(params) {
       amount: numAmount,
       transactionDate: parsedTxDate,
       transactionTime,
+      sourceLineMessageId,
       bank: normalizedBank,
       slipImage: slipImage || undefined,
       cloudinaryId: cloudinaryId || undefined,
@@ -293,6 +295,16 @@ async function autoCreateTransaction(params) {
       isDuplicate: false,
     };
   } catch (createErr) {
+    if (createErr.code === 11000) {
+      try {
+        const existingTx = await Transaction.findOne({ sourceLineMessageId });
+        if (existingTx) {
+          return { success: true, transaction: existingTx, service, isDuplicate: true };
+        }
+      } catch (lookupErr) {
+        console.error('[transactionAutoCreator] Could not load transaction after idempotency conflict:', lookupErr.message);
+      }
+    }
     console.error('[transactionAutoCreator] Error saving transaction:', createErr.message);
     return {
       success: false,

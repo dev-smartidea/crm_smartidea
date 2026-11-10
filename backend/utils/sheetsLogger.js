@@ -332,7 +332,7 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  * @param {string} data.imageUrl - Cloudinary image URL (receipt/slip)
  * @param {string} data.status - Status is calculated as ready or incomplete from required fields
  * @param {number|string} data.sentAt - LINE event timestamp
- * @returns {Promise<boolean>} - success or failure
+ * @returns {Promise<{sheetTab: string, rowNumber: number}|false>} - appended row reference or failure
  */
 async function logToGoogleSheets(data) {
   try {
@@ -423,8 +423,15 @@ async function logToGoogleSheets(data) {
       },
     });
 
+    const updatedRange = result.data.updates?.updatedRange || '';
+    const rowNumber = Number(updatedRange.match(/![A-Z]+(\d+):?/i)?.[1]);
+    if (!rowNumber) {
+      console.warn('[sheetsLogger] Row was appended, but Google Sheets did not return its row number.');
+      return false;
+    }
+
     console.log(`[sheetsLogger] ✅ Logged to Google Sheets ('${actualTabName}'). Updates:`, result.data.updates);
-    return true;
+    return { sheetTab: actualTabName, rowNumber };
   } catch (error) {
     console.error('[sheetsLogger] Error logging to Google Sheets:', error.message);
     // Invalidate cache in case tab was renamed/deleted
@@ -434,10 +441,10 @@ async function logToGoogleSheets(data) {
 }
 
 /**
- * Update the most recent matching row in Google Sheets for a lineUserId
+ * Update a specific row, or fall back to the most recent matching row for a lineUserId
  * @param {string} lineUserId
  * @param {Object} updateData
- * @returns {Promise<boolean>}
+ * @returns {Promise<{sheetTab: string, rowNumber: number}|false>}
  */
 async function updateLatestRowForUser(lineUserId, updateData) {
   try {
@@ -470,6 +477,11 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || getMonthlySheetTabName();
 
     if (!keyJson || !sheetId || !lineUserId) return false;
+    if (updateData.sheetRowRef
+      && (!updateData.sheetRowRef.sheetTab || Number(updateData.sheetRowRef.rowNumber) <= 1)) {
+      console.warn('[sheetsLogger] Invalid sheet row reference; refusing to search for a different row.');
+      return false;
+    }
 
     let credentials;
     try {
@@ -484,41 +496,45 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const actualTabName = await ensureWorksheetExists(sheets, sheetId, targetTabName);
+    const actualTabName = updateData.sheetRowRef?.sheetTab
+      || await ensureWorksheetExists(sheets, sheetId, targetTabName);
     const escapedTabName = actualTabName.replace(/'/g, "''");
 
-    // Fetch existing rows
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A:O`,
-    });
+    let targetRowIndex = Number(updateData.sheetRowRef?.rowNumber) || -1;
+    let currentRow;
+    if (targetRowIndex > 1) {
+      const rowResult = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `'${escapedTabName}'!A${targetRowIndex}:O${targetRowIndex}`,
+      });
+      currentRow = rowResult.data.values?.[0];
+      if (!currentRow || currentRow[3] !== lineUserId) return false;
+    } else {
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `'${escapedTabName}'!A:O`,
+      });
 
-    const rows = res.data.values || [];
-    if (rows.length <= 1) return false;
+      const rows = res.data.values || [];
+      if (rows.length <= 1) return false;
 
-    // Search from bottom up for matching lineUserId (Column D, index 3) within last 30 minutes
-    let targetRowIndex = -1;
-    const now = Date.now();
-    const maxAgeMs = 30 * 60 * 1000;
+      // Search from bottom up for matching lineUserId within the last 30 minutes.
+      const now = Date.now();
+      const maxAgeMs = 30 * 60 * 1000;
 
-    for (let i = rows.length - 1; i >= 1; i--) {
-      const row = rows[i];
-      const rowUserId = row[3];
-      const rowTime = new Date(row[0]).getTime();
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const row = rows[i];
+        const rowTime = new Date(row[0]).getTime();
 
-      if (rowUserId === lineUserId) {
-        if (!isNaN(rowTime) && (now - rowTime) < maxAgeMs) {
-          targetRowIndex = i + 1; // 1-indexed for Sheets
+        if (row[3] === lineUserId && !Number.isNaN(rowTime) && (now - rowTime) < maxAgeMs) {
+          targetRowIndex = i + 1;
+          currentRow = row;
           break;
         }
       }
     }
 
-    if (targetRowIndex === -1) {
-      return false;
-    }
-
-    const currentRow = rows[targetRowIndex - 1];
+    if (targetRowIndex <= 1 || !currentRow) return false;
 
     let formattedImage = currentRow[13] || '';
     if (updateData.imageUrl) {
@@ -562,7 +578,7 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     });
 
     console.log(`[sheetsLogger] ✅ Successfully updated row ${targetRowIndex} for lineUserId: ${lineUserId}`);
-    return true;
+    return { sheetTab: actualTabName, rowNumber: targetRowIndex };
   } catch (err) {
     console.error('[sheetsLogger] Error updating row for user:', err.message);
     return false;

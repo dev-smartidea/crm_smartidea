@@ -8,6 +8,7 @@ const { downloadLineImage } = require('../utils/lineImageDownloader');
 const { uploadToCloudinary } = require('../utils/imageUploader');
 const { extractSlipDetails } = require('../utils/slipExtractor');
 const { autoCreateTransaction } = require('../utils/transactionAutoCreator');
+const { parseLinePaymentBreakdown } = require('../utils/linePaymentBreakdown');
 
 const router = express.Router();
 
@@ -30,11 +31,33 @@ function getKnownDisplayNameMapping(displayName) {
 function cleanExpiredPendingEvents() {
   const maxAge = 15 * 60 * 1000;
   const now = Date.now();
-  for (const [key, value] of pendingTopupEvents.entries()) {
-    if (now - (value.timestamp || 0) > maxAge) {
-      pendingTopupEvents.delete(key);
-    }
+  for (const [key, pendingValue] of pendingTopupEvents.entries()) {
+    const events = Array.isArray(pendingValue) ? pendingValue : [pendingValue];
+    const activeEvents = events.filter((event) => now - (event.timestamp || 0) <= maxAge);
+    if (activeEvents.length) pendingTopupEvents.set(key, activeEvents);
+    else pendingTopupEvents.delete(key);
   }
+}
+
+function getPendingEvents(key) {
+  const events = pendingTopupEvents.get(key);
+  if (!events) return [];
+  if (Array.isArray(events)) return events;
+  const migratedEvents = [events];
+  pendingTopupEvents.set(key, migratedEvents);
+  return migratedEvents;
+}
+
+function enqueuePendingEvent(key, event) {
+  const events = getPendingEvents(key);
+  events.push(event);
+}
+
+function takeMatchingPendingEvent(key, matcher) {
+  const events = getPendingEvents(key);
+  const index = events.findIndex(matcher);
+  if (index < 0) return null;
+  return events.splice(index, 1)[0];
 }
 
 function safeCompare(a, b) {
@@ -60,66 +83,47 @@ function amountMatches(a, b, tolerance = 1) {
   return Math.abs(aNum - bNum) <= tolerance;
 }
 
-function getCardAdminPaymentMatch({ crmUserId, messageText, textAmount, slipAmount }) {
+function getCardAdminPaymentMatch({ crmUserId, messageText, textAmount, slipAmount, serviceType }) {
   const hasTextAmount = textAmount !== null && textAmount !== undefined;
   const hasSlipAmount = slipAmount !== null && slipAmount !== undefined;
-  const googleServiceFee = /(?:ค่าบริการ|service fee)/i.test(messageText)
-    && /google/i.test(messageText)
-    && !/ค่าคลิก/i.test(messageText);
-  const withholdingThreePercent = /(?:หัก\s*ณ\s*ที่จ่าย|หักภาษี|withholding|wht)[^\d]{0,20}3\s*%|3\s*%[^\n]{0,20}(?:หัก|withholding|wht)/i.test(messageText);
-  const isGoogleServiceWithholding = crmUserId === CARD_ADMIN_CRM_USER_ID
-    && googleServiceFee
-    && withholdingThreePercent;
+  const parsedBreakdown = crmUserId === CARD_ADMIN_CRM_USER_ID
+    ? parseLinePaymentBreakdown({ messageText, serviceType, slipAmount })
+    : { declared: false, valid: false, isAmountMatched: false };
 
-  if (isGoogleServiceWithholding && hasSlipAmount) {
-    const grossMatch = String(messageText).match(
-      /ค่าบริการ(?:\s*Google(?:\s*Ads)?)?\s*ก่อนหัก(?:\s*ณ\s*ที่จ่าย)?(?:\s*3\s*%)?\s*[:：]?\s*([\d,]+(?:\.\d{1,2})?)/i
-    );
-    const grossAmount = grossMatch ? Number(grossMatch[1].replace(/,/g, '')) : null;
-
-    if (Number.isFinite(grossAmount) && grossAmount > 0) {
-      const withholdingAmount = Math.round(grossAmount * 0.03 * 100) / 100;
-      const expectedNetAmount = Math.round((grossAmount - withholdingAmount) * 100) / 100;
-      if (amountMatches(expectedNetAmount, slipAmount, 0.02)) {
-        return {
-          isAmountMatched: true,
-          amount: slipAmount,
-          serviceFeeGrossAmount: grossAmount,
-          withholdingAmount,
-          isGoogleServiceWithholding: true,
-        };
-      }
-    }
-
-    if (hasTextAmount && amountMatches(textAmount, slipAmount, 1)) {
-      return {
-        isAmountMatched: true,
-        amount: slipAmount,
-        serviceFeeGrossAmount: null,
-        withholdingAmount: null,
-        isGoogleServiceWithholding: true,
-      };
-    }
-
+  if (parsedBreakdown.declared) {
+    const simpleAmountMatchesSlip = hasTextAmount && hasSlipAmount && amountMatches(textAmount, slipAmount, 0.02);
     return {
-      isAmountMatched: false,
-      amount: null,
-      serviceFeeGrossAmount: null,
-      withholdingAmount: null,
-      isGoogleServiceWithholding: true,
+      ...parsedBreakdown,
+      isAmountMatched: parsedBreakdown.valid || simpleAmountMatchesSlip,
+      amount: parsedBreakdown.valid
+        ? parsedBreakdown.amount
+        : (simpleAmountMatchesSlip ? slipAmount : null),
     };
   }
 
-  const isAmountMatched = !hasSlipAmount || !hasTextAmount || amountMatches(textAmount, slipAmount, 1);
+  const isAmountMatched = !hasSlipAmount || !hasTextAmount || amountMatches(textAmount, slipAmount, 0.02);
   return {
     isAmountMatched,
     amount: !hasTextAmount && hasSlipAmount
       ? slipAmount
       : (hasTextAmount && !hasSlipAmount ? textAmount : (isAmountMatched ? slipAmount : null)),
-    serviceFeeGrossAmount: null,
-    withholdingAmount: null,
-    isGoogleServiceWithholding,
+    declared: false,
+    valid: false,
   };
+}
+
+function canPairTextAndSlip({ crmUserId, messageText, textAmount, slipAmount, serviceType }) {
+  if (textAmount === null || textAmount === undefined || slipAmount === null || slipAmount === undefined) {
+    return false;
+  }
+  const paymentMatch = getCardAdminPaymentMatch({
+    crmUserId,
+    messageText,
+    textAmount,
+    slipAmount,
+    serviceType,
+  });
+  return paymentMatch.valid || amountMatches(textAmount, slipAmount, 0.02);
 }
 
 async function autoCreateCardAdminTransactionIfReady({
@@ -139,18 +143,21 @@ async function autoCreateCardAdminTransactionIfReady({
   transTime,
   bank,
   notes,
-  serviceFeeGrossAmount,
-  withholdingAmount,
-  isGoogleServiceWithholding,
+  paymentMatch,
+  sourceLineMessageId,
+  sheetRowRef,
 }) {
   if (crmUserId !== CARD_ADMIN_CRM_USER_ID) return;
 
-  if (!textAmount || !slipAmount || (!serviceFeeGrossAmount && !amountMatches(textAmount, slipAmount, 1))) {
+  const isValidPaymentPair = paymentMatch?.declared
+    ? paymentMatch.valid && amountMatches(amount, slipAmount, 0.02)
+    : amountMatches(textAmount, slipAmount, 0.02);
+  if (!textAmount || !slipAmount || !isValidPaymentPair) {
     console.warn('[LINE] card-admin CRM auto-create skipped: text amount and slip amount are missing or do not match.');
     return;
   }
-  if (isGoogleServiceWithholding && (!serviceFeeGrossAmount || withholdingAmount === null || withholdingAmount === undefined)) {
-    console.warn('[LINE] card-admin CRM auto-create skipped: Google service fee and 3% withholding breakdown could not be verified.');
+  if (paymentMatch?.declared && (!paymentMatch.valid || !Array.isArray(paymentMatch.breakdowns))) {
+    console.warn(`[LINE] card-admin CRM auto-create skipped: withholding breakdown is invalid (${paymentMatch.reason || 'unknown reason'}).`);
     return;
   }
   if (!amount || !customerName || !cid || !slipImage) {
@@ -158,16 +165,12 @@ async function autoCreateCardAdminTransactionIfReady({
     return;
   }
 
-  const breakdowns = serviceFeeGrossAmount
-    ? [
-      { code: '14', amount: serviceFeeGrossAmount, statusNote: 'รอบันทึกบัญชี', isAutoVat: false },
-      { code: '10', amount: -withholdingAmount, statusNote: 'รอบันทึกบัญชี', isAutoVat: false },
-    ]
-    : undefined;
+  const breakdowns = paymentMatch?.breakdowns;
 
   try {
     const result = await autoCreateTransaction({
       lineUserId,
+      sourceLineMessageId,
       crmUserId,
       displayName,
       amount,
@@ -190,7 +193,10 @@ async function autoCreateCardAdminTransactionIfReady({
     }
 
     console.log(`[LINE] card-admin CRM transaction ${result.isDuplicate ? 'already exists' : 'created'}: ${result.transaction?._id || 'unknown'}`);
-    const sheetStatusUpdated = await updateLatestRowForUser(lineUserId, { crmCreated: true });
+    const sheetStatusUpdated = await updateLatestRowForUser(lineUserId, {
+      crmCreated: true,
+      sheetRowRef,
+    });
     if (!sheetStatusUpdated) {
       console.warn('[LINE] CRM transaction exists, but its Google Sheet row could not be marked created_in_crm.');
     }
@@ -213,7 +219,8 @@ async function handleWebhook(req, res) {
   }
 
   if (!secret) {
-    console.warn('[LINE] LINE_CHANNEL_SECRET is missing. Accepting webhook without signature verification.');
+    console.error('[LINE] LINE_CHANNEL_SECRET is missing. Webhook request rejected.');
+    return res.status(503).json({ ok: false, reason: 'signature_verification_unavailable' });
   } else {
     const valid = isValidLineSignature(rawBody, signature, secret);
     if (!valid) {
@@ -365,25 +372,36 @@ async function fetchLineDisplayName(source, fallbackName) {
 
       // Check if this user recently uploaded a slip image
       const pendingImageKey = `${lineUserId}:image`;
-      const pendingImage = pendingTopupEvents.get(pendingImageKey);
+      const pendingImages = getPendingEvents(pendingImageKey);
+      const pendingImage = takeMatchingPendingEvent(pendingImageKey, (candidate) =>
+        canPairTextAndSlip({
+          crmUserId: crmUserIdStr,
+          messageText,
+          textAmount: messageDetails.amount,
+          slipAmount: candidate.slipDetails?.amount,
+          serviceType: messageDetails.serviceType,
+        }));
+      let hadUnmatchedImage = false;
       if (pendingImage) {
         console.log(`[LINE] 🔗 Found matching pending slip image for ${lineUserId}! Pairing text with slip.`);
-        pendingTopupEvents.delete(pendingImageKey);
+      } else if (pendingImages.length > 0) {
+        pendingImages.shift();
+        hadUnmatchedImage = true;
+        console.warn(`[LINE] Text amount did not match pending slip for ${lineUserId}; keeping the image and text as separate records.`);
       }
 
       const slipAmount = pendingImage?.slipDetails?.amount ?? null;
       const extractedTextAmount = messageDetails.amount ?? null;
-      const hasTextAmount = extractedTextAmount !== null && extractedTextAmount !== undefined;
-      const hasSlipAmount = slipAmount !== null && slipAmount !== undefined;
       const paymentMatch = getCardAdminPaymentMatch({
         crmUserId: crmUserIdStr,
         messageText,
         textAmount: extractedTextAmount,
         slipAmount,
+        serviceType: messageDetails.serviceType,
       });
       const isAmountMatched = paymentMatch.isAmountMatched;
       const effectiveAmount = paymentMatch.amount;
-      const effectiveWithholding = messageDetails.withholding || paymentMatch.isGoogleServiceWithholding;
+      const effectiveWithholding = messageDetails.withholding || paymentMatch.declared;
 
       const effectiveBank = pendingImage?.slipDetails?.bank || null;
       const effectiveDate = pendingImage?.slipDetails?.transDate || null;
@@ -392,16 +410,13 @@ async function fetchLineDisplayName(source, fallbackName) {
       const effectiveCloudinaryId = pendingImage?.cloudinaryId || null;
       const shouldAttachSlipImage = Boolean(effectiveImageUrl) && isAmountMatched;
 
-      if (hasTextAmount && hasSlipAmount && !isAmountMatched) {
-        console.warn(`[LINE] Amount mismatch: text=${extractedTextAmount} vs slip=${slipAmount}. Rejecting slip pairing and clearing amount to avoid mismatched image row.`);
-      }
-
       const status = 'ready';
 
       // Update recent row in Google Sheets if pending image row exists, or append new row
-      let sheetLogged = false;
+      let sheetRowRef = false;
       if (shouldAttachSlipImage) {
-        sheetLogged = await updateLatestRowForUser(lineUserId, {
+        sheetRowRef = await updateLatestRowForUser(lineUserId, {
+          sheetRowRef: pendingImage.sheetRowRef,
           sentAt: event.timestamp,
           displayName: senderDisplayName,
           crmUserId: crmUserIdStr,
@@ -418,8 +433,8 @@ async function fetchLineDisplayName(source, fallbackName) {
         });
       }
 
-      if (!sheetLogged) {
-        sheetLogged = await logToGoogleSheets({
+      if (!sheetRowRef) {
+        sheetRowRef = await logToGoogleSheets({
           sentAt: event.timestamp,
           displayName: senderDisplayName,
           lineUserId: lineUserId,
@@ -437,12 +452,12 @@ async function fetchLineDisplayName(source, fallbackName) {
         });
       }
 
-      if (shouldAttachSlipImage && sheetLogged) {
+      if (shouldAttachSlipImage && sheetRowRef) {
         await autoCreateCardAdminTransactionIfReady({
           crmUserId: crmUserIdStr,
           lineUserId,
           displayName: senderDisplayName,
-          textAmount: paymentMatch.serviceFeeGrossAmount || extractedTextAmount,
+          textAmount: paymentMatch.grossAmount || extractedTextAmount,
           slipAmount,
           amount: effectiveAmount,
           serviceType: messageDetails.serviceType,
@@ -455,18 +470,19 @@ async function fetchLineDisplayName(source, fallbackName) {
           transTime: effectiveTime,
           bank: effectiveBank,
           notes: messageText,
-          serviceFeeGrossAmount: paymentMatch.serviceFeeGrossAmount,
-          withholdingAmount: paymentMatch.withholdingAmount,
-          isGoogleServiceWithholding: paymentMatch.isGoogleServiceWithholding,
+          paymentMatch,
+          sourceLineMessageId: pendingImage.messageId,
+          sheetRowRef,
         });
       }
 
-      // If no slip image yet, save text in pending buffer waiting for slip image
-      if (!effectiveImageUrl) {
-        pendingTopupEvents.set(`${lineUserId}:text`, {
+      // Keep each unmatched text row available for a later slip without overwriting earlier events.
+      if (!pendingImage && !hadUnmatchedImage && pendingImages.length === 0 && sheetRowRef) {
+        enqueuePendingEvent(`${lineUserId}:text`, {
           messageText,
           messageDetails,
           sentAt: event.timestamp,
+          sheetRowRef,
           timestamp: Date.now(),
         });
       }
@@ -512,40 +528,49 @@ async function fetchLineDisplayName(source, fallbackName) {
 
     // Step 4: Check if there is a pending text message from this user
     const pendingTextKey = `${lineUserId}:text`;
-    const pendingText = pendingTopupEvents.get(pendingTextKey);
+    const pendingTexts = getPendingEvents(pendingTextKey);
+    const slipAmount = slipDetails.amount ?? null;
+    const pendingText = takeMatchingPendingEvent(pendingTextKey, (candidate) =>
+      canPairTextAndSlip({
+        crmUserId: crmUserIdStr,
+        messageText: candidate.messageText,
+        textAmount: candidate.messageDetails?.amount,
+        slipAmount,
+        serviceType: candidate.messageDetails?.serviceType,
+      }));
+    let hadUnmatchedText = false;
     if (pendingText) {
       console.log(`[LINE] 🔗 Found matching pending text message for ${lineUserId}! Pairing slip with text.`);
-      pendingTopupEvents.delete(pendingTextKey);
+    } else if (pendingTexts.length > 0) {
+      pendingTexts.shift();
+      hadUnmatchedText = true;
+      console.warn(`[LINE] Slip amount did not match pending text for ${lineUserId}; keeping the image and text as separate records.`);
     }
 
     const textAmount = pendingText?.messageDetails?.amount ?? null;
-    const slipAmount = slipDetails.amount ?? null;
     const effectiveMessageText = pendingText?.messageText || '[Image Receipt/Slip]';
     const paymentMatch = getCardAdminPaymentMatch({
       crmUserId: crmUserIdStr,
       messageText: effectiveMessageText,
       textAmount,
       slipAmount,
+      serviceType: pendingText?.messageDetails?.serviceType,
     });
-    const canPairTextAndSlip = paymentMatch.isAmountMatched;
     const effectiveAmount = paymentMatch.amount;
     const effectiveServiceType = pendingText?.messageDetails?.serviceType || '';
     const effectiveCustomerName = pendingText?.messageDetails?.customerName || '';
     const effectiveCid = pendingText?.messageDetails?.cid || '';
-    const effectiveWithholding = pendingText?.messageDetails?.withholding || paymentMatch.isGoogleServiceWithholding;
+    const effectiveWithholding = Boolean(pendingText?.messageDetails?.withholding || paymentMatch.declared);
     const effectiveConfidence = pendingText?.messageDetails?.confidence || (slipDetails.success ? 80 : 0);
     const effectiveSentAt = pendingText?.sentAt || event.timestamp;
-
-    if (textAmount && slipAmount && !canPairTextAndSlip) {
-      console.warn(`[LINE] Image/text amount mismatch for ${lineUserId}: text=${textAmount}, slip=${slipAmount}. Keeping as separate pending record.`);
-    }
 
     const status = 'ready';
 
     // Step 5: Update recent Google Sheets row if pending text row exists, or append new row
-    let sheetUpdated = false;
-    if (pendingText && canPairTextAndSlip) {
-      sheetUpdated = await updateLatestRowForUser(lineUserId, {
+    let sheetRowRef = false;
+    if (pendingText) {
+      sheetRowRef = await updateLatestRowForUser(lineUserId, {
+        sheetRowRef: pendingText.sheetRowRef,
         sentAt: effectiveSentAt,
         displayName: senderDisplayName,
         crmUserId: crmUserIdStr,
@@ -562,14 +587,14 @@ async function fetchLineDisplayName(source, fallbackName) {
       });
     }
 
-    if (!sheetUpdated) {
-      sheetUpdated = await logToGoogleSheets({
+    if (!sheetRowRef) {
+      sheetRowRef = await logToGoogleSheets({
         sentAt: effectiveSentAt,
         displayName: senderDisplayName,
         lineUserId: lineUserId,
         crmUserId: crmUserIdStr,
         messageText: effectiveMessageText,
-        amount: effectiveAmount,
+        amount: pendingText ? effectiveAmount : slipAmount,
         currency: 'THB',
         serviceType: effectiveServiceType,
         customerName: effectiveCustomerName,
@@ -581,12 +606,12 @@ async function fetchLineDisplayName(source, fallbackName) {
       });
     }
 
-    if (pendingText && canPairTextAndSlip && sheetUpdated) {
+    if (pendingText && sheetRowRef) {
       await autoCreateCardAdminTransactionIfReady({
         crmUserId: crmUserIdStr,
         lineUserId,
         displayName: senderDisplayName,
-        textAmount: paymentMatch.serviceFeeGrossAmount || textAmount,
+        textAmount: paymentMatch.grossAmount || textAmount,
         slipAmount,
         amount: effectiveAmount,
         serviceType: effectiveServiceType,
@@ -599,18 +624,20 @@ async function fetchLineDisplayName(source, fallbackName) {
         transTime: slipDetails.transTime,
         bank: slipDetails.bank,
         notes: effectiveMessageText,
-        serviceFeeGrossAmount: paymentMatch.serviceFeeGrossAmount,
-        withholdingAmount: paymentMatch.withholdingAmount,
-        isGoogleServiceWithholding: paymentMatch.isGoogleServiceWithholding,
+        paymentMatch,
+        sourceLineMessageId: messageId,
+        sheetRowRef,
       });
     }
 
-    // If no text was matched yet, or the amounts do not match, keep image pending for later review.
-    if (!pendingText || !canPairTextAndSlip) {
-      pendingTopupEvents.set(`${lineUserId}:image`, {
+    // Keep an unmatched image row available for a future text message.
+    if (!pendingText && !hadUnmatchedText && pendingTexts.length === 0 && sheetRowRef) {
+      enqueuePendingEvent(`${lineUserId}:image`, {
         imageUrl,
         cloudinaryId,
         slipDetails,
+        messageId,
+        sheetRowRef,
         timestamp: Date.now(),
       });
     }
