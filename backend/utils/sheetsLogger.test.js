@@ -2,7 +2,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Customer = require('../models/Customer');
 const Service = require('../models/Service');
-const { formatTransferTime, resolveCustomerContext } = require('./sheetsLogger');
+const {
+  formatTransferTime,
+  getImageCellValue,
+  resolveCustomerContext,
+} = require('./sheetsLogger');
 
 test('formats compact and colon-separated slip transfer times', () => {
   assert.equal(formatTransferTime('1121'), '11:21');
@@ -14,6 +18,12 @@ test('rejects invalid slip transfer times', () => {
   assert.equal(formatTransferTime('2461'), '');
   assert.equal(formatTransferTime('not a time'), '');
   assert.equal(formatTransferTime(null), '');
+});
+
+test('preserves an existing image formula during a row update without a new image', () => {
+  const imageFormula = '=HYPERLINK("https://example.com/slip.jpg", IMAGE("https://example.com/slip.jpg"))';
+  assert.equal(getImageCellValue(null, imageFormula), imageFormula);
+  assert.equal(getImageCellValue('https://example.com/new-slip.jpg', ''), '=HYPERLINK("https://example.com/new-slip.jpg", IMAGE("https://example.com/new-slip.jpg"))');
 });
 
 test('resolves a customer and its only service CID from the extracted customer name', async () => {

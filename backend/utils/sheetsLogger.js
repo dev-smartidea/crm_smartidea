@@ -73,6 +73,13 @@ function formatTransferTime(value) {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+function getImageCellValue(imageUrl, existingValue) {
+  if (!imageUrl) return existingValue || '';
+  return String(imageUrl).startsWith('=')
+    ? imageUrl
+    : `=HYPERLINK("${imageUrl}", IMAGE("${imageUrl}"))`;
+}
+
 function escapeRegex(text) {
   return String(text || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
@@ -450,7 +457,10 @@ async function logToGoogleSheets(data) {
     await ensureLineEventColumn(sheets, sheetId, actualTabName);
     const existingEventRow = await findRowByLineEventId(sheets, sheetId, actualTabName, data.eventKey);
     if (existingEventRow) {
-      return { sheetTab: actualTabName, rowNumber: existingEventRow };
+      return updateLatestRowForUser(data.lineUserId, {
+        ...data,
+        sheetRowRef: { sheetTab: actualTabName, rowNumber: existingEventRow },
+      });
     }
 
     // Format Image URL as Google Sheets formula so thumbnail appears in cell and clicking opens full image
@@ -571,11 +581,8 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     const escapedTabName = actualTabName.replace(/'/g, "''");
     await ensureLineEventColumn(sheets, sheetId, actualTabName);
     const existingEventRow = await findRowByLineEventId(sheets, sheetId, actualTabName, updateData.eventKey);
-    if (existingEventRow) {
-      return { sheetTab: actualTabName, rowNumber: existingEventRow };
-    }
 
-    let targetRowIndex = Number(updateData.sheetRowRef?.rowNumber) || -1;
+    let targetRowIndex = existingEventRow || Number(updateData.sheetRowRef?.rowNumber) || -1;
     let currentRow;
     if (targetRowIndex > 1) {
       const rowResult = await sheets.spreadsheets.values.get({
@@ -613,12 +620,16 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     if (targetRowIndex <= 1 || !currentRow) return false;
 
-    let formattedImage = currentRow[13] || '';
-    if (updateData.imageUrl) {
-      formattedImage = String(updateData.imageUrl).startsWith('=')
-        ? updateData.imageUrl
-        : `=HYPERLINK("${updateData.imageUrl}", IMAGE("${updateData.imageUrl}"))`;
+    let existingImageValue = currentRow[13];
+    if (!updateData.imageUrl) {
+      const imageResult = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `'${escapedTabName}'!N${targetRowIndex}`,
+        valueRenderOption: 'FORMULA',
+      });
+      existingImageValue = imageResult.data.values?.[0]?.[0] || existingImageValue;
     }
+    const formattedImage = getImageCellValue(updateData.imageUrl, existingImageValue);
 
     const currentEventIds = String(currentRow[16] || '').split('|').filter(Boolean);
     if (updateData.eventKey && !currentEventIds.includes(updateData.eventKey)) {
@@ -673,5 +684,6 @@ module.exports = {
   updateLatestRowForUser,
   shouldSkipGoogleSheetEntry,
   formatTransferTime,
+  getImageCellValue,
   resolveCustomerContext,
 };
