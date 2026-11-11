@@ -20,6 +20,8 @@ const SHEET_HEADERS = [
   'Confidence',
   'Image URL',
   'Status',
+  'เวลาที่โอน',
+  'LINE Event IDs',
 ];
 
 function getMonthlySheetTabName(date = new Date()) {
@@ -57,8 +59,54 @@ function formatSendTime(timestamp) {
   }).format(date);
 }
 
+function formatTransferTime(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const rawTime = String(value).trim();
+  const colonTime = rawTime.match(/^(\d{1,2}):(\d{2})$/);
+  const compactTime = rawTime.match(/^\d{3,4}$/);
+  if (!colonTime && !compactTime) return '';
+
+  const digits = compactTime ? rawTime.padStart(4, '0') : null;
+  const hours = Number(colonTime ? colonTime[1] : digits.slice(0, 2));
+  const minutes = Number(colonTime ? colonTime[2] : digits.slice(2));
+  if (hours > 23 || minutes > 59) return '';
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 function escapeRegex(text) {
   return String(text || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+function normalizeCustomerName(name) {
+  return String(name || '')
+    .trim()
+    .replace(/^(บริษัท|บจก\.|หจก\.|บมจ\.)\s*/i, '')
+    .replace(/\s*(จำกัด|มหาชน)$/i, '')
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('th');
+}
+
+function extractCustomerContext(messageText) {
+  const rawText = String(messageText || '');
+  const nameMatch = rawText.match(/(?:ลูกค้า|customer|company|ชื่อบริษัท|ชื่อลูกค้า)\s*[:\-]?\s*([^\r\n|]+)/i);
+  const cidMatch = rawText.match(/(?:CID|customerId|customer id|Service ID|service id)\s*[:\-]?\s*([A-Za-z0-9-]+)/i);
+
+  return {
+    customerName: nameMatch?.[1]?.trim() || null,
+    cid: cidMatch?.[1]?.trim() || null,
+  };
+}
+
+function getCustomerNameQuery(name) {
+  const trimmed = String(name || '').trim().replace(/\s+/g, ' ');
+  const coreName = trimmed
+    .replace(/^(บริษัท|บจก\.|หจก\.|บมจ\.)\s*/i, '')
+    .replace(/\s*(จำกัด|มหาชน)$/i, '')
+    .trim();
+  const variants = [...new Set([trimmed, coreName].filter((value) => value.length >= 2))];
+  return variants.map((value) => ({
+    name: new RegExp(`^${escapeRegex(value)}$`, 'i'),
+  }));
 }
 
 function formatCustomerDisplayName(extractedCustomerName, databaseCustomerName) {
@@ -82,12 +130,13 @@ function formatCustomerDisplayName(extractedCustomerName, databaseCustomerName) 
 }
 
 async function resolveCustomerContext({ customerName, cid, messageText, serviceType }) {
-  let resolvedCustomerName = customerName || null;
-  let resolvedCid = cid || null;
+  const extractedContext = extractCustomerContext(messageText);
+  let resolvedCustomerName = customerName || extractedContext.customerName;
+  let resolvedCid = cid || extractedContext.cid;
 
   try {
-    if (cid) {
-      const rawCid = String(cid).trim();
+    if (resolvedCid) {
+      const rawCid = String(resolvedCid).trim();
       const cleanDigits = rawCid.replace(/\D/g, '');
       const cidQueries = [
         { cid: rawCid },
@@ -110,55 +159,34 @@ async function resolveCustomerContext({ customerName, cid, messageText, serviceT
       }
     }
 
-    if (!resolvedCustomerName && customerName) {
-      const trimmed = String(customerName).trim();
-      const coreName = trimmed
-        .replace(/^(บริษัท|บจก\.|หจก\.|บมจ\.)\s*/i, '')
-        .replace(/\s*(จำกัด|มหาชน)$/i, '')
-        .trim();
+    if (resolvedCustomerName) {
+      const customerCandidates = await Customer.find({
+        $or: getCustomerNameQuery(resolvedCustomerName),
+      });
+      const normalizedName = normalizeCustomerName(resolvedCustomerName);
+      const exactMatches = customerCandidates.filter(
+        (candidate) => normalizeCustomerName(candidate.name) === normalizedName
+      );
+      const customer = exactMatches.length === 1
+        ? exactMatches[0]
+        : (exactMatches.length === 0 && customerCandidates.length === 1 ? customerCandidates[0] : null);
 
-      const customerQueries = [{ name: new RegExp(escapeRegex(trimmed), 'i') }];
-      if (coreName.length >= 2 && coreName !== trimmed) {
-        customerQueries.push({ name: new RegExp(escapeRegex(coreName), 'i') });
-      }
-
-      const customer = await Customer.findOne({ $or: customerQueries });
       if (customer) {
-        resolvedCustomerName = formatCustomerDisplayName(resolvedCustomerName || trimmed, customer.name);
-        const matchedService = await Service.findOne({ customerId: customer._id }).populate('customerId');
-        if (matchedService) {
-          resolvedCid = matchedService.cid || matchedService.customerIdField || resolvedCid;
-        }
-      }
-    }
-
-    if (!resolvedCustomerName && messageText) {
-      const rawText = String(messageText);
-      const textNameMatch = rawText.match(/(?:ลูกค้า|customer|company|ชื่อบริษัท|ชื่อลูกค้า)\s*[:\-]?\s*([A-Za-z0-9ก-๙\s().,-]+)/i);
-      const candidateName = textNameMatch?.[1]?.trim();
-      if (candidateName) {
-        const trimmed = candidateName.trim();
-        const customer = await Customer.findOne({
-          name: new RegExp(escapeRegex(trimmed), 'i')
+        resolvedCustomerName = formatCustomerDisplayName(resolvedCustomerName, customer.name);
+        const services = await Service.find({ customerId: customer._id });
+        const matchingServices = services.filter((item) => {
+          if (!item.cid && !item.customerIdField) return false;
+          if (!serviceType) return true;
+          const normalizedType = /google/i.test(serviceType) ? 'Google Ads'
+            : (/facebook/i.test(serviceType) ? 'Facebook Ads'
+              : (/domain|hosting|web|เว็บ/i.test(serviceType) ? 'เว็บไซต์' : null));
+          return !normalizedType || item.serviceType === normalizedType;
         });
-        if (customer) {
-          resolvedCustomerName = formatCustomerDisplayName(trimmed, customer.name);
-          const matchedService = await Service.findOne({ customerId: customer._id }).populate('customerId');
-          if (matchedService) {
-            resolvedCid = matchedService.cid || matchedService.customerIdField || resolvedCid;
-          }
-        } else {
-          resolvedCustomerName = trimmed;
+        const serviceCids = [...new Set(matchingServices.map((item) => item.cid || item.customerIdField))];
+        if (!resolvedCid && serviceCids.length === 1) {
+          resolvedCid = serviceCids[0];
         }
       }
-    }
-
-    if (!resolvedCustomerName && !resolvedCid && messageText) {
-      const rawText = String(messageText);
-      const nameMatch = rawText.match(/ลูกค้า\s*[:\-]?\s*([A-Za-z0-9ก-๙\s().,-]+)/i);
-      const cidMatch = rawText.match(/(?:CID|cid|customerId|customer id|Service ID|service id)\s*[:\-]?\s*([A-Za-z0-9\-]+)/i);
-      if (nameMatch?.[1]) resolvedCustomerName = nameMatch[1].trim();
-      if (cidMatch?.[1]) resolvedCid = cidMatch[1].trim();
     }
   } catch (error) {
     console.warn('[sheetsLogger] Could not resolve customer context from DB:', error.message);
@@ -205,6 +233,40 @@ function shouldSkipGoogleSheetEntry(data = {}) {
 
 // Cache verified sheet tabs in memory to avoid calling get/batchUpdate on every request
 const verifiedSheets = new Set();
+
+async function ensureLineEventColumn(sheets, spreadsheetId, tabName) {
+  const escapedTabName = tabName.replace(/'/g, "''");
+  for (const [column, expectedHeader] of [['P', 'เวลาที่โอน'], ['Q', 'LINE Event IDs']]) {
+    const range = `'${escapedTabName}'!${column}1`;
+    const result = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+    const header = result.data.values?.[0]?.[0] || '';
+    if (header === expectedHeader) continue;
+    if (header) {
+      throw new Error(`Google Sheets column ${column} is already in use ('${header}'); cannot add ${expectedHeader}`);
+    }
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range,
+      valueInputOption: 'RAW',
+      resource: { values: [[expectedHeader]] },
+    });
+  }
+}
+
+async function findRowByLineEventId(sheets, spreadsheetId, tabName, eventKey) {
+  if (!eventKey) return null;
+  const escapedTabName = tabName.replace(/'/g, "''");
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `'${escapedTabName}'!Q:Q`,
+  });
+  const values = result.data.values || [];
+  for (let index = 1; index < values.length; index += 1) {
+    const eventIds = String(values[index]?.[0] || '').split('|');
+    if (eventIds.includes(eventKey)) return index + 1;
+  }
+  return null;
+}
 
 /**
  * Ensure the target worksheet exists in the spreadsheet.
@@ -255,14 +317,14 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
         });
         await sheets.spreadsheets.values.update({
           spreadsheetId,
-          range: `'${escapedName}'!A1:O1`,
+          range: `'${escapedName}'!A1:Q1`,
           valueInputOption: 'USER_ENTERED',
           resource: { values: [SHEET_HEADERS] },
         });
       } else if (currentHeaders.length === 0) {
         await sheets.spreadsheets.values.update({
           spreadsheetId,
-          range: `'${escapedName}'!A1:O1`,
+          range: `'${escapedName}'!A1:Q1`,
           valueInputOption: 'USER_ENTERED',
           resource: { values: [SHEET_HEADERS] },
         });
@@ -294,7 +356,7 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
       const escapedName = targetTabName.replace(/'/g, "''");
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `'${escapedName}'!A1:O1`,
+        range: `'${escapedName}'!A1:Q1`,
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [SHEET_HEADERS],
@@ -330,6 +392,7 @@ async function ensureWorksheetExists(sheets, spreadsheetId, targetTabName) {
  * @param {boolean} data.withholding - WHT flag
  * @param {number} data.confidence - Confidence level
  * @param {string} data.imageUrl - Cloudinary image URL (receipt/slip)
+ * @param {string} data.transTime - Transfer time extracted from the bank slip
  * @param {string} data.status - Status is calculated as ready or incomplete from required fields
  * @param {number|string} data.sentAt - LINE event timestamp
  * @returns {Promise<{sheetTab: string, rowNumber: number}|false>} - appended row reference or failure
@@ -362,7 +425,7 @@ async function logToGoogleSheets(data) {
 
     if (!keyJson || !sheetId) {
       console.warn('[sheetsLogger] Missing GOOGLE_SHEETS_KEY_JSON or GOOGLE_SHEET_ID');
-      return false;
+      throw new Error('Google Sheets credentials are not configured');
     }
 
     // Parse the JSON key safely
@@ -371,7 +434,7 @@ async function logToGoogleSheets(data) {
       credentials = typeof keyJson === 'object' ? keyJson : JSON.parse(keyJson);
     } catch (parseErr) {
       console.error('[sheetsLogger] Failed to parse GOOGLE_SHEETS_KEY_JSON:', parseErr.message);
-      return false;
+      throw parseErr;
     }
 
     const auth = new google.auth.GoogleAuth({
@@ -384,6 +447,11 @@ async function logToGoogleSheets(data) {
     // Ensure the sheet tab exists (or auto-create / fallback)
     const actualTabName = await ensureWorksheetExists(sheets, sheetId, targetTabName);
     const escapedTabName = actualTabName.replace(/'/g, "''");
+    await ensureLineEventColumn(sheets, sheetId, actualTabName);
+    const existingEventRow = await findRowByLineEventId(sheets, sheetId, actualTabName, data.eventKey);
+    if (existingEventRow) {
+      return { sheetTab: actualTabName, rowNumber: existingEventRow };
+    }
 
     // Format Image URL as Google Sheets formula so thumbnail appears in cell and clicking opens full image
     let formattedImage = '';
@@ -411,12 +479,14 @@ async function logToGoogleSheets(data) {
       enrichedData.confidence !== null && enrichedData.confidence !== undefined ? enrichedData.confidence : '',
       formattedImage,
       enrichedData.status,
+      formatTransferTime(enrichedData.transTime),
+      enrichedData.eventKey || '',
     ];
 
     // Append row to sheet (enclosed in single quotes for spaces)
     const result = await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A:O`,
+      range: `'${escapedTabName}'!A:Q`,
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [row],
@@ -426,8 +496,7 @@ async function logToGoogleSheets(data) {
     const updatedRange = result.data.updates?.updatedRange || '';
     const rowNumber = Number(updatedRange.match(/![A-Z]+(\d+):?/i)?.[1]);
     if (!rowNumber) {
-      console.warn('[sheetsLogger] Row was appended, but Google Sheets did not return its row number.');
-      return false;
+      throw new Error('Google Sheets appended a row but did not return its row number');
     }
 
     console.log(`[sheetsLogger] ✅ Logged to Google Sheets ('${actualTabName}'). Updates:`, result.data.updates);
@@ -436,7 +505,7 @@ async function logToGoogleSheets(data) {
     console.error('[sheetsLogger] Error logging to Google Sheets:', error.message);
     // Invalidate cache in case tab was renamed/deleted
     verifiedSheets.clear();
-    return false;
+    throw error;
   }
 }
 
@@ -476,18 +545,19 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     const sheetId = process.env.GOOGLE_SHEET_ID;
     const targetTabName = process.env.GOOGLE_SHEET_TAB_NAME || getMonthlySheetTabName();
 
-    if (!keyJson || !sheetId || !lineUserId) return false;
+    if (!keyJson || !sheetId || !lineUserId) {
+      throw new Error('Google Sheets credentials or LINE user ID are missing');
+    }
     if (updateData.sheetRowRef
       && (!updateData.sheetRowRef.sheetTab || Number(updateData.sheetRowRef.rowNumber) <= 1)) {
-      console.warn('[sheetsLogger] Invalid sheet row reference; refusing to search for a different row.');
-      return false;
+      throw new Error('Invalid sheet row reference; refusing to update a different row');
     }
 
     let credentials;
     try {
       credentials = typeof keyJson === 'object' ? keyJson : JSON.parse(keyJson);
-    } catch {
-      return false;
+    } catch (error) {
+      throw new Error(`Failed to parse GOOGLE_SHEETS_KEY_JSON: ${error.message}`);
     }
 
     const auth = new google.auth.GoogleAuth({
@@ -499,20 +569,27 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     const actualTabName = updateData.sheetRowRef?.sheetTab
       || await ensureWorksheetExists(sheets, sheetId, targetTabName);
     const escapedTabName = actualTabName.replace(/'/g, "''");
+    await ensureLineEventColumn(sheets, sheetId, actualTabName);
+    const existingEventRow = await findRowByLineEventId(sheets, sheetId, actualTabName, updateData.eventKey);
+    if (existingEventRow) {
+      return { sheetTab: actualTabName, rowNumber: existingEventRow };
+    }
 
     let targetRowIndex = Number(updateData.sheetRowRef?.rowNumber) || -1;
     let currentRow;
     if (targetRowIndex > 1) {
       const rowResult = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: `'${escapedTabName}'!A${targetRowIndex}:O${targetRowIndex}`,
+        range: `'${escapedTabName}'!A${targetRowIndex}:Q${targetRowIndex}`,
       });
       currentRow = rowResult.data.values?.[0];
-      if (!currentRow || currentRow[3] !== lineUserId) return false;
+      if (!currentRow || currentRow[3] !== lineUserId) {
+        throw new Error('Referenced Google Sheets row is missing or belongs to another LINE user');
+      }
     } else {
       const res = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: `'${escapedTabName}'!A:O`,
+        range: `'${escapedTabName}'!A:Q`,
       });
 
       const rows = res.data.values || [];
@@ -543,6 +620,10 @@ async function updateLatestRowForUser(lineUserId, updateData) {
         : `=HYPERLINK("${updateData.imageUrl}", IMAGE("${updateData.imageUrl}"))`;
     }
 
+    const currentEventIds = String(currentRow[16] || '').split('|').filter(Boolean);
+    if (updateData.eventKey && !currentEventIds.includes(updateData.eventKey)) {
+      currentEventIds.push(updateData.eventKey);
+    }
     const updatedRow = [
       currentRow[0], // Keep original timestamp
       formatSendTime(enrichedUpdateData.sentAt) || currentRow[1] || '',
@@ -559,6 +640,8 @@ async function updateLatestRowForUser(lineUserId, updateData) {
       enrichedUpdateData.confidence !== null && enrichedUpdateData.confidence !== undefined ? enrichedUpdateData.confidence : (currentRow[12] || ''),
       formattedImage,
       '',
+      formatTransferTime(enrichedUpdateData.transTime) || currentRow[15] || '',
+      currentEventIds.join('|'),
     ];
     updatedRow[14] = getSheetStatus({
       amount: updatedRow[6],
@@ -570,7 +653,7 @@ async function updateLatestRowForUser(lineUserId, updateData) {
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `'${escapedTabName}'!A${targetRowIndex}:O${targetRowIndex}`,
+      range: `'${escapedTabName}'!A${targetRowIndex}:Q${targetRowIndex}`,
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [updatedRow],
@@ -581,11 +664,14 @@ async function updateLatestRowForUser(lineUserId, updateData) {
     return { sheetTab: actualTabName, rowNumber: targetRowIndex };
   } catch (err) {
     console.error('[sheetsLogger] Error updating row for user:', err.message);
-    return false;
+    throw err;
   }
 }
 
 module.exports = {
   logToGoogleSheets,
   updateLatestRowForUser,
+  shouldSkipGoogleSheetEntry,
+  formatTransferTime,
+  resolveCustomerContext,
 };

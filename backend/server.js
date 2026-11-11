@@ -148,6 +148,7 @@ app.get('/', (req, res) => {
 });
 
 // เชื่อมต่อ MongoDB
+mongoose.connection.on('connected', lineRoutes.startLineWebhookWorker);
 connectDB();
 
 // เริ่มตัวตั้งเวลาอัปเดตสถานะบริการอัตโนมัติ

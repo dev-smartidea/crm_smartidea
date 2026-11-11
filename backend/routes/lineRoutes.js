@@ -3,18 +3,28 @@ const crypto = require('crypto');
 const LineUserMapping = require('../models/LineUserMapping');
 const { classifyTopupRequest } = require('../utils/messageClassifier');
 const { extractMessageDetails } = require('../utils/messageDetailExtractor');
-const { logToGoogleSheets, updateLatestRowForUser } = require('../utils/sheetsLogger');
+const {
+  logToGoogleSheets,
+  updateLatestRowForUser,
+  shouldSkipGoogleSheetEntry,
+} = require('../utils/sheetsLogger');
 const { downloadLineImage } = require('../utils/lineImageDownloader');
 const { uploadToCloudinary } = require('../utils/imageUploader');
 const { extractSlipDetails } = require('../utils/slipExtractor');
 const { autoCreateTransaction } = require('../utils/transactionAutoCreator');
 const { parseLinePaymentBreakdown } = require('../utils/linePaymentBreakdown');
+const LineWebhookEvent = require('../models/LineWebhookEvent');
+const Transaction = require('../models/Transaction');
+const {
+  canPairTextAndSlip,
+  findUniquePendingMatch,
+} = require('../utils/lineEventMatching');
 
 const router = express.Router();
 
-// In-memory cache to pair Text + Slip events from the same user (15-minute TTL)
-const pendingTopupEvents = new Map();
 const CARD_ADMIN_CRM_USER_ID = '6aed34fdfe6fdbd73573fd03';
+const PENDING_MATCH_TTL_MS = 15 * 60 * 1000;
+const INBOX_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const KNOWN_GROUP_DISPLAY_NAME_TO_CRM_USER_ID = {
   'น้ำ admin smartidea': '6a2b7819e3ea12ab437922f9',
   'ครีม - Smartidea': '6a2b77ece3ea12ab437922eb',
@@ -28,36 +38,22 @@ function getKnownDisplayNameMapping(displayName) {
   return KNOWN_GROUP_DISPLAY_NAME_TO_CRM_USER_ID[normalized] || null;
 }
 
-function cleanExpiredPendingEvents() {
-  const maxAge = 15 * 60 * 1000;
-  const now = Date.now();
-  for (const [key, pendingValue] of pendingTopupEvents.entries()) {
-    const events = Array.isArray(pendingValue) ? pendingValue : [pendingValue];
-    const activeEvents = events.filter((event) => now - (event.timestamp || 0) <= maxAge);
-    if (activeEvents.length) pendingTopupEvents.set(key, activeEvents);
-    else pendingTopupEvents.delete(key);
-  }
+async function getPendingEvents(lineUserId, kind) {
+  return LineWebhookEvent.find({
+    lineUserId,
+    status: 'awaiting_match',
+    pendingKind: kind,
+    pendingUntil: { $gt: new Date() },
+  }).sort({ createdAt: 1 }).lean();
 }
 
-function getPendingEvents(key) {
-  const events = pendingTopupEvents.get(key);
-  if (!events) return [];
-  if (Array.isArray(events)) return events;
-  const migratedEvents = [events];
-  pendingTopupEvents.set(key, migratedEvents);
-  return migratedEvents;
-}
-
-function enqueuePendingEvent(key, event) {
-  const events = getPendingEvents(key);
-  events.push(event);
-}
-
-function takeMatchingPendingEvent(key, matcher) {
-  const events = getPendingEvents(key);
-  const index = events.findIndex(matcher);
-  if (index < 0) return null;
-  return events.splice(index, 1)[0];
+async function claimPendingEvent(event) {
+  if (!event) return null;
+  return LineWebhookEvent.findOneAndUpdate(
+    { _id: event._id, status: 'awaiting_match', pendingUntil: { $gt: new Date() } },
+    { $set: { status: 'pairing', pairingAt: new Date() } },
+    { new: true }
+  ).lean();
 }
 
 function safeCompare(a, b) {
@@ -110,20 +106,6 @@ function getCardAdminPaymentMatch({ crmUserId, messageText, textAmount, slipAmou
     declared: false,
     valid: false,
   };
-}
-
-function canPairTextAndSlip({ crmUserId, messageText, textAmount, slipAmount, serviceType }) {
-  if (textAmount === null || textAmount === undefined || slipAmount === null || slipAmount === undefined) {
-    return false;
-  }
-  const paymentMatch = getCardAdminPaymentMatch({
-    crmUserId,
-    messageText,
-    textAmount,
-    slipAmount,
-    serviceType,
-  });
-  return paymentMatch.valid || amountMatches(textAmount, slipAmount, 0.02);
 }
 
 async function autoCreateCardAdminTransactionIfReady({
@@ -189,7 +171,7 @@ async function autoCreateCardAdminTransactionIfReady({
 
     if (!result.success) {
       console.warn(`[LINE] card-admin CRM auto-create failed: ${result.reason || 'unknown_error'}`);
-      return;
+      throw new Error(`CRM transaction creation failed: ${result.reason || 'unknown_error'}`);
     }
 
     console.log(`[LINE] card-admin CRM transaction ${result.isDuplicate ? 'already exists' : 'created'}: ${result.transaction?._id || 'unknown'}`);
@@ -198,11 +180,147 @@ async function autoCreateCardAdminTransactionIfReady({
       sheetRowRef,
     });
     if (!sheetStatusUpdated) {
-      console.warn('[LINE] CRM transaction exists, but its Google Sheet row could not be marked created_in_crm.');
+      throw new Error('CRM transaction exists, but its Google Sheet row could not be marked created_in_crm');
     }
   } catch (error) {
     console.error('[LINE] card-admin CRM auto-create error:', error.message);
+    throw error;
   }
+}
+
+let inboxIndexesPromise;
+let inboxWorkerRunning = false;
+let inboxWorkerTimer;
+
+async function ensureLineInboxIndexes() {
+  if (!inboxIndexesPromise) {
+    inboxIndexesPromise = Promise.all([
+      LineWebhookEvent.createIndexes(),
+      Transaction.collection.createIndex(
+        { sourceLineMessageId: 1 },
+        { unique: true, sparse: true }
+      ),
+    ]).catch((error) => {
+      inboxIndexesPromise = null;
+      throw error;
+    });
+  }
+  return inboxIndexesPromise;
+}
+
+async function processPendingLineEvents() {
+  if (inboxWorkerRunning || LineWebhookEvent.db.readyState !== 1) return;
+  inboxWorkerRunning = true;
+  try {
+    await ensureLineInboxIndexes();
+    const staleProcessingBefore = new Date(Date.now() - 10 * 60 * 1000);
+    await LineWebhookEvent.updateMany(
+      { status: 'processing', processingAt: { $lt: staleProcessingBefore } },
+      { $set: { status: 'pending', nextAttemptAt: new Date() }, $unset: { processingAt: 1 } }
+    );
+    await LineWebhookEvent.updateMany(
+      { status: 'awaiting_match', pendingUntil: { $lte: new Date() } },
+      {
+        $set: {
+          status: 'completed',
+          completedAt: new Date(),
+          expireAt: new Date(Date.now() + INBOX_RETENTION_MS),
+        },
+        $unset: { pendingKind: 1, pendingData: 1, pendingUntil: 1 },
+      }
+    );
+    const stalePairingBefore = new Date(Date.now() - 10 * 60 * 1000);
+    await LineWebhookEvent.updateMany(
+      { status: 'pairing', pairingAt: { $lt: stalePairingBefore } },
+      { $set: { status: 'awaiting_match' }, $unset: { pairingAt: 1 } }
+    );
+
+    for (let count = 0; count < 10; count += 1) {
+      const queuedEvent = await LineWebhookEvent.findOneAndUpdate(
+        { status: 'pending', nextAttemptAt: { $lte: new Date() } },
+        { $set: { status: 'processing', processingAt: new Date() }, $inc: { attempts: 1 } },
+        { sort: { createdAt: 1 }, new: true }
+      );
+      if (!queuedEvent) break;
+
+      const processingContext = {};
+      try {
+        const outcome = await processLineEvent(
+          queuedEvent.event,
+          queuedEvent.event.message?.id || queuedEvent.eventKey,
+          processingContext
+        );
+        if (outcome?.pendingMatch) {
+          await LineWebhookEvent.updateOne(
+            { _id: queuedEvent._id, status: 'processing' },
+            {
+              $set: {
+                status: 'awaiting_match',
+                pendingKind: outcome.pendingMatch.kind,
+                pendingData: outcome.pendingMatch.data,
+                pendingUntil: new Date(Date.now() + PENDING_MATCH_TTL_MS),
+              },
+              $unset: { processingAt: 1, lastError: 1 },
+            }
+          );
+        } else {
+          const completedIds = [queuedEvent._id];
+          if (outcome?.matchedPendingEventId) completedIds.push(outcome.matchedPendingEventId);
+          await LineWebhookEvent.updateMany(
+            { _id: { $in: completedIds }, status: { $in: ['processing', 'awaiting_match', 'pairing'] } },
+            {
+              $set: {
+                status: 'completed',
+                completedAt: new Date(),
+                expireAt: new Date(Date.now() + INBOX_RETENTION_MS),
+              },
+              $unset: {
+                processingAt: 1,
+                lastError: 1,
+                pendingKind: 1,
+                pendingData: 1,
+                pendingUntil: 1,
+                pairingAt: 1,
+              },
+            }
+          );
+        }
+      } catch (error) {
+        if (processingContext.reservedPendingEventId) {
+          await LineWebhookEvent.updateOne(
+            { _id: processingContext.reservedPendingEventId, status: 'pairing' },
+            { $set: { status: 'awaiting_match' }, $unset: { pairingAt: 1 } }
+          );
+        }
+        const retryDelayMs = Math.min(5 * 60 * 1000, 1000 * (2 ** Math.min(queuedEvent.attempts, 8)));
+        await LineWebhookEvent.updateOne(
+          { _id: queuedEvent._id, status: 'processing' },
+          {
+            $set: {
+              status: 'pending',
+              nextAttemptAt: new Date(Date.now() + retryDelayMs),
+              lastError: String(error.message || error).slice(0, 1000),
+            },
+            $unset: { processingAt: 1 },
+          }
+        );
+        console.error(`[LINE] Persisted event ${queuedEvent.eventKey} failed; retry scheduled:`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error('[LINE] Could not process persistent webhook queue:', error.message);
+  } finally {
+    inboxWorkerRunning = false;
+  }
+}
+
+function startLineWebhookWorker() {
+  if (inboxWorkerTimer) return;
+  inboxWorkerTimer = setInterval(() => {
+    void processPendingLineEvents();
+  }, 5000);
+  inboxWorkerTimer.unref();
+  void processPendingLineEvents();
 }
 
 // Middleware: แปลง raw body เป็น Buffer เมื่อเป็น webhook POST เท่านั้น
@@ -238,27 +356,51 @@ async function handleWebhook(req, res) {
   }
 
   const events = Array.isArray(body.events) ? body.events : [];
-  if (events.length > 0) {
-    console.log(`[LINE] Received ${events.length} event(s)`);
+  const actionableEvents = events.filter((event) =>
+    event.type === 'message' && ['text', 'image'].includes(event.message?.type)
+  );
+  try {
+    await ensureLineInboxIndexes();
+    for (const event of actionableEvents) {
+      const eventKey = event.message?.id || event.webhookEventId;
+      if (!eventKey) {
+        throw new Error('Actionable LINE message has no stable event ID');
+      }
 
-    // Process each event asynchronously
-    for (let idx = 0; idx < events.length; idx++) {
-      const event = events[idx];
       try {
-        await processLineEvent(event, idx);
-      } catch (err) {
-        console.error(`[LINE] Error processing event ${idx}:`, err.message);
+        await LineWebhookEvent.findOneAndUpdate(
+          { eventKey },
+          {
+            $setOnInsert: {
+              eventKey,
+              lineUserId: event.source?.userId || '',
+              event,
+              nextAttemptAt: new Date(),
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      } catch (error) {
+        if (error.code !== 11000) throw error;
       }
     }
+  } catch (error) {
+    console.error('[LINE] Could not persist webhook events; asking LINE to retry:', error.message);
+    return res.status(503).json({ ok: false, reason: 'event_persistence_failed' });
   }
 
-  return res.status(200).json({ ok: true, receivedEvents: events.length });
+  void processPendingLineEvents();
+  return res.status(200).json({
+    ok: true,
+    receivedEvents: events.length,
+    actionableEvents: actionableEvents.length,
+  });
 }
 
 /**
  * Process a single LINE webhook event
  */
-async function processLineEvent(event, idx) {
+async function processLineEvent(event, idx, processingContext = {}) {
   const eventLog = {
     type: event.type,
     groupId: event.source?.groupId || null,
@@ -278,6 +420,7 @@ async function processLineEvent(event, idx) {
   const lineUserId = event.source?.userId;
   const messageText = event.message?.text || '';
   const messageId = event.message?.id;
+  const eventKey = messageId || event.webhookEventId || '';
 
   if (!lineUserId) {
     console.warn(`[LINE] Event ${idx} has no userId`);
@@ -351,6 +494,15 @@ async function fetchLineDisplayName(source, fallbackName) {
     ? CARD_ADMIN_CRM_USER_ID
     : (mapping?.crmUserId?._id || mapping?.crmUserId)?.toString() || fallbackCrmUserId || mappedDisplayNameCrmUserId || '';
 
+  if (shouldSkipGoogleSheetEntry({
+    lineUserId,
+    messageText,
+    displayName: senderDisplayNameFallback,
+  })) {
+    console.log(`[LINE] Ignoring excluded LINE event from ${lineUserId}.`);
+    return;
+  }
+
   if (!mapping && mappedDisplayNameCrmUserId) {
     console.log(`[LINE] Matched known display name to CRM user: ${senderDisplayNameFallback} -> ${mappedDisplayNameCrmUserId}`);
   }
@@ -359,7 +511,6 @@ async function fetchLineDisplayName(source, fallbackName) {
 
   // Handle Text Message
   if (event.message.type === 'text' && messageText) {
-    cleanExpiredPendingEvents();
     console.log(`[LINE] Classifying message: "${messageText}"`);
     const classification = await classifyTopupRequest(messageText, senderDisplayName);
     console.log(`[LINE] Classification result:`, classification);
@@ -371,23 +522,24 @@ async function fetchLineDisplayName(source, fallbackName) {
       console.log(`[LINE] Message details:`, messageDetails);
 
       // Check if this user recently uploaded a slip image
-      const pendingImageKey = `${lineUserId}:image`;
-      const pendingImages = getPendingEvents(pendingImageKey);
-      const pendingImage = takeMatchingPendingEvent(pendingImageKey, (candidate) =>
+      const pendingImages = await getPendingEvents(lineUserId, 'image');
+      const imageMatch = findUniquePendingMatch(pendingImages, (candidate) =>
         canPairTextAndSlip({
           crmUserId: crmUserIdStr,
           messageText,
           textAmount: messageDetails.amount,
-          slipAmount: candidate.slipDetails?.amount,
+          slipAmount: candidate.pendingData?.slipDetails?.amount,
           serviceType: messageDetails.serviceType,
         }));
-      let hadUnmatchedImage = false;
+      const pendingImageRecord = await claimPendingEvent(imageMatch.event);
+      if (pendingImageRecord) {
+        processingContext.reservedPendingEventId = pendingImageRecord._id;
+      }
+      const pendingImage = pendingImageRecord?.pendingData;
       if (pendingImage) {
         console.log(`[LINE] 🔗 Found matching pending slip image for ${lineUserId}! Pairing text with slip.`);
-      } else if (pendingImages.length > 0) {
-        pendingImages.shift();
-        hadUnmatchedImage = true;
-        console.warn(`[LINE] Text amount did not match pending slip for ${lineUserId}; keeping the image and text as separate records.`);
+      } else if (imageMatch.ambiguous) {
+        console.warn(`[LINE] Multiple pending slips match text from ${lineUserId}; not pairing automatically.`);
       }
 
       const slipAmount = pendingImage?.slipDetails?.amount ?? null;
@@ -417,6 +569,7 @@ async function fetchLineDisplayName(source, fallbackName) {
       if (shouldAttachSlipImage) {
         sheetRowRef = await updateLatestRowForUser(lineUserId, {
           sheetRowRef: pendingImage.sheetRowRef,
+          eventKey,
           sentAt: event.timestamp,
           displayName: senderDisplayName,
           crmUserId: crmUserIdStr,
@@ -429,6 +582,7 @@ async function fetchLineDisplayName(source, fallbackName) {
           withholding: effectiveWithholding,
           confidence: messageDetails.confidence,
           imageUrl: effectiveImageUrl,
+          transTime: effectiveTime,
           status,
         });
       }
@@ -438,6 +592,7 @@ async function fetchLineDisplayName(source, fallbackName) {
           sentAt: event.timestamp,
           displayName: senderDisplayName,
           lineUserId: lineUserId,
+          eventKey,
           crmUserId: crmUserIdStr,
           messageText: messageText,
           amount: effectiveAmount,
@@ -448,9 +603,11 @@ async function fetchLineDisplayName(source, fallbackName) {
           withholding: effectiveWithholding,
           confidence: messageDetails.confidence,
           imageUrl: shouldAttachSlipImage ? effectiveImageUrl : null,
+          transTime: shouldAttachSlipImage ? effectiveTime : null,
           status,
         });
       }
+      if (!sheetRowRef) throw new Error('Google Sheets did not return a row reference for the LINE text event');
 
       if (shouldAttachSlipImage && sheetRowRef) {
         await autoCreateCardAdminTransactionIfReady({
@@ -476,28 +633,26 @@ async function fetchLineDisplayName(source, fallbackName) {
         });
       }
 
-      // Keep each unmatched text row available for a later slip without overwriting earlier events.
-      if (!pendingImage && !hadUnmatchedImage && pendingImages.length === 0 && sheetRowRef) {
-        enqueuePendingEvent(`${lineUserId}:text`, {
-          messageText,
-          messageDetails,
-          sentAt: event.timestamp,
-          sheetRowRef,
-          timestamp: Date.now(),
-        });
+      if (pendingImageRecord) {
+        return { matchedPendingEventId: pendingImageRecord._id };
       }
+      return {
+        pendingMatch: {
+          kind: 'text',
+          data: { messageText, messageDetails, sentAt: event.timestamp, sheetRowRef },
+        },
+      };
     } else {
       console.log(`[LINE] ⊘ Not a topup request (confidence: ${classification.confidence}%)`);
     }
   }
   // Handle Image Message (Slip / Receipt)
   else if (event.message.type === 'image') {
-    cleanExpiredPendingEvents();
     console.log(`[LINE] Event ${idx} is an image - downloading and processing`);
 
     if (!messageId) {
       console.warn(`[LINE] Image event ${idx} has no messageId`);
-      return;
+      throw new Error('LINE image event is missing its message ID');
     }
 
     // Step 1: Download image from LINE Messaging API
@@ -506,16 +661,21 @@ async function fetchLineDisplayName(source, fallbackName) {
 
     if (!imageBuffer) {
       console.warn(`[LINE] Failed to download image for event ${idx}`);
-      return;
+      throw new Error('Failed to download LINE image');
     }
 
     // Step 2: Upload to Cloudinary
     console.log(`[LINE] Uploading image to Cloudinary...`);
-    const uploadResult = await uploadToCloudinary(imageBuffer, `receipt-${lineUserId}`, 'line-receipts');
+    const uploadResult = await uploadToCloudinary(
+      imageBuffer,
+      `receipt-${lineUserId}`,
+      'line-receipts',
+      eventKey
+    );
 
     if (!uploadResult.success || !uploadResult.url) {
       console.warn(`[LINE] Failed to upload image to Cloudinary: ${uploadResult.error}`);
-      return;
+      throw new Error(`Failed to upload LINE image: ${uploadResult.error || 'unknown error'}`);
     }
 
     const imageUrl = uploadResult.url;
@@ -527,24 +687,25 @@ async function fetchLineDisplayName(source, fallbackName) {
     console.log(`[LINE] Slip details extracted:`, slipDetails);
 
     // Step 4: Check if there is a pending text message from this user
-    const pendingTextKey = `${lineUserId}:text`;
-    const pendingTexts = getPendingEvents(pendingTextKey);
+    const pendingTexts = await getPendingEvents(lineUserId, 'text');
     const slipAmount = slipDetails.amount ?? null;
-    const pendingText = takeMatchingPendingEvent(pendingTextKey, (candidate) =>
+    const textMatch = findUniquePendingMatch(pendingTexts, (candidate) =>
       canPairTextAndSlip({
         crmUserId: crmUserIdStr,
-        messageText: candidate.messageText,
-        textAmount: candidate.messageDetails?.amount,
+        messageText: candidate.pendingData?.messageText,
+        textAmount: candidate.pendingData?.messageDetails?.amount,
         slipAmount,
-        serviceType: candidate.messageDetails?.serviceType,
+        serviceType: candidate.pendingData?.messageDetails?.serviceType,
       }));
-    let hadUnmatchedText = false;
+    const pendingTextRecord = await claimPendingEvent(textMatch.event);
+    if (pendingTextRecord) {
+      processingContext.reservedPendingEventId = pendingTextRecord._id;
+    }
+    const pendingText = pendingTextRecord?.pendingData;
     if (pendingText) {
       console.log(`[LINE] 🔗 Found matching pending text message for ${lineUserId}! Pairing slip with text.`);
-    } else if (pendingTexts.length > 0) {
-      pendingTexts.shift();
-      hadUnmatchedText = true;
-      console.warn(`[LINE] Slip amount did not match pending text for ${lineUserId}; keeping the image and text as separate records.`);
+    } else if (textMatch.ambiguous) {
+      console.warn(`[LINE] Multiple pending messages match slip from ${lineUserId}; not pairing automatically.`);
     }
 
     const textAmount = pendingText?.messageDetails?.amount ?? null;
@@ -571,6 +732,7 @@ async function fetchLineDisplayName(source, fallbackName) {
     if (pendingText) {
       sheetRowRef = await updateLatestRowForUser(lineUserId, {
         sheetRowRef: pendingText.sheetRowRef,
+        eventKey,
         sentAt: effectiveSentAt,
         displayName: senderDisplayName,
         crmUserId: crmUserIdStr,
@@ -583,6 +745,7 @@ async function fetchLineDisplayName(source, fallbackName) {
         withholding: effectiveWithholding,
         confidence: effectiveConfidence,
         imageUrl: imageUrl,
+        transTime: slipDetails.transTime,
         status,
       });
     }
@@ -592,6 +755,7 @@ async function fetchLineDisplayName(source, fallbackName) {
         sentAt: effectiveSentAt,
         displayName: senderDisplayName,
         lineUserId: lineUserId,
+        eventKey,
         crmUserId: crmUserIdStr,
         messageText: effectiveMessageText,
         amount: pendingText ? effectiveAmount : slipAmount,
@@ -602,11 +766,13 @@ async function fetchLineDisplayName(source, fallbackName) {
         withholding: effectiveWithholding,
         confidence: effectiveConfidence,
         imageUrl: imageUrl,
+        transTime: slipDetails.transTime,
         status,
       });
     }
+    if (!sheetRowRef) throw new Error('Google Sheets did not return a row reference for the LINE image event');
 
-    if (pendingText && sheetRowRef) {
+    if (pendingTextRecord) {
       await autoCreateCardAdminTransactionIfReady({
         crmUserId: crmUserIdStr,
         lineUserId,
@@ -628,18 +794,16 @@ async function fetchLineDisplayName(source, fallbackName) {
         sourceLineMessageId: messageId,
         sheetRowRef,
       });
+      return { matchedPendingEventId: pendingTextRecord._id };
     }
 
-    // Keep an unmatched image row available for a future text message.
-    if (!pendingText && !hadUnmatchedText && pendingTexts.length === 0 && sheetRowRef) {
-      enqueuePendingEvent(`${lineUserId}:image`, {
-        imageUrl,
-        cloudinaryId,
-        slipDetails,
-        messageId,
-        sheetRowRef,
-        timestamp: Date.now(),
-      });
+    if (slipAmount !== null && slipAmount !== undefined) {
+      return {
+        pendingMatch: {
+          kind: 'image',
+          data: { imageUrl, cloudinaryId, slipDetails, messageId, sheetRowRef },
+        },
+      };
     }
   }
 }
@@ -649,3 +813,4 @@ router.get('/webhook', (req, res) => {
 });
 
 module.exports = router;
+module.exports.startLineWebhookWorker = startLineWebhookWorker;

@@ -1,4 +1,5 @@
 const cloudinary = require('cloudinary').v2;
+const crypto = require('crypto');
 
 /**
  * Upload image buffer to Cloudinary
@@ -7,7 +8,7 @@ const cloudinary = require('cloudinary').v2;
  * @param {string} folder - Cloudinary folder path (default: 'line-receipts')
  * @returns {Promise<{url: string, public_id: string, success: boolean}>}
  */
-async function uploadToCloudinary(imageBuffer, fileName = 'receipt', folder = 'line-receipts') {
+async function uploadToCloudinary(imageBuffer, fileName = 'receipt', folder = 'line-receipts', idempotencyKey) {
   try {
     if (!imageBuffer) {
       console.warn('[imageUploader] No image buffer provided');
@@ -30,14 +31,16 @@ async function uploadToCloudinary(imageBuffer, fileName = 'receipt', folder = 'l
 
     // Upload using Cloudinary's upload stream API
     return new Promise((resolve) => {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const publicId = `${folder}/${fileName}-${timestamp}`;
+      const suffix = idempotencyKey
+        ? crypto.createHash('sha256').update(String(idempotencyKey)).digest('hex').slice(0, 32)
+        : new Date().toISOString().replace(/[:.]/g, '-');
+      const publicId = `${folder}/${fileName}-${suffix}`;
 
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           public_id: publicId,
           resource_type: 'image',
-          overwrite: false, // Don't overwrite if exists
+          overwrite: Boolean(idempotencyKey),
           folder: folder,
           timeout: 60000, // 60 second timeout
         },

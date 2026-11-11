@@ -104,6 +104,29 @@ async function autoCreateTransaction(params) {
     console.warn(`[transactionAutoCreator] Invalid transfer time from slip: ${transTime}`);
   }
 
+  // Check before resolving mutable CRM data so retries can finish even if the service changed.
+  try {
+    const existingTx = await Transaction.findOne({ sourceLineMessageId });
+    if (existingTx) {
+      console.log(`[transactionAutoCreator] Duplicate LINE message detected: ${existingTx._id}`);
+      let updated = false;
+      if (!existingTx.slipImage && slipImage) {
+        existingTx.slipImage = slipImage;
+        existingTx.cloudinaryId = cloudinaryId || null;
+        updated = true;
+      }
+      if (!existingTx.transactionTime && transactionTime) {
+        existingTx.transactionTime = transactionTime;
+        updated = true;
+      }
+      if (updated) await existingTx.save();
+      return { success: true, transaction: existingTx, isDuplicate: true };
+    }
+  } catch (error) {
+    console.error('[transactionAutoCreator] Could not verify LINE message idempotency:', error.message);
+    throw error;
+  }
+
   // Step 1: Find matching Service
   let service = null;
 
@@ -176,33 +199,7 @@ async function autoCreateTransaction(params) {
     return { success: false, reason: 'service_not_found' };
   }
 
-  // Step 2: Use the LINE message ID for idempotency without conflating equal payments.
-  try {
-    const existingTx = await Transaction.findOne({ sourceLineMessageId });
-
-    if (existingTx) {
-      console.log(`[transactionAutoCreator] Duplicate LINE message detected: ${existingTx._id}`);
-      let updated = false;
-      if (!existingTx.slipImage && slipImage) {
-        existingTx.slipImage = slipImage;
-        existingTx.cloudinaryId = cloudinaryId || null;
-        updated = true;
-      }
-      if (!existingTx.transactionTime && transactionTime) {
-        existingTx.transactionTime = transactionTime;
-        updated = true;
-      }
-      if (updated) {
-        await existingTx.save();
-        console.log('[transactionAutoCreator] ✅ Updated existing transaction with slip and/or transfer time.');
-      }
-      return { success: true, transaction: existingTx, service, isDuplicate: true };
-    }
-  } catch (dupErr) {
-    console.warn('[transactionAutoCreator] Duplicate check error (continuing):', dupErr.message);
-  }
-
-  // Step 3: Determine Owner User ID
+  // Step 2: Determine Owner User ID
   const ownerUserId = service.userId || crmUserId;
   if (!ownerUserId) {
     console.warn('[transactionAutoCreator] Service has no owner userId and no crmUserId provided');
